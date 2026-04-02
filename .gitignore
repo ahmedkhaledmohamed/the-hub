@@ -36,3 +36,6 @@ hub.config.mjs
 
 # Local TLS certificates
 certs/
+extension/*.vsix
+extension/out/
+extension/node_modules/

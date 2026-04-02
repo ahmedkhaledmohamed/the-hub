@@ -23,6 +23,7 @@ export function wrapInHtmlShell(body: string, title: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base target="_blank">
   <title>${escapeHtml(title)}</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css">
   <style>
@@ -47,12 +48,9 @@ export function wrapInHtmlShell(body: string, title: string): string {
     hr { border: none; border-top: 1px solid #333; margin: 2em 0; }
     ul, ol { padding-left: 1.5em; }
     li { margin: 0.3em 0; }
-    .back { display: inline-block; margin-bottom: 24px; color: #999; text-decoration: none; font-size: 13px; }
-    .back:hover { color: #1db954; }
   </style>
 </head>
 <body>
-  <a class="back" href="/">← Back to Hub</a>
   ${body}
 </body>
 </html>`;

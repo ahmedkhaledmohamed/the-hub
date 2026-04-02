@@ -31,10 +31,14 @@ export default async function TabPage({ params }: TabPageProps) {
   const groupIds = new Set(tabGroups.map((g) => g.id));
   const tabArtifacts = manifest.artifacts.filter((a) => groupIds.has(a.group));
 
-  const fullConfig = loadConfig();
-  const frameworkTab = fullConfig.framework?.tab || "ai-tools";
-  const frameworkCatalog =
-    tab === frameworkTab ? loadFrameworkCatalog() : null;
+  let frameworkCatalog = null;
+  try {
+    const fullConfig = loadConfig();
+    const frameworkTab = fullConfig.framework?.tab || "ai-tools";
+    frameworkCatalog = tab === frameworkTab ? loadFrameworkCatalog() : null;
+  } catch {
+    // framework loading is non-critical — degrade gracefully
+  }
 
   return (
     <TabContent

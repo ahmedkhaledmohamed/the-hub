@@ -1,6 +1,5 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
-import { execSync } from "node:child_process";
 import type {
   FrameworkCatalog,
   FrameworkSkill,
@@ -168,21 +167,19 @@ function readHealth(
 
   let lastCommitDate = "unknown";
   try {
-    lastCommitDate = execSync("git log -1 --format=%ci", {
-      cwd: frameworkPath,
-      timeout: 5000,
-      encoding: "utf-8",
-    }).trim();
-  } catch {
-    try {
-      const gitDir = join(frameworkPath, ".git");
-      if (existsSync(gitDir)) {
-        const stat = statSync(join(gitDir, "FETCH_HEAD"));
-        lastCommitDate = stat.mtime.toISOString();
+    const gitDir = join(frameworkPath, ".git");
+    if (existsSync(gitDir)) {
+      for (const ref of ["FETCH_HEAD", "HEAD", "index"]) {
+        const refPath = join(gitDir, ref);
+        if (existsSync(refPath)) {
+          const stat = statSync(refPath);
+          lastCommitDate = stat.mtime.toISOString();
+          break;
+        }
       }
-    } catch {
-      // ignore
     }
+  } catch {
+    // ignore
   }
 
   const installedCount = skills.filter(

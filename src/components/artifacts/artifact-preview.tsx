@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { X, ExternalLink, Loader2 } from "lucide-react";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -15,11 +15,19 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
+  const hasHistoryEntry = useRef(false);
+  const closingProgrammatically = useRef(false);
 
   useEffect(() => {
     if (artifact) {
       setVisible(true);
       setLoading(true);
+
+      if (!hasHistoryEntry.current) {
+        window.history.pushState({ hubPreview: true }, "");
+        hasHistoryEntry.current = true;
+      }
+
       fetch(`/api/file/${artifact.path}`)
         .then((r) => r.text())
         .then((html) => {
@@ -32,24 +40,45 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
         });
     } else {
       setVisible(false);
+      hasHistoryEntry.current = false;
       const timer = setTimeout(() => setContent(""), 200);
       return () => clearTimeout(timer);
     }
   }, [artifact]);
 
-  const handleEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape" && artifact) {
+  useEffect(() => {
+    const handlePopState = () => {
+      if (closingProgrammatically.current) {
+        closingProgrammatically.current = false;
+        return;
+      }
+      if (artifact) {
+        hasHistoryEntry.current = false;
         onClose();
       }
-    },
-    [artifact, onClose],
-  );
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [artifact, onClose]);
+
+  const closePreview = useCallback(() => {
+    onClose();
+    if (hasHistoryEntry.current) {
+      hasHistoryEntry.current = false;
+      closingProgrammatically.current = true;
+      window.history.back();
+    }
+  }, [onClose]);
 
   useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && artifact) {
+        closePreview();
+      }
+    };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [handleEscape]);
+  }, [artifact, closePreview]);
 
   if (!artifact && !visible) return null;
 
@@ -62,7 +91,7 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
           "fixed inset-0 z-40 bg-black/40 transition-opacity duration-200",
           visible ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
-        onClick={onClose}
+        onClick={closePreview}
       />
       <div
         className={cn(
@@ -104,7 +133,7 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
           >
             <ExternalLink size={14} />
           </a>
-          <button onClick={onClose} className="text-text-dim hover:text-text">
+          <button onClick={closePreview} className="text-text-dim hover:text-text">
             <X size={16} />
           </button>
         </div>
@@ -117,7 +146,7 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
             <iframe
               srcDoc={content}
               className="w-full h-full border-0"
-              sandbox="allow-same-origin"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               title={artifact?.title || "Preview"}
             />
           )}

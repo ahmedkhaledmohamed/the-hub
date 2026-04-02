@@ -1,0 +1,69 @@
+{
+  "name": "the-hub",
+  "displayName": "The Hub",
+  "description": "Personal knowledge hub — open your hub as an editor tab inside Cursor",
+  "version": "0.1.0",
+  "publisher": "ahmedm",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "the-hub.open",
+        "title": "Open Hub",
+        "icon": {
+          "light": "resources/hub.svg",
+          "dark": "resources/hub.svg"
+        }
+      }
+    ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "the-hub-panel",
+          "title": "Hub",
+          "icon": "resources/hub.svg"
+        }
+      ]
+    },
+    "views": {
+      "the-hub-panel": [
+        {
+          "id": "the-hub.panel",
+          "name": "Hub",
+          "type": "webview"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "the-hub.open",
+        "key": "ctrl+shift+h",
+        "mac": "cmd+shift+h"
+      }
+    ],
+    "configuration": {
+      "title": "The Hub",
+      "properties": {
+        "the-hub.url": {
+          "type": "string",
+          "default": "https://ahmed-hub:9001",
+          "description": "URL of your running hub instance"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "package": "npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.7.0"
+  }
+}

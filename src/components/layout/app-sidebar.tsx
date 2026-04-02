@@ -53,7 +53,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   return (
     <aside
       className={cn(
-        "h-screen flex flex-col border-r border-border bg-surface shrink-0 transition-all duration-200",
+        "h-screen flex flex-col border-r border-border bg-surface shrink-0 transition-all duration-200 z-10 relative",
         collapsed ? "w-14" : "w-56",
       )}
     >
