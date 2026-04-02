@@ -194,6 +194,20 @@ sudo dscacheutil -flushcache
 | `/api/regenerate` | POST | Triggers a rescan of all workspaces |
 | `/api/file/[workspace]/[...path]` | GET | Serves a workspace file (markdown rendered as HTML) |
 
+## Relationship to PM AI Partner Framework
+
+This project is the **reference implementation** of the Personal Hub workflow from the [PM AI Partner Framework](https://ghe.spotify.net/ahmedm/pm-ai-partner-framework).
+
+The framework defines the *methodology* — the four-phase approach (Audit → Build → Automate → Evolve) and the `/pm:personal-hub` skill that guides AI to help you build a hub. **the-hub** is the production-quality product that embodies that methodology.
+
+| Layer | What | Where |
+|-------|-------|-------|
+| **Methodology** | Why to build a hub, what phases to follow, how to audit your context | [PM AI Partner Framework](https://ghe.spotify.net/ahmedm/pm-ai-partner-framework) — `framework/core/workflows/personal-hub.md` |
+| **AI Skill** | Prompt an AI agent to help you build/maintain your hub | [PM AI Partner Framework](https://ghe.spotify.net/ahmedm/pm-ai-partner-framework) — `plugin/skills/personal-hub/` |
+| **Product** | The actual running hub — config-driven, file-scanning, always-on | This repo |
+
+The framework's Personal Hub workflow starts with a minimal single-HTML approach for getting a v1 running in 30 minutes. This repo takes that further with a full Next.js app for config-driven tabs, SSR, content search, and a file watcher — the natural evolution when the hub becomes a daily-driver tool.
+
 ## Tech Stack
 
 - Next.js 15 with App Router
@@ -201,6 +215,7 @@ sudo dscacheutil -flushcache
 - Lucide icons
 - `marked` + `highlight.js` for markdown rendering
 - `minimatch` for glob pattern matching
+- `chokidar` for filesystem watching
 
 ## Project Structure
 
