@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { X, ExternalLink, Loader2 } from "lucide-react";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { LauncherActions } from "./launcher-actions";
 
 interface ArtifactPreviewProps {
   artifact: Artifact | null;
@@ -92,6 +93,9 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
               ))}
             </div>
           </div>
+          {artifact && (
+            <LauncherActions artifactPath={artifact.path} />
+          )}
           <a
             href={artifact ? `/api/file/${artifact.path}` : "#"}
             target="_blank"

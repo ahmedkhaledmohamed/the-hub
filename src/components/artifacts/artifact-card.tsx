@@ -3,6 +3,7 @@
 import type { Artifact } from "@/lib/types";
 import { relativeTime, cn } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
+import { LauncherActions } from "./launcher-actions";
 
 const typeStyles: Record<string, string> = {
   html: "bg-accent/20 text-accent",
@@ -53,8 +54,11 @@ export function ArtifactCard({ artifact, onPreview, onView }: ArtifactCardProps)
       {artifact.staleDays > 60 && (
         <AlertTriangle size={12} className="text-orange shrink-0" />
       )}
-      <span className="text-[10px] text-text-dim shrink-0">
+      <span className="text-[10px] text-text-dim shrink-0 group-hover:hidden">
         {relativeTime(artifact.modifiedAt)}
+      </span>
+      <span className="hidden group-hover:flex shrink-0">
+        <LauncherActions artifactPath={artifact.path} compact />
       </span>
     </a>
   );

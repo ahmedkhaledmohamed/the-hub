@@ -33,3 +33,6 @@ Thumbs.db
 hub.config.ts
 hub.config.js
 hub.config.mjs
+
+# Local TLS certificates
+certs/

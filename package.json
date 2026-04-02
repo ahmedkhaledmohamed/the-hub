@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack -p 9001",
     "build": "next build",
-    "start": "next start -p 9001",
+    "start": "node server.mjs",
+    "start:http": "next start -p 9001",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

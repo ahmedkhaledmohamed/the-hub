@@ -11,6 +11,12 @@ const config: HubConfig = {
   name: "My Hub",
   port: 9001,
 
+  // Optional: PM AI Partner Framework integration
+  // framework: {
+  //   path: "~/Developer/pm-ai-partner-framework",
+  //   tab: "ai-tools",  // which tab to show framework data on
+  // },
+
   // Directories to scan for artifacts
   workspaces: [
     { path: "~/Developer/my-project", label: "My Project" },

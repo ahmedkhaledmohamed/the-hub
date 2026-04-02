@@ -9,6 +9,7 @@ export interface HubConfig {
   panels?: Record<string, PanelConfig[]>;
   tools?: ToolConfig[];
   scanner?: ScannerConfig;
+  framework?: FrameworkConfig;
 }
 
 export interface WorkspaceConfig {
@@ -91,6 +92,63 @@ export interface ScannerConfig {
   skipDirs?: string[];
   skipPaths?: string[];
   contentSnippetLength?: number;
+}
+
+// ── Framework integration types ────────────────────────────────────────
+
+export interface FrameworkConfig {
+  path: string;
+  tab?: string;
+}
+
+export interface FrameworkSkill {
+  id: string;
+  name: string;
+  description: string;
+  argumentHint?: string;
+  allowedTools?: string;
+  installed: { cursor: boolean; claude: boolean; codex: boolean };
+}
+
+export interface McpServerEntry {
+  id: string;
+  name: string;
+  description: string;
+  tier: string;
+  tierLabel: string;
+  transport: "stdio" | "url";
+  pmUseCase: string;
+  needsCredentials: boolean;
+  configured: boolean;
+}
+
+export interface FrameworkCommand {
+  id: string;
+  name: string;
+  firstLine: string;
+}
+
+export interface FrameworkHealth {
+  version: string;
+  skillsInstalled: number;
+  skillsTotal: number;
+  mcpsConfigured: number;
+  mcpsTotal: number;
+  lastCommitDate: string;
+  repoPath: string;
+}
+
+export interface McpTier {
+  label: string;
+  description: string;
+}
+
+export interface FrameworkCatalog {
+  skills: FrameworkSkill[];
+  mcpServers: McpServerEntry[];
+  commands: FrameworkCommand[];
+  health: FrameworkHealth;
+  tiers: Record<string, McpTier>;
 }
 
 // ── Manifest types (what the scanner produces) ────────────────────────

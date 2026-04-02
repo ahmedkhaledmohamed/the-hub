@@ -28,10 +28,13 @@ src/
     api/manifest/         # GET manifest JSON
     api/regenerate/       # POST to trigger rescan
     api/file/[...path]/   # Serve workspace files (markdown rendered as HTML)
+    api/framework/        # GET parsed PM AI Partner Framework catalog
+    api/resolve/          # GET absolute path for an artifact (for Cursor URI scheme)
   components/
     layout/               # Sidebar (collapsible, Cmd+B), command palette (Cmd+K)
     panels/               # Timeline, links, tools panel renderers
-    artifacts/            # Grid (with subdirectory hierarchy), card, preview
+    framework/            # Framework catalog: health summary, skill cards, MCP cards, commands
+    artifacts/            # Grid (with subdirectory hierarchy), card, preview, launcher actions
     providers/            # HubProvider context for global config access
   hooks/
     use-persisted-state   # localStorage-backed state persistence
@@ -40,6 +43,7 @@ src/
     config.ts             # Loads hub.config.ts via @hub-config alias
     scanner.ts            # Walks workspaces, extracts titles/snippets, assigns groups
     manifest-store.ts     # Singleton manifest cache + chokidar watcher
+    framework.ts          # Reads PM AI Partner Framework: skills, MCPs, commands, health
     markdown.ts           # marked + highlight.js renderer
     types.ts              # All TypeScript interfaces
 ```
@@ -54,6 +58,28 @@ The hub is entirely configured through `hub.config.ts`:
 - **panels**: Curated content per tab — timeline, links, or tools
 - **tools**: External app shortcuts
 - **scanner**: Extensions, skip dirs/paths, snippet length
+- **framework**: Optional PM AI Partner Framework integration (`{ path, tab? }`)
+
+## Framework Integration
+
+When `framework.path` is set in config, the hub reads the PM AI Partner Framework repo and renders:
+
+- **Health Summary**: version, skills installed count, MCPs configured count, last commit date
+- **Skill Catalog**: All 13 skills with install status (Cursor/Claude/Codex) parsed from SKILL.md frontmatter
+- **MCP Catalog**: All 18 MCP servers grouped by tier, with configured status checked against local MCP config files
+- **Slash Commands**: The 6 `/pm:*` commands from the plugin
+
+The framework data is cached with 60s TTL and refreshable via the `/api/framework` endpoint.
+
+## Context Launchers
+
+Artifact cards and preview panels include launcher actions:
+
+- **Open in Cursor**: `cursor://file/...` URI scheme opens the file directly in Cursor
+- **Terminal**: Copies `cd /path/to/directory` to clipboard
+- **Path**: Copies the absolute file path
+
+These resolve artifact paths to absolute filesystem paths via `/api/resolve`.
 
 ## Rules
 

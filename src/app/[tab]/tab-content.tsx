@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
-import type { PanelConfig, ToolConfig, Artifact, ManifestGroup } from "@/lib/types";
+import type { PanelConfig, ToolConfig, Artifact, ManifestGroup, FrameworkCatalog as FrameworkCatalogType } from "@/lib/types";
 import { PanelRenderer } from "@/components/panels/panel-renderer";
 import { ToolsPanel } from "@/components/panels/tools-panel";
+import { FrameworkCatalog } from "@/components/framework/framework-catalog";
 import { ArtifactGrid } from "@/components/artifacts/artifact-grid";
 import { ArtifactPreview } from "@/components/artifacts/artifact-preview";
 import { ArtifactCard } from "@/components/artifacts/artifact-card";
@@ -20,6 +21,7 @@ interface TabContentProps {
   initialGroups: ManifestGroup[];
   initialArtifacts: Artifact[];
   generatedAt: string;
+  frameworkCatalog?: FrameworkCatalogType | null;
 }
 
 export function TabContent({
@@ -30,6 +32,7 @@ export function TabContent({
   initialGroups,
   initialArtifacts,
   generatedAt,
+  frameworkCatalog,
 }: TabContentProps) {
   const [groups, setGroups] = useState(initialGroups);
   const [artifacts, setArtifacts] = useState(initialArtifacts);
@@ -119,6 +122,10 @@ export function TabContent({
           </button>
         </div>
       </div>
+
+      {frameworkCatalog && (
+        <FrameworkCatalog catalog={frameworkCatalog} />
+      )}
 
       <PanelRenderer panels={panels} />
 
