@@ -1,4 +1,4 @@
-# the-hub
+# The Hub
 
 A personal command center for Product Managers.
 
