@@ -10,6 +10,7 @@ export interface HubConfig {
   tools?: ToolConfig[];
   scanner?: ScannerConfig;
   framework?: FrameworkConfig;
+  staleness?: { fresh?: number; aging?: number; stale?: number };
 }
 
 export interface WorkspaceConfig {
@@ -36,7 +37,11 @@ export interface TabConfig {
 export type PanelConfig =
   | TimelinePanelConfig
   | LinksPanelConfig
-  | ToolsPanelConfig;
+  | ToolsPanelConfig
+  | UrlPanelConfig
+  | MarkdownPanelConfig
+  | EmbedPanelConfig
+  | HealthPanelConfig;
 
 export interface TimelinePanelConfig {
   type: "timeline";
@@ -92,6 +97,51 @@ export interface ScannerConfig {
   skipDirs?: string[];
   skipPaths?: string[];
   contentSnippetLength?: number;
+}
+
+export interface UrlPanelConfig {
+  type: "url";
+  title: string;
+  badge?: BadgeConfig;
+  url: string;
+  template?: string;
+  refreshInterval?: number;
+}
+
+export interface MarkdownPanelConfig {
+  type: "markdown";
+  title: string;
+  badge?: BadgeConfig;
+  file: string;
+}
+
+export interface EmbedPanelConfig {
+  type: "embed";
+  title: string;
+  badge?: BadgeConfig;
+  url: string;
+  height?: number;
+}
+
+export interface HealthPanelConfig {
+  type: "health";
+  title: string;
+  badge?: BadgeConfig;
+}
+
+// ── Change feed types ──────────────────────────────────────────────────
+
+export interface ManifestSnapshot {
+  generatedAt: string;
+  artifacts: Record<string, string>;
+}
+
+export interface ChangeFeedEntry {
+  path: string;
+  title: string;
+  type: "added" | "modified" | "deleted";
+  group: string;
+  modifiedAt?: string;
 }
 
 // ── Framework integration types ────────────────────────────────────────

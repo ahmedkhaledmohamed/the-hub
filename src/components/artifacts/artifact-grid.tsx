@@ -13,11 +13,15 @@ interface ArtifactGridProps {
   artifacts: Artifact[];
   onPreview?: (artifact: Artifact) => void;
   onView?: (path: string, title: string) => void;
+  pinnedSet?: Set<string>;
+  onTogglePin?: (path: string) => void;
+  selectedSet?: Set<string>;
+  onToggleSelect?: (path: string) => void;
+  selectionMode?: boolean;
 }
 
 function buildSubgroups(
   artifacts: Artifact[],
-  groupId: string,
 ): Map<string, Artifact[]> {
   const map = new Map<string, Artifact[]>();
 
@@ -31,15 +35,25 @@ function buildSubgroups(
   return map;
 }
 
-export function ArtifactGrid({ group, artifacts, onPreview, onView }: ArtifactGridProps) {
+export function ArtifactGrid({
+  group,
+  artifacts,
+  onPreview,
+  onView,
+  pinnedSet,
+  onTogglePin,
+  selectedSet,
+  onToggleSelect,
+  selectionMode,
+}: ArtifactGridProps) {
   const [collapsed, setCollapsed] = usePersistedState<Record<string, boolean>>(
     `collapsed:${group.id}`,
     {},
   );
 
   const subgroups = useMemo(
-    () => buildSubgroups(artifacts, group.id),
-    [artifacts, group.id],
+    () => buildSubgroups(artifacts),
+    [artifacts],
   );
 
   const useHierarchy =
@@ -87,13 +101,28 @@ export function ArtifactGrid({ group, artifacts, onPreview, onView }: ArtifactGr
                 onToggle={() => toggleSubgroup(subdir)}
                 onPreview={onPreview}
                 onView={onView}
+                pinnedSet={pinnedSet}
+                onTogglePin={onTogglePin}
+                selectedSet={selectedSet}
+                onToggleSelect={onToggleSelect}
+                selectionMode={selectionMode}
               />
             ))}
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
           {artifacts.map((a) => (
-            <ArtifactCard key={a.path} artifact={a} onPreview={onPreview} onView={onView} />
+            <ArtifactCard
+              key={a.path}
+              artifact={a}
+              onPreview={onPreview}
+              onView={onView}
+              pinned={pinnedSet?.has(a.path)}
+              onTogglePin={onTogglePin}
+              selected={selectedSet?.has(a.path)}
+              onToggleSelect={onToggleSelect}
+              selectionMode={selectionMode}
+            />
           ))}
         </div>
       )}

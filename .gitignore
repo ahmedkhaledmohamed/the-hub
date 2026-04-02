@@ -34,6 +34,9 @@ hub.config.ts
 hub.config.js
 hub.config.mjs
 
+# Hub runtime data
+.hub-data/
+
 # Local TLS certificates
 certs/
 extension/*.vsix
