@@ -97,6 +97,7 @@ export interface ScannerConfig {
 
 export interface Manifest {
   generatedAt: string;
+  lastScanReason?: string;
   workspaces: string[];
   groups: ManifestGroup[];
   artifacts: Artifact[];

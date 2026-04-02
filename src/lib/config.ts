@@ -33,9 +33,9 @@ export function loadConfig(): HubConfig {
   let userConfig: Partial<HubConfig> = {};
 
   try {
-    // Next.js handles .ts imports at build/bundling time
+    // Resolved via webpack alias @hub-config -> ./hub.config (set in next.config.ts)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const loaded = require("../../hub.config");
+    const loaded = require("@hub-config");
     userConfig = loaded.default || loaded;
   } catch {
     console.warn("[hub] No hub.config found, using defaults. Copy hub.config.example.ts to hub.config.ts to configure.");

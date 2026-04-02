@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { CommandPalette } from "@/components/layout/command-palette";
+import { HubProvider } from "@/components/providers/hub-provider";
 import { getClientConfig } from "@/lib/config-client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,14 +23,15 @@ export default async function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="antialiased flex h-screen overflow-hidden">
-        <AppSidebar
-          name={config.name}
-          tabs={config.tabs}
-          defaultTab={config.defaultTab}
-        />
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+        <HubProvider value={config}>
+          <AppSidebar
+            name={config.name}
+            tabs={config.tabs}
+            defaultTab={config.defaultTab}
+          />
+          <main className="flex-1 overflow-y-auto">{children}</main>
+          <CommandPalette />
+        </HubProvider>
       </body>
     </html>
   );

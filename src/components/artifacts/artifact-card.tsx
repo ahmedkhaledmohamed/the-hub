@@ -14,11 +14,15 @@ const typeStyles: Record<string, string> = {
 interface ArtifactCardProps {
   artifact: Artifact;
   onPreview?: (artifact: Artifact) => void;
+  onView?: (path: string, title: string) => void;
 }
 
-export function ArtifactCard({ artifact, onPreview }: ArtifactCardProps) {
+export function ArtifactCard({ artifact, onPreview, onView }: ArtifactCardProps) {
+  const previewable = artifact.type === "md" || artifact.type === "html";
+
   const handleClick = (e: React.MouseEvent) => {
-    if (onPreview && artifact.type === "md") {
+    onView?.(artifact.path, artifact.title);
+    if (onPreview && previewable) {
       e.preventDefault();
       onPreview(artifact);
     }
