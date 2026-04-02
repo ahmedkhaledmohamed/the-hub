@@ -1,20 +1,26 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Search, FileText, Link2, Layout, Clock } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  Search, FileText, Link2, Layout, Clock, GitFork,
+  Zap, Sun, Download, StickyNote, Save,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHubConfig } from "@/components/providers/hub-provider";
-import type { Artifact, LinkItem } from "@/lib/types";
+import type { Artifact, LinkItem, RepoInfo } from "@/lib/types";
 import { readPersistedValue } from "@/hooks/use-persisted-state";
+
+type ResultType = "page" | "tab" | "link" | "artifact" | "recent" | "repo" | "action";
 
 interface SearchResult {
   id: string;
   label: string;
   description?: string;
-  type: "tab" | "link" | "artifact" | "recent";
+  type: ResultType;
   url?: string;
   artifact?: Artifact;
+  action?: () => void;
 }
 
 export function CommandPalette() {
@@ -22,10 +28,12 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [repos, setRepos] = useState<RepoInfo[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const config = useHubConfig();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -45,6 +53,10 @@ export function CommandPalette() {
       fetch("/api/manifest")
         .then((r) => r.json())
         .then((m) => setArtifacts(m.artifacts || []))
+        .catch(() => {});
+      fetch("/api/repos")
+        .then((r) => r.json())
+        .then((d) => setRepos(d.repos || []))
         .catch(() => {});
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -67,6 +79,48 @@ export function CommandPalette() {
     return links;
   }, [config]);
 
+  const pages: SearchResult[] = useMemo(() => [
+    { id: "page:briefing", label: "Briefing", description: "Morning briefing view", type: "page", url: "/briefing" },
+    { id: "page:repos", label: "Repos", description: "Connected repositories", type: "page", url: "/repos" },
+  ], []);
+
+  const actions: SearchResult[] = useMemo(() => [
+    {
+      id: "action:export",
+      label: "Export current tab",
+      description: "Download as standalone HTML",
+      type: "action",
+      action: () => {
+        const tab = pathname.replace("/", "") || "all";
+        window.open(`/api/export?tab=${tab}`, "_blank");
+      },
+    },
+    {
+      id: "action:baseline",
+      label: "Set change feed baseline",
+      description: "Mark current state for change tracking",
+      type: "action",
+      action: () => { fetch("/api/changes", { method: "POST" }); },
+    },
+    {
+      id: "action:rescan",
+      label: "Rescan workspace",
+      description: "Regenerate manifest from disk",
+      type: "action",
+      action: () => { fetch("/api/regenerate", { method: "POST" }); },
+    },
+    {
+      id: "action:new-doc",
+      label: "New document",
+      description: "Create a new doc from template",
+      type: "action",
+      action: () => {
+        const opener = (window as unknown as Record<string, unknown>).__hubOpenNewDoc;
+        if (typeof opener === "function") (opener as () => void)();
+      },
+    },
+  ], [pathname]);
+
   const results = useMemo((): SearchResult[] => {
     const q = query.toLowerCase().trim();
     const items: SearchResult[] = [];
@@ -85,10 +139,17 @@ export function CommandPalette() {
           artifact: artifacts.find((a) => a.path === r.path),
         });
       }
+      return items;
     }
 
+    // Pages
+    for (const p of pages) {
+      if (p.label.toLowerCase().includes(q)) items.push(p);
+    }
+
+    // Tabs
     for (const tab of config.tabs) {
-      if (!q || tab.label.toLowerCase().includes(q) || tab.id.toLowerCase().includes(q)) {
+      if (tab.label.toLowerCase().includes(q) || tab.id.toLowerCase().includes(q)) {
         items.push({
           id: `tab:${tab.id}`,
           label: tab.label,
@@ -99,44 +160,68 @@ export function CommandPalette() {
       }
     }
 
-    if (q) {
-      for (const link of allLinks) {
-        if (
-          link.label.toLowerCase().includes(q) ||
-          (link.meta && link.meta.toLowerCase().includes(q))
-        ) {
-          items.push({
-            id: `link:${link.url}`,
-            label: link.label,
-            description: link.meta,
-            type: "link",
-            url: link.url,
-          });
-        }
+    // Actions
+    for (const a of actions) {
+      if (a.label.toLowerCase().includes(q) || (a.description && a.description.toLowerCase().includes(q))) {
+        items.push(a);
       }
+    }
 
-      let matchCount = 0;
-      for (const a of artifacts) {
-        if (matchCount >= 20) break;
-        if (
-          a.title.toLowerCase().includes(q) ||
-          a.path.toLowerCase().includes(q) ||
-          (a.snippet && a.snippet.toLowerCase().includes(q))
-        ) {
-          items.push({
-            id: `artifact:${a.path}`,
-            label: a.title,
-            description: a.path,
-            type: "artifact",
-            artifact: a,
-          });
-          matchCount++;
-        }
+    // Links
+    for (const link of allLinks) {
+      if (items.length >= 30) break;
+      if (
+        link.label.toLowerCase().includes(q) ||
+        (link.meta && link.meta.toLowerCase().includes(q))
+      ) {
+        items.push({
+          id: `link:${link.url}`,
+          label: link.label,
+          description: link.meta,
+          type: "link",
+          url: link.url,
+        });
+      }
+    }
+
+    // Repos
+    let repoCount = 0;
+    for (const r of repos) {
+      if (repoCount >= 8) break;
+      if (r.name.toLowerCase().includes(q) || r.remoteUrl.toLowerCase().includes(q)) {
+        items.push({
+          id: `repo:${r.path}`,
+          label: r.name,
+          description: `${r.workspace} · ${r.branch}`,
+          type: "repo",
+          url: r.browseUrl || undefined,
+        });
+        repoCount++;
+      }
+    }
+
+    // Artifacts
+    let matchCount = 0;
+    for (const a of artifacts) {
+      if (matchCount >= 15) break;
+      if (
+        a.title.toLowerCase().includes(q) ||
+        a.path.toLowerCase().includes(q) ||
+        (a.snippet && a.snippet.toLowerCase().includes(q))
+      ) {
+        items.push({
+          id: `artifact:${a.path}`,
+          label: a.title,
+          description: a.path,
+          type: "artifact",
+          artifact: a,
+        });
+        matchCount++;
       }
     }
 
     return items;
-  }, [query, config.tabs, allLinks, artifacts]);
+  }, [query, config.tabs, allLinks, artifacts, repos, pages, actions]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -145,9 +230,11 @@ export function CommandPalette() {
   const execute = useCallback(
     (result: SearchResult) => {
       setOpen(false);
-      if (result.type === "tab" && result.url) {
+      if (result.action) {
+        result.action();
+      } else if ((result.type === "tab" || result.type === "page") && result.url) {
         router.push(result.url);
-      } else if (result.type === "link" && result.url) {
+      } else if ((result.type === "link" || result.type === "repo") && result.url) {
         window.open(result.url, "_blank");
       } else if ((result.type === "artifact" || result.type === "recent") && result.artifact) {
         window.open(`/api/file/${result.artifact.path}`, "_blank");
@@ -181,16 +268,15 @@ export function CommandPalette() {
 
   if (!open) return null;
 
-  const typeIcon = (type: SearchResult["type"]) => {
+  const typeIcon = (type: ResultType) => {
     switch (type) {
-      case "tab":
-        return <Layout size={14} />;
-      case "link":
-        return <Link2 size={14} />;
-      case "recent":
-        return <Clock size={14} />;
-      default:
-        return <FileText size={14} />;
+      case "page": return <Sun size={14} />;
+      case "tab": return <Layout size={14} />;
+      case "link": return <Link2 size={14} />;
+      case "recent": return <Clock size={14} />;
+      case "repo": return <GitFork size={14} />;
+      case "action": return <Zap size={14} />;
+      default: return <FileText size={14} />;
     }
   };
 
@@ -212,7 +298,7 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search tabs, links, artifacts..."
+            placeholder="Search everything..."
             className="flex-1 bg-transparent text-[14px] text-text outline-none placeholder:text-text-dim"
             autoComplete="off"
           />
@@ -229,7 +315,7 @@ export function CommandPalette() {
           )}
           {results.length === 0 && !query && (
             <div className="px-4 py-8 text-center text-[13px] text-text-muted">
-              Start typing to search...
+              Start typing to search everything...
             </div>
           )}
           {results.map((result, i) => (

@@ -15,6 +15,16 @@ export function relativeTime(iso: string): string {
   return months === 1 ? "1mo ago" : `${months}mo ago`;
 }
 
+export function repoFromPath(artifactPath: string): string {
+  const parts = artifactPath.split("/");
+  if (parts.length < 2) return parts[0];
+  const workspace = parts[0];
+  const second = parts[1];
+  // If the second segment looks like a file (has extension), the workspace root is the repo
+  if (second.includes(".")) return workspace;
+  return second;
+}
+
 export interface StalenessThresholds {
   fresh: number;
   aging: number;

@@ -11,6 +11,7 @@ export interface HubConfig {
   scanner?: ScannerConfig;
   framework?: FrameworkConfig;
   staleness?: { fresh?: number; aging?: number; stale?: number };
+  templates?: DocTemplate[];
 }
 
 export interface WorkspaceConfig {
@@ -97,6 +98,12 @@ export interface ScannerConfig {
   skipDirs?: string[];
   skipPaths?: string[];
   contentSnippetLength?: number;
+}
+
+export interface DocTemplate {
+  id: string;
+  label: string;
+  content: string;
 }
 
 export interface UrlPanelConfig {
