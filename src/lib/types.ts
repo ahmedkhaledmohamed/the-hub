@@ -201,6 +201,20 @@ export interface FrameworkCatalog {
   tiers: Record<string, McpTier>;
 }
 
+// ── Repo discovery types ───────────────────────────────────────────────
+
+export interface RepoInfo {
+  name: string;
+  path: string;
+  workspace: string;
+  branch: string;
+  remoteUrl: string;
+  browseUrl: string;
+  lastActivity: string;
+  hasClaudeFile: boolean;
+  hasCursorRules: boolean;
+}
+
 // ── Manifest types (what the scanner produces) ────────────────────────
 
 export interface Manifest {

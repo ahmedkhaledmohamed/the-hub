@@ -66,7 +66,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
   }, [artifacts]);
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
         <Sun size={20} className="text-yellow-400" />
         <h1 className="text-lg font-semibold">Morning Briefing</h1>

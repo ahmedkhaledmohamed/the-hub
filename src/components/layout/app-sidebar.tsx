@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
-  type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun,
+  type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
@@ -82,20 +82,26 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           collapsed ? "px-1" : "px-2",
         )}
       >
-        <Link
-          href="/briefing"
-          title={collapsed ? "Briefing" : undefined}
-          className={cn(
-            "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
-            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
-            pathname === "/briefing"
-              ? "bg-accent text-black font-semibold"
-              : "text-text-dim hover:text-text hover:bg-surface-hover",
-          )}
-        >
-          <Sun size={16} />
-          {!collapsed && "Briefing"}
-        </Link>
+        {[
+          { href: "/briefing", label: "Briefing", Icon: Sun },
+          { href: "/repos", label: "Repos", Icon: GitFork },
+        ].map(({ href, label, Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            title={collapsed ? label : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
+              collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+              pathname === href
+                ? "bg-accent text-black font-semibold"
+                : "text-text-dim hover:text-text hover:bg-surface-hover",
+            )}
+          >
+            <Icon size={16} />
+            {!collapsed && label}
+          </Link>
+        ))}
         <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
         {tabs.map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
