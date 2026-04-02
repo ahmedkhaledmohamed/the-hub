@@ -1,10 +1,12 @@
 import type { Manifest } from "./types";
-import { loadConfig, getResolvedWorkspacePaths } from "./config";
+import { loadConfig, getResolvedWorkspacePaths, invalidateConfigCache } from "./config";
 import { scan } from "./scanner";
+import path from "path";
 
 let cachedManifest: Manifest | null = null;
 let isScanning = false;
 let watcherStarted = false;
+let configWatcherStarted = false;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const DEBOUNCE_MS = 5000;
@@ -15,6 +17,9 @@ export function getManifest(): Manifest {
   }
   if (!watcherStarted) {
     startWatcher();
+  }
+  if (!configWatcherStarted) {
+    startConfigWatcher();
   }
   return cachedManifest!;
 }
@@ -88,6 +93,33 @@ function startWatcher() {
     .catch((err) => {
       console.warn("[hub] Could not start file watcher:", err);
       watcherStarted = false;
+    });
+}
+
+function startConfigWatcher() {
+  if (configWatcherStarted) return;
+  configWatcherStarted = true;
+
+  const configPath = path.resolve("./hub.config.ts");
+
+  import("chokidar")
+    .then(({ watch }) => {
+      const watcher = watch(configPath, {
+        persistent: true,
+        ignoreInitial: true,
+      });
+
+      watcher.on("change", () => {
+        console.log("[hub] hub.config.ts changed — reloading config");
+        invalidateConfigCache();
+        regenerate("config changed");
+      });
+
+      console.log(`[hub] Config watcher started on ${configPath}`);
+    })
+    .catch((err) => {
+      console.warn("[hub] Could not start config watcher:", err);
+      configWatcherStarted = false;
     });
 }
 

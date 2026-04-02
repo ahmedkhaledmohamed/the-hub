@@ -75,4 +75,13 @@ export function getResolvedWorkspacePaths(config: HubConfig): string[] {
 
 export function invalidateConfigCache(): void {
   cachedConfig = null;
+
+  // Clear the webpack/node require cache for the config module so
+  // the next loadConfig() call reads the file fresh from disk.
+  try {
+    const resolvedPath = require.resolve("@hub-config");
+    delete require.cache[resolvedPath];
+  } catch {
+    // @hub-config not in cache yet — nothing to clear
+  }
 }
