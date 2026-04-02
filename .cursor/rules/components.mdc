@@ -1,0 +1,28 @@
+---
+description: Rules for React components in the hub
+globs: src/components/**/*.tsx, src/app/**/page.tsx, src/app/**/tab-content.tsx
+---
+
+# Component Rules
+
+## Server vs Client
+
+- `src/app/[tab]/page.tsx` is a **server component** — fetches manifest and config server-side, passes data as props.
+- `src/app/[tab]/tab-content.tsx` is a **client component** (`"use client"`) — handles search, preview state, and interactivity.
+- Panel renderers (`src/components/panels/`) are client components.
+- Framework catalog components (`src/components/framework/`) are client components that receive data as props from the server component.
+
+## Conventions
+
+- Use `cn()` from `@/lib/utils` for conditional classNames (clsx + tailwind-merge).
+- Icons come from `lucide-react`. Import individual icons, not the entire library.
+- Use `usePersistedState` from `@/hooks/use-persisted-state` for any UI state that should survive page reloads (collapsed sections, last tab, etc.).
+- Artifact preview uses an iframe with `srcDoc` and `sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"`. Never add `allow-scripts` — rendered markdown should not execute JavaScript.
+- All external links in rendered markdown open in new tabs via `<base target="_blank">` in the HTML shell.
+
+## Adding a New Panel Type
+
+1. Define the type in `src/lib/types.ts` (`PanelConfig` union).
+2. Create a renderer in `src/components/panels/`.
+3. Add a case in the panel rendering logic in `tab-content.tsx`.
+4. Add an example in `hub.config.example.ts`.

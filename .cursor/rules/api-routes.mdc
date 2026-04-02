@@ -1,0 +1,29 @@
+---
+description: Rules for Next.js API routes
+globs: src/app/api/**/*.ts
+---
+
+# API Route Rules
+
+## Conventions
+
+- All API routes must export `const dynamic = "force-dynamic"` — the manifest and framework data change at runtime.
+- Return `NextResponse.json(...)` for JSON endpoints.
+- Use `loadConfig()` from `@/lib/config` for reading hub config. It has its own cache with invalidation on file change.
+- Use `getManifest()` from `@/lib/manifest-store` for the scanned artifact manifest.
+- Use `loadFrameworkCatalog()` from `@/lib/framework` for PM AI Partner Framework data. It caches with 60s TTL.
+
+## Existing Endpoints
+
+| Route | Purpose |
+|---|---|
+| `/api/manifest` | Returns full scanned manifest JSON |
+| `/api/regenerate` | POST — triggers workspace rescan |
+| `/api/file/[...path]` | Serves workspace files; markdown rendered as styled HTML |
+| `/api/framework` | Returns parsed framework catalog (skills, MCPs, commands, health) |
+| `/api/resolve` | Resolves artifact relative path to absolute filesystem path |
+
+## Security
+
+- The file-serving route (`/api/file/`) only serves files within configured workspaces. Never allow path traversal outside workspace roots.
+- Never expose `hub.config.ts` contents via API — it contains personal paths.
