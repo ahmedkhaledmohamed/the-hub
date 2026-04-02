@@ -1,0 +1,46 @@
+---
+description: General rules for working on the-hub codebase
+globs:
+alwaysApply: true
+---
+
+# The Hub — Codebase Rules
+
+## Build & Run
+
+```bash
+npm run dev        # Dev server (Turbopack, localhost:9001)
+npm run build      # Production build — always run before committing
+npm start          # Production: HTTPS :9001 + HTTP :9002
+npm run typecheck  # Type check without emitting
+```
+
+## Architecture
+
+- Config-driven: all content structure lives in `hub.config.ts` (gitignored).
+- `hub.config.example.ts` is the public template — keep it generic, no personal data.
+- Server components fetch the manifest server-side (`force-dynamic`). Client components handle interactivity.
+- Config is loaded via `@hub-config` webpack alias (defined in `next.config.ts` and `tsconfig.json` paths).
+- File watcher uses `chokidar` with 5s debounce. Config changes also trigger manifest regeneration.
+- The server runs dual-port: HTTPS on 9001 (browser, requires mkcert certs) + HTTP on 9002 (Cursor extension).
+
+## Critical Rules
+
+- NEVER commit `hub.config.ts` — it contains personal workspace paths and data.
+- NEVER use `execSync` or `child_process.spawn` in server code — file descriptor exhaustion causes `EBADF` crashes under the chokidar watcher + HTTPS server load. Use filesystem reads instead.
+- NEVER use `next/og` `ImageResponse` for favicons — it spawns internal processes. Use static files.
+- Always set `NODE_ENV=production` when starting the production server (already in `package.json` start script).
+- Always run `npm run build` before `npm start` — the production server serves pre-built bundles.
+
+## Patterns
+
+- Panel types: `timeline`, `links`, `tools`. Adding a new type requires a renderer in `src/components/panels/` and a case in the panel switcher.
+- Groups use `minimatch` glob patterns. First match wins — order matters in config.
+- API routes live in `src/app/api/`. All use `export const dynamic = "force-dynamic"`.
+- Framework integration (`src/lib/framework.ts`) reads the PM AI Partner Framework repo — skills from YAML frontmatter, MCPs from `catalog.json`, commands from markdown files. Cached with 60s TTL.
+- Artifact preview renders markdown in a sandboxed iframe with `<base target="_blank">` so links open in new tabs.
+
+## Git Workflow
+
+- Never push directly to master/main. Always use feature branches and PRs.
+- Commit messages: imperative mood, explain the "why" not the "what".

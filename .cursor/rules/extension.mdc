@@ -1,0 +1,36 @@
+---
+description: Rules for the Cursor/VS Code extension
+globs: extension/**/*.ts, extension/package.json
+---
+
+# Cursor Extension Rules
+
+## Architecture
+
+- The extension lives in `extension/` with its own `package.json`, `tsconfig.json`, and build pipeline.
+- It registers a **panel view** (bottom panel, alongside Terminal) and a **command** (`the-hub.open` / Cmd+Shift+H).
+- The panel view shows server status and an "Open Hub" button.
+- The command opens a **WebviewPanel** (editor tab) with the hub loaded via iframe.
+
+## Key Constraints
+
+- VS Code WebViews cannot directly fetch localhost URLs. Use `vscode.env.asExternalUri()` to resolve localhost URLs into WebView-accessible URIs before passing them to iframes.
+- Set CSP meta tag with `frame-src * http: https:` to allow iframe loading.
+- The default hub URL is `http://localhost:9002` (the HTTP port, not HTTPS) to avoid self-signed certificate issues inside the WebView.
+- Check server status from the **extension host** (Node.js `fetch`), not from inside the WebView sandbox. Bake the result into the rendered HTML.
+- Use `retainContextWhenHidden: true` on WebviewPanels so the hub keeps its state when the user switches tabs.
+
+## Build & Install
+
+```bash
+cd extension
+npm install
+npm run build                              # Compile TypeScript
+npx @vscode/vsce package --no-dependencies # Create .vsix
+cursor --install-extension the-hub-0.1.0.vsix --force
+# Then reload Cursor: Cmd+Shift+P → "Developer: Reload Window"
+```
+
+## Extension Settings
+
+- `the-hub.url` — URL of the running hub instance (default: `http://localhost:9002`).
