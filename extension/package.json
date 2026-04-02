@@ -51,7 +51,7 @@
       "properties": {
         "the-hub.url": {
           "type": "string",
-          "default": "https://ahmed-hub:9001",
+          "default": "http://localhost:9002",
           "description": "URL of your running hub instance"
         }
       }
