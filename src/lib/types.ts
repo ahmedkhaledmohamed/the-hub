@@ -10,6 +10,7 @@ export interface HubConfig {
   tools?: ToolConfig[];
   scanner?: ScannerConfig;
   framework?: FrameworkConfig;
+  staleness?: { fresh?: number; aging?: number; stale?: number };
 }
 
 export interface WorkspaceConfig {
@@ -36,7 +37,11 @@ export interface TabConfig {
 export type PanelConfig =
   | TimelinePanelConfig
   | LinksPanelConfig
-  | ToolsPanelConfig;
+  | ToolsPanelConfig
+  | UrlPanelConfig
+  | MarkdownPanelConfig
+  | EmbedPanelConfig
+  | HealthPanelConfig;
 
 export interface TimelinePanelConfig {
   type: "timeline";
@@ -94,6 +99,51 @@ export interface ScannerConfig {
   contentSnippetLength?: number;
 }
 
+export interface UrlPanelConfig {
+  type: "url";
+  title: string;
+  badge?: BadgeConfig;
+  url: string;
+  template?: string;
+  refreshInterval?: number;
+}
+
+export interface MarkdownPanelConfig {
+  type: "markdown";
+  title: string;
+  badge?: BadgeConfig;
+  file: string;
+}
+
+export interface EmbedPanelConfig {
+  type: "embed";
+  title: string;
+  badge?: BadgeConfig;
+  url: string;
+  height?: number;
+}
+
+export interface HealthPanelConfig {
+  type: "health";
+  title: string;
+  badge?: BadgeConfig;
+}
+
+// ── Change feed types ──────────────────────────────────────────────────
+
+export interface ManifestSnapshot {
+  generatedAt: string;
+  artifacts: Record<string, string>;
+}
+
+export interface ChangeFeedEntry {
+  path: string;
+  title: string;
+  type: "added" | "modified" | "deleted";
+  group: string;
+  modifiedAt?: string;
+}
+
 // ── Framework integration types ────────────────────────────────────────
 
 export interface FrameworkConfig {
@@ -149,6 +199,20 @@ export interface FrameworkCatalog {
   commands: FrameworkCommand[];
   health: FrameworkHealth;
   tiers: Record<string, McpTier>;
+}
+
+// ── Repo discovery types ───────────────────────────────────────────────
+
+export interface RepoInfo {
+  name: string;
+  path: string;
+  workspace: string;
+  branch: string;
+  remoteUrl: string;
+  browseUrl: string;
+  lastActivity: string;
+  hasClaudeFile: boolean;
+  hasCursorRules: boolean;
 }
 
 // ── Manifest types (what the scanner produces) ────────────────────────

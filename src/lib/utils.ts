@@ -14,3 +14,21 @@ export function relativeTime(iso: string): string {
   const months = Math.floor(days / 30);
   return months === 1 ? "1mo ago" : `${months}mo ago`;
 }
+
+export interface StalenessThresholds {
+  fresh: number;
+  aging: number;
+  stale: number;
+}
+
+const DEFAULT_THRESHOLDS: StalenessThresholds = { fresh: 7, aging: 30, stale: 90 };
+
+export function stalenessInfo(
+  staleDays: number,
+  thresholds: StalenessThresholds = DEFAULT_THRESHOLDS,
+): { color: string; label: string; level: "fresh" | "recent" | "aging" | "stale" } {
+  if (staleDays <= thresholds.fresh) return { color: "#1db954", label: "Fresh", level: "fresh" };
+  if (staleDays <= thresholds.aging) return { color: "#b3b300", label: "Recent", level: "recent" };
+  if (staleDays <= thresholds.stale) return { color: "#e68a00", label: "Aging", level: "aging" };
+  return { color: "#e74c3c", label: "Stale", level: "stale" };
+}

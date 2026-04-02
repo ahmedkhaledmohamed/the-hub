@@ -12,6 +12,11 @@ interface ArtifactSubgroupProps {
   onToggle: () => void;
   onPreview?: (artifact: Artifact) => void;
   onView?: (path: string, title: string) => void;
+  pinnedSet?: Set<string>;
+  onTogglePin?: (path: string) => void;
+  selectedSet?: Set<string>;
+  onToggleSelect?: (path: string) => void;
+  selectionMode?: boolean;
 }
 
 export function ArtifactSubgroup({
@@ -21,6 +26,11 @@ export function ArtifactSubgroup({
   onToggle,
   onPreview,
   onView,
+  pinnedSet,
+  onTogglePin,
+  selectedSet,
+  onToggleSelect,
+  selectionMode,
 }: ArtifactSubgroupProps) {
   return (
     <div className="mb-2">
@@ -41,7 +51,17 @@ export function ArtifactSubgroup({
       {!collapsed && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5 pl-4">
           {artifacts.map((a) => (
-            <ArtifactCard key={a.path} artifact={a} onPreview={onPreview} onView={onView} />
+            <ArtifactCard
+              key={a.path}
+              artifact={a}
+              onPreview={onPreview}
+              onView={onView}
+              pinned={pinnedSet?.has(a.path)}
+              onTogglePin={onTogglePin}
+              selected={selectedSet?.has(a.path)}
+              onToggleSelect={onToggleSelect}
+              selectionMode={selectionMode}
+            />
           ))}
         </div>
       )}
