@@ -64,7 +64,7 @@ export function QuickNotes({ open, onClose }: QuickNotesProps) {
       >
         <StickyNote size={14} className="text-yellow-400" />
         <span className="text-[12px] font-semibold text-text flex-1">Quick Notes</span>
-        <kbd className="text-[9px] text-text-dim bg-surface-hover px-1 py-0.5 rounded">⌘J</kbd>
+        <kbd className="text-[9px] text-text-dim bg-surface-hover px-1 py-0.5 rounded">⌘.</kbd>
         {minimized ? <ChevronUp size={12} className="text-text-dim" /> : <ChevronDown size={12} className="text-text-dim" />}
         <button
           onClick={(e) => { e.stopPropagation(); onClose(); }}
