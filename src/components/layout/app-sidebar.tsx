@@ -137,11 +137,15 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
       >
         {!collapsed && (
-          <span className="text-[11px] text-text-dim">
-            <kbd className="px-1 py-0.5 rounded bg-surface-hover text-text-muted text-[10px]">
-              ⌘K
-            </kbd>{" "}
-            search
+          <span className="text-[11px] text-text-dim flex items-center gap-2">
+            <span>
+              <kbd className="px-1 py-0.5 rounded bg-surface-hover text-text-muted text-[10px]">⌘K</kbd>{" "}
+              search
+            </span>
+            <span>
+              <kbd className="px-1 py-0.5 rounded bg-surface-hover text-text-muted text-[10px]">⌘.</kbd>{" "}
+              notes
+            </span>
           </span>
         )}
         <button
