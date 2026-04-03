@@ -290,11 +290,11 @@ function detectSupersededAndOrphans(artifacts: Artifact[], alreadyFlagged: Set<s
 // ── Main analyzer ─────────────────────────────────────────────────────
 
 let cachedReport: HygieneReport | null = null;
-let cacheTimestamp = 0;
+let cachedManifestSignature = "";
 
-export function analyzeHygiene(artifacts: Artifact[]): HygieneReport {
-  const now = Date.now();
-  if (cachedReport && now - cacheTimestamp < 120_000) return cachedReport;
+export function analyzeHygiene(artifacts: Artifact[], manifestGeneratedAt: string): HygieneReport {
+  const signature = `${artifacts.length}:${manifestGeneratedAt}`;
+  if (cachedReport && cachedManifestSignature === signature) return cachedReport;
 
   console.log(`[hygiene] Analyzing ${artifacts.length} artifacts...`);
   const start = Date.now();
@@ -369,13 +369,13 @@ export function analyzeHygiene(artifacts: Artifact[]): HygieneReport {
       analyzedAt: new Date().toISOString(),
     },
   };
-  cacheTimestamp = now;
+  cachedManifestSignature = signature;
   return cachedReport;
 }
 
 export function invalidateHygieneCache(): void {
   cachedReport = null;
-  cacheTimestamp = 0;
+  cachedManifestSignature = "";
 }
 
 export { resolveFullPath };

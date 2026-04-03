@@ -9,6 +9,6 @@ export async function GET(req: NextRequest) {
   if (refresh) invalidateHygieneCache();
 
   const manifest = getManifest();
-  const report = analyzeHygiene(manifest.artifacts);
+  const report = analyzeHygiene(manifest.artifacts, manifest.generatedAt);
   return NextResponse.json(report);
 }
