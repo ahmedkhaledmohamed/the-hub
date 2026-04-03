@@ -4,6 +4,8 @@ import { resolveFullPath } from "@/lib/hygiene-analyzer";
 
 export const dynamic = "force-dynamic";
 
+const DEFAULT_MODEL = "claude-sonnet-4-5";
+
 export async function POST(req: NextRequest) {
   const { paths, findingType } = await req.json() as {
     paths: string[];
@@ -25,8 +27,6 @@ export async function POST(req: NextRequest) {
   });
 
   const prompt = buildPrompt(contents, findingType);
-
-  // Try AI Gateway first, fall back to a static analysis summary
   const aiReview = await callAI(prompt);
 
   return NextResponse.json({ review: aiReview });
@@ -53,7 +53,6 @@ Keep your response concise (under 300 words). Use markdown formatting.`;
 }
 
 async function callAI(prompt: string): Promise<string> {
-  // Attempt AI Gateway call if configured
   const gatewayUrl = process.env.AI_GATEWAY_URL;
   const apiKey = process.env.AI_GATEWAY_KEY;
 
@@ -66,7 +65,7 @@ async function callAI(prompt: string): Promise<string> {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: process.env.AI_MODEL || DEFAULT_MODEL,
           max_tokens: 1024,
           messages: [{ role: "user", content: prompt }],
         }),
@@ -74,13 +73,15 @@ async function callAI(prompt: string): Promise<string> {
 
       if (res.ok) {
         const data = await res.json();
-        return data.content?.[0]?.text || data.choices?.[0]?.message?.content || "No response from AI.";
+        return data.choices?.[0]?.message?.content || data.content?.[0]?.text || "No response from AI.";
       }
-    } catch {
-      // Fall through to static analysis
+
+      const errText = await res.text().catch(() => "");
+      console.error(`[hygiene/review] AI Gateway returned ${res.status}: ${errText}`);
+    } catch (err) {
+      console.error("[hygiene/review] AI Gateway error:", err);
     }
   }
 
-  // Fallback: basic heuristic summary when no AI is available
-  return `**AI review unavailable** — no AI Gateway configured.\n\nTo enable AI-powered review, set \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\` environment variables pointing to any OpenAI-compatible API endpoint.\n\nIn the meantime, open both files side-by-side in Cursor and compare manually.`;
+  return `**AI review unavailable** — no \`AI_GATEWAY_URL\` found in environment.\n\nTo enable:\n1. Set \`AI_GATEWAY_URL\` to any OpenAI-compatible chat completions endpoint\n2. Set \`AI_GATEWAY_KEY\` to your API key\n3. Optionally set \`AI_MODEL\` (defaults to \`${DEFAULT_MODEL}\`)\n4. Add these to \`.env.local\` and restart the hub`;
 }
