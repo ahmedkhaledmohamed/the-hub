@@ -1,6 +1,6 @@
 import { createServer as createHttpsServer } from "node:https";
 import { createServer as createHttpServer } from "node:http";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { parse } from "node:url";
 import next from "next";
 import { join, dirname } from "node:path";
@@ -12,10 +12,20 @@ const httpPort = parseInt(process.env.HTTP_PORT || "9002", 10);
 const dev = process.env.NODE_ENV !== "production";
 
 const certDir = join(__dirname, "certs");
-const certFile = join(certDir, "my-hub+2.pem");
-const keyFile = join(certDir, "my-hub+2-key.pem");
 
-const hasCerts = existsSync(certFile) && existsSync(keyFile);
+function findCerts() {
+  if (!existsSync(certDir)) return null;
+  try {
+    const files = readdirSync(certDir);
+    const cert = files.find((f) => f.endsWith(".pem") && !f.includes("-key"));
+    const key = files.find((f) => f.endsWith("-key.pem"));
+    if (cert && key) return { cert: join(certDir, cert), key: join(certDir, key) };
+  } catch { /* no certs */ }
+  return null;
+}
+
+const certs = findCerts();
+const hasCerts = certs !== null;
 
 const app = next({ dev, dir: __dirname });
 const handle = app.getRequestHandler();
@@ -28,11 +38,10 @@ app.prepare().then(() => {
 
   if (hasCerts) {
     const httpsOptions = {
-      key: readFileSync(keyFile),
-      cert: readFileSync(certFile),
+      key: readFileSync(certs.key),
+      cert: readFileSync(certs.cert),
     };
     createHttpsServer(httpsOptions, handler).listen(httpsPort, () => {
-      console.log(`    https://my-hub:${httpsPort}`);
       console.log(`    https://localhost:${httpsPort}`);
     });
   }
@@ -40,7 +49,7 @@ app.prepare().then(() => {
   createHttpServer(handler).listen(httpPort, () => {
     console.log(`\n  ✓ The Hub ready at:`);
     if (!hasCerts) {
-      console.log(`    (HTTPS disabled — certs not found)`);
+      console.log(`    (HTTPS disabled — no certs found in ./certs/)`);
     }
     console.log(`    http://localhost:${httpPort}  (Cursor extension)\n`);
   });

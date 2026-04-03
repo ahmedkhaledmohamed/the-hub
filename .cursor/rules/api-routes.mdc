@@ -11,7 +11,7 @@ globs: src/app/api/**/*.ts
 - Return `NextResponse.json(...)` for JSON endpoints.
 - Use `loadConfig()` from `@/lib/config` for reading hub config. It has its own cache with invalidation on file change.
 - Use `getManifest()` from `@/lib/manifest-store` for the scanned artifact manifest.
-- Use `loadFrameworkCatalog()` from `@/lib/framework` for PM AI Partner Framework data. It caches with 60s TTL.
+- Use `loadFrameworkCatalog()` from `@/lib/framework` for AI framework data. It caches with 60s TTL.
 
 ## Existing Endpoints
 

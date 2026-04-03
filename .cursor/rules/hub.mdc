@@ -37,7 +37,7 @@ npm run typecheck  # Type check without emitting
 - Panel types: `timeline`, `links`, `tools`. Adding a new type requires a renderer in `src/components/panels/` and a case in the panel switcher.
 - Groups use `minimatch` glob patterns. First match wins — order matters in config.
 - API routes live in `src/app/api/`. All use `export const dynamic = "force-dynamic"`.
-- Framework integration (`src/lib/framework.ts`) reads the PM AI Partner Framework repo — skills from YAML frontmatter, MCPs from `catalog.json`, commands from markdown files. Cached with 60s TTL.
+- Framework integration (`src/lib/framework.ts`) reads a compatible AI framework repo — skills from YAML frontmatter, MCPs from `catalog.json`, commands from markdown files. Cached with 60s TTL.
 - Artifact preview renders markdown in a sandboxed iframe with `<base target="_blank">` so links open in new tabs.
 
 ## Git Workflow

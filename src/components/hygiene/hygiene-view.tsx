@@ -265,13 +265,20 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
                 <FileText size={12} className="text-text-dim shrink-0" />
                 <span className="flex-1 text-text-muted truncate font-mono">{a.path}</span>
                 <span className="text-text-dim tabular-nums shrink-0">{a.staleDays}d old</span>
-                <a
-                  href={`cursor://file${resolveLocalPath(a.path)}`}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fetch("/api/hygiene/open", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ paths: [a.path] }),
+                    });
+                  }}
                   className="text-accent hover:underline shrink-0"
                   title="Open in Cursor"
                 >
                   <ExternalLink size={10} />
-                </a>
+                </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); doAction("archive", a.path); }}
                   className="text-text-dim hover:text-orange-400 transition-colors shrink-0"
@@ -337,13 +344,6 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
       )}
     </div>
   );
-}
-
-function resolveLocalPath(artifactPath: string): string {
-  // Paths are resolved dynamically via the /api/resolve endpoint at runtime.
-  // This is a client-side fallback that assumes workspace dirs live under ~/Developer.
-  const home = typeof window !== "undefined" ? "" : process.env.HOME || "";
-  return `${home || "/tmp"}/Developer/${artifactPath}`;
 }
 
 function formatMarkdown(text: string): string {

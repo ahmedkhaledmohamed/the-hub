@@ -4,6 +4,25 @@ A personal command center that gives you one place to find, preview, and navigat
 
 Point it at your directories. It scans your files, groups them by pattern, renders your markdown, and surfaces everything in a tabbed interface with curated panels, timelines, and links. No personal information in this repo — your config makes it yours.
 
+## Screenshots
+
+### Morning Briefing
+![Briefing](docs/screenshots/briefing.png)
+
+### Planning Tab — Curated Panels + Grouped Artifacts
+![Planning](docs/screenshots/planning.png)
+
+### Document Hygiene — Detect Duplicates & Redundancies
+![Hygiene](docs/screenshots/hygiene.png)
+
+### Universal Search (Cmd+K)
+![Command Palette](docs/screenshots/command-palette.png)
+
+### Connected Repos
+![Repos](docs/screenshots/repos.png)
+
+---
+
 ## Why
 
 As a PM (or anyone juggling many repos, docs, and tools), context is scattered:
