@@ -1,0 +1,116 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import {
+  persistArtifacts,
+  searchArtifacts,
+} from "@/lib/db";
+import type { Artifact } from "@/lib/types";
+
+function makeArtifact(overrides: Partial<Artifact>): Artifact {
+  return {
+    path: "ws/doc.md",
+    title: "Document",
+    type: "md",
+    group: "docs",
+    modifiedAt: new Date().toISOString(),
+    size: 500,
+    staleDays: 1,
+    snippet: "A short snippet.",
+    ...overrides,
+  };
+}
+
+describe("full-text search", () => {
+  beforeAll(() => {
+    // Seed the database with test artifacts that have deep content
+    const artifacts = [
+      makeArtifact({
+        path: "ws/architecture.md",
+        title: "Architecture Overview",
+        snippet: "High-level system architecture.",
+      }),
+      makeArtifact({
+        path: "ws/pricing.md",
+        title: "Pricing Strategy",
+        snippet: "Overview of pricing tiers.",
+      }),
+      makeArtifact({
+        path: "ws/onboarding.md",
+        title: "Onboarding Guide",
+        snippet: "How to get started.",
+      }),
+    ];
+
+    const contentMap = new Map([
+      ["ws/architecture.md", "# Architecture Overview\n\nThe system uses a microservice architecture with gRPC communication between services. Each service has its own PostgreSQL database for data isolation."],
+      ["ws/pricing.md", "# Pricing Strategy\n\nWe offer three tiers: Free, Pro ($12/mo), and Enterprise ($80/user/mo). Enterprise includes SSO, audit logging, and dedicated support."],
+      ["ws/onboarding.md", "# Onboarding Guide\n\nWelcome aboard! This guide walks you through your first week. Start by reading the architecture overview, then set up your development environment."],
+    ]);
+
+    persistArtifacts(artifacts, contentMap);
+  });
+
+  it("finds documents by deep content (not in title or snippet)", () => {
+    // "gRPC" only appears in the full content of architecture.md, not in title or snippet
+    const results = searchArtifacts("gRPC");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].path).toBe("ws/architecture.md");
+  });
+
+  it("finds documents by content phrases", () => {
+    // "PostgreSQL database" only in full content
+    const results = searchArtifacts("PostgreSQL");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].path).toBe("ws/architecture.md");
+  });
+
+  it("finds documents matching title", () => {
+    const results = searchArtifacts("Pricing Strategy");
+    expect(results.some((r) => r.path === "ws/pricing.md")).toBe(true);
+  });
+
+  it("finds documents matching content across files", () => {
+    // "architecture" appears in architecture.md content AND onboarding.md content
+    const results = searchArtifacts("architecture");
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    const paths = results.map((r) => r.path);
+    expect(paths).toContain("ws/architecture.md");
+    expect(paths).toContain("ws/onboarding.md");
+  });
+
+  it("returns ranked results (more relevant first)", () => {
+    // "architecture" is the title + throughout content of architecture.md
+    // but only mentioned once in onboarding.md
+    const results = searchArtifacts("architecture");
+    expect(results[0].path).toBe("ws/architecture.md");
+  });
+
+  it("returns snippet with match context", () => {
+    const results = searchArtifacts("Enterprise");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    // FTS5 snippet() returns highlighted context
+    const result = results.find((r) => r.path === "ws/pricing.md");
+    expect(result).toBeDefined();
+    expect(result!.snippet).toBeTruthy();
+  });
+
+  it("handles multi-word queries", () => {
+    const results = searchArtifacts("dedicated support");
+    expect(results.some((r) => r.path === "ws/pricing.md")).toBe(true);
+  });
+
+  it("respects limit parameter", () => {
+    const results = searchArtifacts("architecture", 1);
+    expect(results.length).toBe(1);
+  });
+
+  it("returns empty for no matches", () => {
+    const results = searchArtifacts("xyznonexistent99999");
+    expect(results).toEqual([]);
+  });
+
+  it("handles special characters gracefully", () => {
+    // Should not throw, even with FTS-unfriendly input
+    const results = searchArtifacts("$80/user/mo");
+    expect(Array.isArray(results)).toBe(true);
+  });
+});
