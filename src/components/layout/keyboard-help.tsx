@@ -1,14 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import type { TabConfig } from "@/lib/types";
-
-interface KeyboardHelpProps {
-  open: boolean;
-  onClose: () => void;
-  tabs: TabConfig[];
-}
-
 function Shortcut({ keys, label }: { keys: string; label: string }) {
   return (
     <div className="flex items-center justify-between py-1.5">
@@ -20,7 +11,12 @@ function Shortcut({ keys, label }: { keys: string; label: string }) {
   );
 }
 
-export function KeyboardHelp({ open, onClose, tabs }: KeyboardHelpProps) {
+interface KeyboardHelpProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
   if (!open) return null;
 
   return (
@@ -42,26 +38,25 @@ export function KeyboardHelp({ open, onClose, tabs }: KeyboardHelpProps) {
 
         <div className="px-5 py-4 space-y-4">
           <div>
-            <div className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Navigation</div>
+            <div className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Search & Navigate</div>
             <Shortcut keys="⌘ K" label="Search everything" />
-            <Shortcut keys="⌘ ⇧ B" label="Go to Briefing" />
-            <Shortcut keys="⌘ ⇧ R" label="Go to Repos" />
-            {tabs.slice(0, 9).map((tab, i) => (
-              <Shortcut key={tab.id} keys={`⌘ ${i + 1}`} label={`Go to ${tab.label}`} />
-            ))}
+            <Shortcut keys="⌘ B" label="Toggle sidebar" />
           </div>
 
           <div>
             <div className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Actions</div>
-            <Shortcut keys="⌘ J" label="Toggle Quick Notes" />
-            <Shortcut keys="⌘ ⇧ E" label="Export current tab" />
-            <Shortcut keys="⌘ B" label="Toggle sidebar" />
+            <Shortcut keys="⌘ ." label="Toggle Quick Notes" />
           </div>
 
           <div>
             <div className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">General</div>
             <Shortcut keys="?" label="Show this help" />
             <Shortcut keys="esc" label="Close overlay" />
+          </div>
+
+          <div className="text-[11px] text-text-dim pt-2 border-t border-border">
+            Use <kbd className="px-1 py-0.5 rounded bg-surface-hover text-[10px]">⌘ K</kbd> to navigate to
+            Briefing, Repos, tabs, and run actions like export or new doc.
           </div>
         </div>
       </div>

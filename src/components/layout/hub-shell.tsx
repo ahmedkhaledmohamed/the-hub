@@ -30,7 +30,7 @@ export function HubShell() {
   return (
     <>
       <QuickNotes open={notesOpen} onClose={() => setNotesOpen(false)} />
-      <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} tabs={config.tabs} />
+      <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <NewDocModal open={newDocOpen} onClose={() => setNewDocOpen(false)} />
     </>
   );
