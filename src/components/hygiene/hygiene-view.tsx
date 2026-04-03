@@ -297,12 +297,16 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
           {/* Action buttons */}
           <div className="flex items-center gap-2">
             {finding.artifacts.length >= 2 && (
-              <a
-                href={`cursor://file${resolveLocalPath(finding.artifacts[0].path)}`}
+              <button
+                onClick={() => {
+                  for (const a of finding.artifacts) {
+                    window.open(`cursor://file${resolveLocalPath(a.path)}`, "_blank");
+                  }
+                }}
                 className="flex items-center gap-1 text-[10px] text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-surface-hover"
               >
-                <ExternalLink size={10} /> Open both in Cursor
-              </a>
+                <ExternalLink size={10} /> Open all in Cursor
+              </button>
             )}
             <button
               onClick={askAI}
