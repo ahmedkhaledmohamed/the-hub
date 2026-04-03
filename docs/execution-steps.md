@@ -6,7 +6,7 @@ Each step is a single PR. Work through them sequentially. Each builds on the pre
 
 ## Phase 1: Foundation
 
-### Step 1 — SQLite data layer
+### ✅ Step 1 — SQLite data layer
 Add `better-sqlite3`. Create `src/lib/db.ts` with schema and migrations. Create tables: `artifacts` (path, title, type, group, content, hash, modified_at), `user_state` (pins, recents, notes), `search_index` (FTS5 virtual table). Modify `manifest-store.ts` to write artifacts into SQLite after each scan. Keep the in-memory manifest for backward compatibility — SQLite is additive.
 
 **Acceptance**: `npm run build` passes. Artifacts are persisted in `.hub-data/hub.sqlite`. Restarting the server loads from SQLite before the first scan completes.
