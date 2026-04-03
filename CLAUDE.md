@@ -28,7 +28,7 @@ src/
     api/manifest/         # GET manifest JSON
     api/regenerate/       # POST to trigger rescan
     api/file/[...path]/   # Serve workspace files (markdown rendered as HTML)
-    api/framework/        # GET parsed PM AI Partner Framework catalog
+    api/framework/        # GET parsed AI framework catalog
     api/resolve/          # GET absolute path for an artifact (for Cursor URI scheme)
   components/
     layout/               # Sidebar (collapsible, Cmd+B), command palette (Cmd+K)
@@ -43,7 +43,7 @@ src/
     config.ts             # Loads hub.config.ts via @hub-config alias
     scanner.ts            # Walks workspaces, extracts titles/snippets, assigns groups
     manifest-store.ts     # Singleton manifest cache + chokidar watcher
-    framework.ts          # Reads PM AI Partner Framework: skills, MCPs, commands, health
+    framework.ts          # Reads AI framework: skills, MCPs, commands, health
     markdown.ts           # marked + highlight.js renderer
     types.ts              # All TypeScript interfaces
 ```
@@ -58,11 +58,11 @@ The hub is entirely configured through `hub.config.ts`:
 - **panels**: Curated content per tab — timeline, links, or tools
 - **tools**: External app shortcuts
 - **scanner**: Extensions, skip dirs/paths, snippet length
-- **framework**: Optional PM AI Partner Framework integration (`{ path, tab? }`)
+- **framework**: Optional AI framework integration (`{ path, tab? }`)
 
 ## Framework Integration
 
-When `framework.path` is set in config, the hub reads the PM AI Partner Framework repo and renders:
+When `framework.path` is set in config, the hub reads the AI framework repo and renders:
 
 - **Health Summary**: version, skills installed count, MCPs configured count, last commit date
 - **Skill Catalog**: All 13 skills with install status (Cursor/Claude/Codex) parsed from SKILL.md frontmatter

@@ -39,7 +39,7 @@ export function HealthSummary({ health, onRefresh, refreshing }: HealthSummaryPr
       <div className="flex items-center gap-2 mb-3">
         <Shield size={16} className="text-accent" />
         <span className="text-[13px] font-semibold text-text">
-          PM AI Partner Framework
+          AI Partner Framework
         </span>
         <span className="text-[10px] text-text-dim bg-surface-hover px-2 py-0.5 rounded-full">
           v{health.version}
