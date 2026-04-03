@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const prompt = buildPrompt(contents, findingType);
 
-  // Try Taskforce / AI Gateway first, fall back to a static analysis summary
+  // Try AI Gateway first, fall back to a static analysis summary
   const aiReview = await callAI(prompt);
 
   return NextResponse.json({ review: aiReview });
@@ -82,5 +82,5 @@ async function callAI(prompt: string): Promise<string> {
   }
 
   // Fallback: basic heuristic summary when no AI is available
-  return `**AI review unavailable** — no AI Gateway configured.\n\nTo enable AI-powered review, set \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\` environment variables, or deploy a review agent on [Taskforce](https://taskforce.spotify.net/).\n\nIn the meantime, open both files side-by-side in Cursor and compare manually.`;
+  return `**AI review unavailable** — no AI Gateway configured.\n\nTo enable AI-powered review, set \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\` environment variables pointing to any OpenAI-compatible API endpoint.\n\nIn the meantime, open both files side-by-side in Cursor and compare manually.`;
 }

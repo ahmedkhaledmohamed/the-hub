@@ -24,7 +24,7 @@ function readGitRemote(gitDir: string): string {
 
 function remoteToBrowseUrl(remote: string): string {
   if (!remote) return "";
-  // git@ghe.spotify.net:org/repo.git → https://ghe.spotify.net/org/repo
+  // git@github.com:org/repo.git → https://github.com/org/repo
   let url = remote
     .replace(/^git@([^:]+):/, "https://$1/")
     .replace(/\.git$/, "");

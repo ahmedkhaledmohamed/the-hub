@@ -37,7 +37,7 @@ export function stalenessInfo(
   staleDays: number,
   thresholds: StalenessThresholds = DEFAULT_THRESHOLDS,
 ): { color: string; label: string; level: "fresh" | "recent" | "aging" | "stale" } {
-  if (staleDays <= thresholds.fresh) return { color: "#1db954", label: "Fresh", level: "fresh" };
+  if (staleDays <= thresholds.fresh) return { color: "#3b82f6", label: "Fresh", level: "fresh" };
   if (staleDays <= thresholds.aging) return { color: "#b3b300", label: "Recent", level: "recent" };
   if (staleDays <= thresholds.stale) return { color: "#e68a00", label: "Aging", level: "aging" };
   return { color: "#e74c3c", label: "Stale", level: "stale" };
