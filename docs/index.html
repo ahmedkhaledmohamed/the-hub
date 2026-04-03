@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Hub — Your Personal Command Center</title>
+  <meta name="description" content="A config-driven personal command center for knowledge workers. Scan directories, group files, search everything, detect duplicates — all from one interface.">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-hover: #1a1a1a;
+      --border: #262626;
+      --text: #e5e5e5;
+      --text-muted: #a3a3a3;
+      --text-dim: #737373;
+      --accent: #3b82f6;
+      --accent-dim: #2563eb;
+      --green: #22c55e;
+      --orange: #f59e0b;
+      --purple: #a855f7;
+      --pink: #ec4899;
+      --max-w: 1100px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 100px 24px 60px;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      padding: 6px 16px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 64px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto 36px;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-dim); text-decoration: none; }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--surface-hover); border-color: var(--text-dim); text-decoration: none; }
+
+    .install-cmd {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 24px;
+      margin-top: 28px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .install-cmd span { color: var(--green); }
+
+    /* Screenshots */
+    .screenshots {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .screenshot-grid .wide { grid-column: 1 / -1; }
+    .screenshot-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .screenshot-card:hover { border-color: var(--text-dim); }
+    .screenshot-card img {
+      width: 100%;
+      display: block;
+    }
+    .screenshot-card .caption {
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+    .screenshot-card .caption strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Features */
+    .features {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .features h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Architecture */
+    .architecture {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .architecture h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .architecture > p {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+    .arch-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 40px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .arch-node {
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .arch-arrow {
+      color: var(--text-dim);
+      font-size: 20px;
+    }
+    .arch-config { background: rgba(59, 130, 246, 0.1); color: var(--accent); border: 1px solid rgba(59, 130, 246, 0.2); }
+    .arch-scanner { background: rgba(34, 197, 94, 0.1); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.2); }
+    .arch-api { background: rgba(168, 85, 247, 0.1); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.2); }
+    .arch-ui { background: rgba(245, 158, 11, 0.1); color: var(--orange); border: 1px solid rgba(245, 158, 11, 0.2); }
+    .arch-ai { background: rgba(236, 72, 153, 0.1); color: var(--pink); border: 1px solid rgba(236, 72, 153, 0.2); }
+
+    /* Principles */
+    .principles {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .principles h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .principle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .principle-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .principle-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .principle-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Roadmap */
+    .roadmap {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .roadmap h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .roadmap-phases {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .phase-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .phase-card .phase-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .phase-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .phase-card .timeline {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+    }
+    .phase-card ul {
+      list-style: none;
+      padding: 0;
+    }
+    .phase-card li {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 4px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+    .phase-card li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 11px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    /* Tech */
+    .tech {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .tech h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .tech > p {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 36px;
+    }
+    .tech-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .tech-tag {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 100px 24px;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .cta h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .cta p {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .feature-grid, .principle-grid { grid-template-columns: 1fr; }
+      .roadmap-phases { grid-template-columns: 1fr 1fr; }
+      .screenshot-grid { grid-template-columns: 1fr; }
+      .screenshot-grid .wide { grid-column: 1; }
+    }
+    @media (max-width: 480px) {
+      .roadmap-phases { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">Open Source</div>
+    <h1>Your workspace.<br><span>One command center.</span></h1>
+    <p>The Hub scans your directories, groups files by pattern, and gives you a searchable, AI-augmented interface to navigate everything — from your browser or inside Cursor.</p>
+    <div class="hero-actions">
+      <a href="https://github.com/ahmedkhaledmohamed/the-hub" class="btn btn-primary">View on GitHub</a>
+      <a href="https://github.com/ahmedkhaledmohamed/the-hub/blob/main/docs/future-developments.md" class="btn btn-secondary">Roadmap</a>
+    </div>
+    <div class="install-cmd">
+      <span>$</span> git clone https://github.com/ahmedkhaledmohamed/the-hub.git && cd the-hub && bash setup.sh
+    </div>
+  </section>
+
+  <!-- Screenshots -->
+  <section class="screenshots">
+    <div class="screenshot-grid">
+      <div class="screenshot-card wide">
+        <img src="screenshots/briefing.png" alt="Morning Briefing" loading="lazy">
+        <div class="caption"><strong>Morning Briefing</strong> — staleness heatmap, pinned artifacts, change feed, and recently modified files</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/planning.png" alt="Planning Tab" loading="lazy">
+        <div class="caption"><strong>Planning Tab</strong> — curated timeline panels alongside grouped artifacts</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/knowledge.png" alt="Knowledge Tab" loading="lazy">
+        <div class="caption"><strong>Knowledge Tab</strong> — documentation and resources with quick-access links</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/hygiene.png" alt="Document Hygiene" loading="lazy">
+        <div class="caption"><strong>Document Hygiene</strong> — detect exact and near duplicates with AI-powered review</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/command-palette.png" alt="Command Palette" loading="lazy">
+        <div class="caption"><strong>Universal Search (Cmd+K)</strong> — search artifacts, repos, pages, and actions</div>
+      </div>
+      <div class="screenshot-card wide">
+        <img src="screenshots/repos.png" alt="Connected Repos" loading="lazy">
+        <div class="caption"><strong>Connected Repos</strong> — auto-discovered git repositories with branch and activity info</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <h2>Everything in one place</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(59,130,246,0.1); color: var(--accent);">&#x1F50D;</div>
+        <h3>Universal Search</h3>
+        <p>Cmd+K searches across all artifacts, repos, pages, and actions. Find anything without switching tools.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(34,197,94,0.1); color: var(--green);">&#x1F4C1;</div>
+        <h3>Smart Grouping</h3>
+        <p>Glob patterns group your files into logical tabs. Planning docs, knowledge base, deliverables — your structure, your rules.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(245,158,11,0.1); color: var(--orange);">&#x2600;</div>
+        <h3>Morning Briefing</h3>
+        <p>Daily summary with staleness heatmap, pinned artifacts, change feed, and recently modified files.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(239,68,68,0.1); color: #ef4444;">&#x1F9F9;</div>
+        <h3>Document Hygiene</h3>
+        <p>Detect exact duplicates, near-duplicates, similar titles, and stale files. AI review suggests what to merge or delete.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(168,85,247,0.1); color: var(--purple);">&#x1F4BB;</div>
+        <h3>Cursor Integration</h3>
+        <p>Open any artifact in Cursor with one click. The VS Code extension embeds The Hub as an editor tab.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(236,72,153,0.1); color: var(--pink);">&#x26A1;</div>
+        <h3>Always On</h3>
+        <p>Runs as a macOS LaunchAgent. Survives reboots, auto-restarts on crashes. Live file watching with 5s updates.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="architecture">
+    <h2>How it works</h2>
+    <p>Config-driven. Server-rendered. File-watching. Zero cloud required.</p>
+    <div class="arch-flow">
+      <div class="arch-node arch-config">hub.config.ts</div>
+      <span class="arch-arrow">&rarr;</span>
+      <div class="arch-node arch-scanner">File Scanner + Watcher</div>
+      <span class="arch-arrow">&rarr;</span>
+      <div class="arch-node arch-api">Next.js API (16 endpoints)</div>
+      <span class="arch-arrow">&rarr;</span>
+      <div class="arch-node arch-ui">React UI (SSR)</div>
+      <span class="arch-arrow">&rarr;</span>
+      <div class="arch-node arch-ai">AI Gateway (optional)</div>
+    </div>
+  </section>
+
+  <!-- Principles -->
+  <section class="principles">
+    <h2>Design principles</h2>
+    <div class="principle-grid">
+      <div class="principle-card">
+        <h3>&#x1F3E0; Local-first</h3>
+        <p>Your files stay on your disk. No cloud account, no sync service, no data leaving your machine. Everything works offline.</p>
+      </div>
+      <div class="principle-card">
+        <h3>&#x2699; Config-driven</h3>
+        <p>One TypeScript file defines your entire workspace. Tabs, groups, panels, templates — all in hub.config.ts. No UI wizards needed.</p>
+      </div>
+      <div class="principle-card">
+        <h3>&#x1F916; AI-augmented, not AI-dependent</h3>
+        <p>Every feature works without AI. The AI gateway is optional and pluggable — use Claude, GPT, Ollama, or nothing at all.</p>
+      </div>
+      <div class="principle-card">
+        <h3>&#x1F680; Launchpad, not destination</h3>
+        <p>The Hub indexes, orients, and dispatches. It sends you to the right tool with context — it doesn't try to replace your editor or wiki.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap -->
+  <section class="roadmap">
+    <h2>What's next</h2>
+    <div class="roadmap-phases">
+      <div class="phase-card">
+        <div class="phase-label" style="color: var(--accent);">Phase 1</div>
+        <h3>Foundation</h3>
+        <div class="timeline">0 &ndash; 3 months</div>
+        <ul>
+          <li>Full-text search (SQLite + FTS5)</li>
+          <li>PDF, docx, code file support</li>
+          <li>Content diffs in change feed</li>
+          <li>New panel types (chart, checklist)</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <div class="phase-label" style="color: var(--green);">Phase 2</div>
+        <h3>Intelligence</h3>
+        <div class="timeline">3 &ndash; 9 months</div>
+        <ul>
+          <li>Semantic search (embeddings)</li>
+          <li>AI summarization</li>
+          <li>Workspace Q&A (RAG)</li>
+          <li>Local model support (Ollama)</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <div class="phase-label" style="color: var(--purple);">Phase 3</div>
+        <h3>Platform</h3>
+        <div class="timeline">9 &ndash; 18 months</div>
+        <ul>
+          <li>Plugin/extension system</li>
+          <li>GitHub, Notion, Slack plugins</li>
+          <li>Webhook/event system</li>
+          <li>API authentication</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <div class="phase-label" style="color: var(--orange);">Phase 4</div>
+        <h3>Network</h3>
+        <div class="timeline">18+ months</div>
+        <ul>
+          <li>Shared Hub instances</li>
+          <li>Hub-to-Hub linking</li>
+          <li>Cloud-hosted option</li>
+          <li>Plugin marketplace</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section class="tech">
+    <h2>Built with</h2>
+    <p>Modern stack. Zero cloud dependencies. Production-ready.</p>
+    <div class="tech-grid">
+      <span class="tech-tag">Next.js 15</span>
+      <span class="tech-tag">React 19</span>
+      <span class="tech-tag">Tailwind CSS v4</span>
+      <span class="tech-tag">TypeScript</span>
+      <span class="tech-tag">marked + highlight.js</span>
+      <span class="tech-tag">chokidar</span>
+      <span class="tech-tag">minimatch</span>
+      <span class="tech-tag">mkcert</span>
+      <span class="tech-tag">Turbopack</span>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <h2>Get started in 60 seconds</h2>
+    <p>Clone the repo, run the setup script, point it at your directories.</p>
+    <a href="https://github.com/ahmedkhaledmohamed/the-hub" class="btn btn-primary">View on GitHub</a>
+  </section>
+
+  <footer>
+    Built by <a href="https://github.com/ahmedkhaledmohamed">Ahmed Khaled</a> &middot; <a href="https://github.com/ahmedkhaledmohamed/the-hub">GitHub</a> &middot; <a href="future-developments.html">Roadmap</a>
+  </footer>
+
+</body>
+</html>

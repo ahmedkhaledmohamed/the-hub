@@ -300,28 +300,21 @@ templates: [
 
 ## How It Works
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  THE HUB                                                 │
-│                                                          │
-│  Briefing │ Repos │ Hygiene │ Planning │ Knowledge │ ... │
-├────────────────────┬─────────────────────────────────────┤
-│  Curated Panels    │  Scanned Artifacts                  │
-│                    │                                     │
-│  ▸ Timeline        │  1,028 files across                 │
-│  ▸ Links           │  2 workspaces, grouped              │
-│  ▸ DoDs            │  by glob patterns                   │
-│  ▸ AI Toolkit      │                                     │
-│                    │  Cmd+K search │ Preview panel        │
-├────────────────────┴─────────────────────────────────────┤
-│  Briefing: heatmap, pins, change feed, recent            │
-│  Repos: all git repos with branch/commit info            │
-│  Hygiene: duplicates, near-dupes, AI review              │
-└──────────────────────────────────────────────────────────┘
-     ▲                         ▲                  ▲
-     │                         │                  │
-  hub.config.ts          File scanner +      AI Gateway
-  (your config)          chokidar watcher    (optional)
+```mermaid
+flowchart TD
+    Config[hub.config.ts] --> Scanner[File Scanner + chokidar]
+    Scanner --> Manifest[Artifact Manifest]
+    Manifest --> API[Next.js API Layer]
+    AI[AI Gateway - optional] --> API
+    API --> Tabs[Tab Pages: Planning / Knowledge / Deliverables / ...]
+    API --> Briefing[Briefing: heatmap, pins, change feed]
+    API --> Repos[Repos: git discovery, branch info]
+    API --> Hygiene[Hygiene: duplicates, AI review]
+    API --> Search[Cmd+K Universal Search]
+    Tabs --> Panels[Curated Panels]
+    Tabs --> Artifacts[Scanned Artifacts]
+    Panels --> Preview[Preview Panel]
+    Artifacts --> Preview
 ```
 
 ### Architecture
