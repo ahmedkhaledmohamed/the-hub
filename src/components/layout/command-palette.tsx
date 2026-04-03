@@ -23,14 +23,25 @@ interface SearchResult {
   action?: () => void;
 }
 
+interface ServerSearchResult {
+  path: string;
+  title: string;
+  type: string;
+  group: string;
+  snippet: string;
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [repos, setRepos] = useState<RepoInfo[]>([]);
+  const [serverResults, setServerResults] = useState<ServerSearchResult[]>([]);
+  const [searchPending, setSearchPending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const config = useHubConfig();
   const router = useRouter();
   const pathname = usePathname();
@@ -61,6 +72,30 @@ export function CommandPalette() {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
+
+  // Server-side full-text search (debounced)
+  useEffect(() => {
+    const q = query.trim();
+    if (!q || q.length < 2) {
+      setServerResults([]);
+      return;
+    }
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    setSearchPending(true);
+
+    searchTimerRef.current = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(q)}&limit=15`)
+        .then((r) => r.json())
+        .then((d) => setServerResults(d.results || []))
+        .catch(() => setServerResults([]))
+        .finally(() => setSearchPending(false));
+    }, 150);
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [query]);
 
   const allLinks = useMemo(() => {
     const links: { label: string; url: string; meta?: string }[] = [];
@@ -200,10 +235,28 @@ export function CommandPalette() {
       }
     }
 
-    // Artifacts
+    // Artifacts — prefer server-side FTS results, fall back to client-side substring
+    const serverPaths = new Set(serverResults.map((r) => r.path));
+
+    if (serverResults.length > 0) {
+      for (const sr of serverResults) {
+        if (items.length >= 30) break;
+        const artifact = artifacts.find((a) => a.path === sr.path);
+        items.push({
+          id: `artifact:${sr.path}`,
+          label: sr.title,
+          description: sr.snippet || sr.path,
+          type: "artifact",
+          artifact,
+        });
+      }
+    }
+
+    // Client-side fallback for artifacts not found by server search
     let matchCount = 0;
     for (const a of artifacts) {
-      if (matchCount >= 15) break;
+      if (matchCount >= 10) break;
+      if (serverPaths.has(a.path)) continue; // already in server results
       if (
         a.title.toLowerCase().includes(q) ||
         a.path.toLowerCase().includes(q) ||
@@ -221,7 +274,7 @@ export function CommandPalette() {
     }
 
     return items;
-  }, [query, config.tabs, allLinks, artifacts, repos, pages, actions]);
+  }, [query, config.tabs, allLinks, artifacts, repos, pages, actions, serverResults]);
 
   useEffect(() => {
     setActiveIndex(0);

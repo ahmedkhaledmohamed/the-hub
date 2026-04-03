@@ -24,7 +24,7 @@ Add `better-sqlite3`. Create `src/lib/db.ts` with schema and migrations. Create 
 
 ---
 
-### Step 2 — Full-text search
+### ✅ Step 2 — Full-text search
 Create `/api/search?q=` endpoint that queries the FTS5 index. Return ranked results with highlighted snippet matches. Update `command-palette.tsx` to call `/api/search` instead of client-side substring filtering. Keep client-side fallback for instant results while server query is in flight.
 
 **Acceptance**: Searching for a phrase that appears deep in a document's body (not in the title or first 300 chars) returns that document.
