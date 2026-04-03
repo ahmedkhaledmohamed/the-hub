@@ -299,14 +299,10 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
             {finding.artifacts.length >= 2 && (
               <button
                 onClick={() => {
-                  finding.artifacts.forEach((a, i) => {
-                    setTimeout(() => {
-                      const link = document.createElement("a");
-                      link.href = `cursor://file${resolveLocalPath(a.path)}`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }, i * 500);
+                  fetch("/api/hygiene/open", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ paths: finding.artifacts.map((a) => a.path) }),
                   });
                 }}
                 className="flex items-center gap-1 text-[10px] text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-surface-hover"
