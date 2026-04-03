@@ -2,6 +2,17 @@
 
 Each step is a single PR. Work through them sequentially. Each builds on the previous.
 
+Every PR must pass CI checks (build + typecheck + test) before merge.
+
+---
+
+## Phase 0: Infrastructure
+
+### ✅ Step 0 — Test framework & CI/CD
+Add `vitest` as test runner. Create `vitest.config.ts` with path aliases matching `tsconfig.json`. Add test scripts to `package.json` (`test`, `test:watch`). Write tests for `db.ts` (14 tests: persistence, FTS5 search, user state, content hashing) and `scanner.ts` (11 tests: file discovery, title extraction, type detection, content map, group assignment). Create `.github/workflows/ci.yml` that runs typecheck + build + test on every PR and push to main.
+
+**Acceptance**: `npm test` passes. CI runs on GitHub PRs. All 25 tests green.
+
 ---
 
 ## Phase 1: Foundation
