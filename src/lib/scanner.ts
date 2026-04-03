@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { minimatch } from "minimatch";
 import type { HubConfig, Manifest, Artifact, ManifestGroup } from "./types";
+import { getExtractor, getSupportedExtensions } from "./extractors";
 
-const DEFAULT_EXTENSIONS = new Set([".html", ".svg", ".md", ".csv"]);
 const DEFAULT_SKIP_DIRS = new Set([
   "node_modules", ".next", ".git", ".cursor", ".claude",
   "out", "dist", "build", "agent-transcripts",
@@ -33,7 +33,10 @@ function walk(
     return results;
   }
 
-  const extensions = new Set(config.scanner?.extensions ?? DEFAULT_EXTENSIONS);
+  // Use configured extensions if provided, otherwise use all supported extensions
+  const extensions = config.scanner?.extensions
+    ? new Set(config.scanner.extensions)
+    : new Set(getSupportedExtensions());
   const skipPaths = config.scanner?.skipPaths ?? [];
 
   for (const name of entries) {
@@ -58,68 +61,19 @@ function walk(
       const ext = path.extname(name).toLowerCase();
       if (!extensions.has(ext)) continue;
       if (skipPaths.some((p) => relativePath === p)) continue;
-      results.push({ fullPath, relativePath });
+      // Only include if we have an extractor for it
+      if (getExtractor(fullPath)) {
+        results.push({ fullPath, relativePath });
+      }
     }
   }
 
   return results;
 }
 
-function extractTitle(filePath: string): string | null {
-  try {
-    const content = fs.readFileSync(filePath, "utf8").slice(0, 2000);
-    const ext = path.extname(filePath).toLowerCase();
-
-    if (ext === ".html") {
-      const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i);
-      if (titleMatch) return titleMatch[1].trim();
-      const h1Match = content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-      if (h1Match) return h1Match[1].trim();
-    }
-
-    if (ext === ".md") {
-      const h1Match = content.match(/^#\s+(.+)$/m);
-      if (h1Match) return h1Match[1].replace(/[*_`]/g, "").trim();
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function extractSnippet(filePath: string, maxLen: number): string | undefined {
-  try {
-    const content = fs.readFileSync(filePath, "utf8").slice(0, maxLen * 3);
-    const ext = path.extname(filePath).toLowerCase();
-
-    if (ext === ".md") {
-      const lines = content.split("\n").filter(
-        (l) => l.trim() && !l.startsWith("#") && !l.startsWith("---") && !l.startsWith("```"),
-      );
-      return lines.slice(0, 5).join(" ").slice(0, maxLen) || undefined;
-    }
-
-    if (ext === ".html") {
-      const stripped = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      return stripped.slice(0, maxLen) || undefined;
-    }
-  } catch {
-    // ignore
-  }
-  return undefined;
-}
-
 function humanName(filePath: string): string {
   const base = path.basename(filePath, path.extname(filePath));
   return base.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function getType(filePath: string): Artifact["type"] {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".svg") return "svg";
-  if (ext === ".md") return "md";
-  if (ext === ".csv") return "csv";
-  return "html";
 }
 
 function matchesPattern(relativePath: string, pattern: string | string[]): boolean {
@@ -175,6 +129,8 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
   const now = Date.now();
 
   const artifacts: Artifact[] = allFiles.map(({ fullPath, relativePath }) => {
+    const extractor = getExtractor(fullPath);
+
     let stat: fs.Stats;
     try {
       stat = fs.statSync(fullPath);
@@ -184,15 +140,23 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
 
     const staleDays = Math.floor((now - stat.mtime.getTime()) / 86400000);
 
+    // Read content for extractors (skip binary files like PDFs)
+    const isBinary = extractor?.artifactType === "pdf";
+    const content = isBinary ? "" : readFileContent(fullPath);
+
+    const title = extractor?.extractTitle(fullPath, content) || humanName(fullPath);
+    const snippet = extractor?.extractSnippet(content, snippetLen);
+    const artifactType = extractor?.artifactType || "html";
+
     return {
       path: relativePath,
-      title: extractTitle(fullPath) || humanName(fullPath),
-      type: getType(fullPath),
+      title,
+      type: artifactType,
       group: getGroup(relativePath, config),
       modifiedAt: stat.mtime.toISOString(),
       size: stat.size,
       staleDays,
-      snippet: extractSnippet(fullPath, snippetLen),
+      snippet,
     };
   });
 
@@ -250,7 +214,15 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
   if (options?.withContent) {
     const contentMap = new Map<string, string>();
     for (const { fullPath, relativePath } of allFiles) {
-      contentMap.set(relativePath, readFileContent(fullPath));
+      const extractor = getExtractor(fullPath);
+      if (extractor?.artifactType === "pdf") {
+        // PDF text extraction is async — skip for now, handled separately
+        contentMap.set(relativePath, "");
+      } else {
+        const raw = readFileContent(fullPath);
+        const text = extractor?.extractText(raw) || raw;
+        contentMap.set(relativePath, text);
+      }
     }
     return { manifest, contentMap };
   }

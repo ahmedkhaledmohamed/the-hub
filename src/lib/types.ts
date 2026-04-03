@@ -274,7 +274,7 @@ export interface ManifestGroup {
 export interface Artifact {
   path: string;
   title: string;
-  type: "html" | "svg" | "md" | "csv";
+  type: "html" | "svg" | "md" | "csv" | "txt" | "json" | "yaml" | "code" | "pdf";
   group: string;
   modifiedAt: string;
   size: number;
