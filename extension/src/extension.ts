@@ -60,7 +60,7 @@ function getIframeHtml(url: string): string {
     .fallback.visible { display: flex; }
     code { background: #1e1e1e; padding: 2px 8px; border-radius: 4px; font-size: 13px; }
     .fallback button {
-      background: #1db954; color: #000; border: none; padding: 8px 20px;
+      background: #3b82f6; color: #fff; border: none; padding: 8px 20px;
       border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px;
     }
   </style>
@@ -70,7 +70,7 @@ function getIframeHtml(url: string): string {
   <div class="fallback" id="err">
     <p>Could not load the hub at <code>${url}</code></p>
     <p style="font-size:13px">Make sure the server is running:</p>
-    <code>cd ~/Developer/the-hub && npm start</code>
+    <code>cd ~/the-hub && npm start</code>
     <button onclick="document.getElementById('hub').src='${url}';this.parentElement.classList.remove('visible')">Retry</button>
   </div>
   <script>
@@ -121,13 +121,13 @@ class HubPanelProvider implements vscode.WebviewViewProvider {
     button:hover { background: var(--vscode-button-hoverBackground); }
     .status { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 12px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; }
-    .dot.ok { background: #1db954; }
+    .dot.ok { background: #3b82f6; }
     .dot.err { background: #e74c3c; }
     .shortcut { display: block; margin-top: 8px; font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center; }
   </style>
 </head>
 <body>
-  <h3>Ahmed's Hub</h3>
+  <h3>The Hub</h3>
   <div class="status">
     <span class="${dotClass}"></span>
     <span>${statusText}</span>

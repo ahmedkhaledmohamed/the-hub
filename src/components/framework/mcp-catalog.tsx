@@ -14,14 +14,14 @@ interface McpCatalogProps {
 
 const tierOrder = [
   "zero-config",
-  "spotify-internal",
+  "organization",
   "pm-essentials",
   "data-analytics",
 ];
 
 const tierColors: Record<string, string> = {
   "zero-config": "bg-green-500/15 text-green-400",
-  "spotify-internal": "bg-blue-500/15 text-blue-400",
+  "organization": "bg-blue-500/15 text-blue-400",
   "pm-essentials": "bg-purple-500/15 text-purple-400",
   "data-analytics": "bg-orange-500/15 text-orange-400",
 };

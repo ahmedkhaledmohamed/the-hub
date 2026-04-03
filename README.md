@@ -22,7 +22,7 @@ The Hub solves this by giving you a **single starting point** — always running
 - **Full-text search** across titles, paths, and content snippets (Cmd+K command palette)
 - **Live file watching** — changes in your workspace auto-update the manifest within seconds
 - **Context launchers** — open any artifact in Cursor, copy the terminal `cd` command, or grab the absolute path
-- **AI toolkit dashboard** — if connected to [PM AI Partner Framework](https://github.com/ahmedkhaledmohamed/PM-AI-Partner-Framework), shows installed skills, configured MCPs, and slash commands
+- **AI toolkit dashboard** — if connected to [PM AI Partner Framework](https://github.com/your-username/pm-ai-partner-framework), shows installed skills, configured MCPs, and slash commands
 - **Always on** — runs as a macOS LaunchAgent, survives reboots, auto-restarts on crashes
 
 ## Install
@@ -128,7 +128,7 @@ groups: [
     label: "Strategy",
     match: "my-project/strategy/**",
     tab: "planning",
-    color: "#1db954",
+    color: "#3b82f6",
   },
 ]
 ```
@@ -178,7 +178,7 @@ Panel types: `timeline`, `links`, `tools`.
 
 ### Framework Integration
 
-Connect to the [PM AI Partner Framework](https://github.com/ahmedkhaledmohamed/PM-AI-Partner-Framework) for an AI toolkit dashboard:
+Connect to the [PM AI Partner Framework](https://github.com/your-username/pm-ai-partner-framework) for an AI toolkit dashboard:
 
 ```typescript
 framework: {

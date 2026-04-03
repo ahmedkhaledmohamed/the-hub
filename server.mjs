@@ -12,8 +12,8 @@ const httpPort = parseInt(process.env.HTTP_PORT || "9002", 10);
 const dev = process.env.NODE_ENV !== "production";
 
 const certDir = join(__dirname, "certs");
-const certFile = join(certDir, "ahmed-hub+2.pem");
-const keyFile = join(certDir, "ahmed-hub+2-key.pem");
+const certFile = join(certDir, "my-hub+2.pem");
+const keyFile = join(certDir, "my-hub+2-key.pem");
 
 const hasCerts = existsSync(certFile) && existsSync(keyFile);
 
@@ -32,13 +32,13 @@ app.prepare().then(() => {
       cert: readFileSync(certFile),
     };
     createHttpsServer(httpsOptions, handler).listen(httpsPort, () => {
-      console.log(`    https://ahmed-hub:${httpsPort}`);
+      console.log(`    https://my-hub:${httpsPort}`);
       console.log(`    https://localhost:${httpsPort}`);
     });
   }
 
   createHttpServer(handler).listen(httpPort, () => {
-    console.log(`\n  ✓ Ahmed's Hub ready at:`);
+    console.log(`\n  ✓ The Hub ready at:`);
     if (!hasCerts) {
       console.log(`    (HTTPS disabled — certs not found)`);
     }

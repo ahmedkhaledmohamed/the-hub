@@ -6,7 +6,7 @@ import type { ChangeFeedEntry } from "@/lib/types";
 import { relativeTime, cn } from "@/lib/utils";
 
 const typeIcons = {
-  added: { Icon: FilePlus2, color: "text-[#1db954]" },
+  added: { Icon: FilePlus2, color: "text-[#3b82f6]" },
   modified: { Icon: FileEdit, color: "text-[#b3b300]" },
   deleted: { Icon: FileX2, color: "text-[#e74c3c]" },
 } as const;

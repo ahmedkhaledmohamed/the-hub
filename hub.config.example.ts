@@ -46,7 +46,7 @@ const config: HubConfig = {
       description: "Planning docs, roadmaps, and proposals",
       match: "my-project/planning/**",
       tab: "planning",
-      color: "#1db954",
+      color: "#3b82f6",
     },
   ],
 

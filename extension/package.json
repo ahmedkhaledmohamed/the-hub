@@ -3,7 +3,7 @@
   "displayName": "The Hub",
   "description": "Personal knowledge hub — open your hub as an editor tab inside Cursor",
   "version": "0.1.0",
-  "publisher": "ahmedm",
+  "publisher": "the-hub",
   "engines": {
     "vscode": "^1.85.0"
   },

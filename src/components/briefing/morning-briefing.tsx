@@ -85,7 +85,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
           <div className="text-[11px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">
             <Clock size={10} /> Fresh (7d)
           </div>
-          <div className="text-2xl font-bold text-[#1db954]">{stats.fresh}</div>
+          <div className="text-2xl font-bold text-[#3b82f6]">{stats.fresh}</div>
         </div>
         <div className="bg-surface border border-border rounded-md px-4 py-3">
           <div className="text-[11px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">

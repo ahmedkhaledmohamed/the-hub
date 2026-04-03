@@ -77,7 +77,7 @@ export function HealthPanel({ config }: HealthPanelProps) {
       </div>
 
       <div className="px-4 py-3 space-y-1.5">
-        <BarSegment label="Fresh" count={stats.fresh} total={stats.total} color="#1db954" />
+        <BarSegment label="Fresh" count={stats.fresh} total={stats.total} color="#3b82f6" />
         <BarSegment label="Recent" count={stats.recent} total={stats.total} color="#b3b300" />
         <BarSegment label="Aging" count={stats.aging} total={stats.total} color="#e68a00" />
         <BarSegment label="Stale" count={stats.stale} total={stats.total} color="#e74c3c" />

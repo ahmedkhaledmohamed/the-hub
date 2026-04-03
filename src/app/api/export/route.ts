@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(config.name)} — ${escapeHtml(tabLabel)}</title>
 <style>
-  :root { --bg: #121212; --surface: #1a1a1a; --border: #2a2a2a; --text: #e0e0e0; --dim: #888; --accent: #1db954; }
+  :root { --bg: #121212; --surface: #1a1a1a; --border: #2a2a2a; --text: #e0e0e0; --dim: #888; --accent: #3b82f6; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 2rem; max-width: 1000px; margin: 0 auto; line-height: 1.5; }
   h1 { font-size: 1.3rem; margin-bottom: 0.5rem; }

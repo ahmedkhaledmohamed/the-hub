@@ -340,13 +340,10 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
 }
 
 function resolveLocalPath(artifactPath: string): string {
+  // Paths are resolved dynamically via the /api/resolve endpoint at runtime.
+  // This is a client-side fallback that assumes workspace dirs live under ~/Developer.
   const home = typeof window !== "undefined" ? "" : process.env.HOME || "";
-  const segments = artifactPath.split("/");
-  const wsName = segments[0];
-  const rest = segments.slice(1).join("/");
-  if (wsName === "ClientMessaging") return `/Users/ahmedm/Developer/ClientMessaging/${rest}`;
-  if (wsName === "ahmed-sandbox") return `/Users/ahmedm/Developer/ahmed-sandbox/${rest}`;
-  return `/Users/ahmedm/Developer/${artifactPath}`;
+  return `${home || "/tmp"}/Developer/${artifactPath}`;
 }
 
 function formatMarkdown(text: string): string {
