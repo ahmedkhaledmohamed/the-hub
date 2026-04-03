@@ -208,6 +208,36 @@ export interface FrameworkCatalog {
   tiers: Record<string, McpTier>;
 }
 
+// ── Hygiene analysis types ────────────────────────────────────────────
+
+export type HygieneFindingType =
+  | "exact-duplicate"
+  | "near-duplicate"
+  | "similar-title"
+  | "same-filename"
+  | "superseded"
+  | "stale-orphan";
+
+export interface HygieneFinding {
+  id: string;
+  type: HygieneFindingType;
+  severity: "high" | "medium" | "low";
+  artifacts: Artifact[];
+  similarity?: number;
+  suggestion: string;
+}
+
+export interface HygieneReport {
+  findings: HygieneFinding[];
+  stats: {
+    totalFindings: number;
+    byType: Record<string, number>;
+    bySeverity: Record<string, number>;
+    filesAnalyzed: number;
+    analyzedAt: string;
+  };
+}
+
 // ── Repo discovery types ───────────────────────────────────────────────
 
 export interface RepoInfo {
