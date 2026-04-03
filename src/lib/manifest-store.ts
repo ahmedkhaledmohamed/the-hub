@@ -1,6 +1,7 @@
 import type { Manifest } from "./types";
 import { loadConfig, getResolvedWorkspacePaths, invalidateConfigCache } from "./config";
 import { scan } from "./scanner";
+import { persistArtifacts } from "./db";
 import path from "path";
 
 let cachedManifest: Manifest | null = null;
@@ -30,11 +31,23 @@ export function regenerate(reason: string = "manual"): Manifest {
 
   try {
     const config = loadConfig();
-    cachedManifest = scan(config);
+    const result = scan(config, { withContent: true });
+    cachedManifest = result.manifest;
     cachedManifest.lastScanReason = reason;
-    console.log(
-      `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts`,
-    );
+
+    // Persist to SQLite in background (don't block the response)
+    try {
+      persistArtifacts(cachedManifest.artifacts, result.contentMap);
+      console.log(
+        `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (persisted to SQLite)`,
+      );
+    } catch (dbErr) {
+      console.warn("[hub] SQLite persistence failed (non-fatal):", dbErr);
+      console.log(
+        `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts`,
+      );
+    }
+
     return cachedManifest;
   } finally {
     isScanning = false;

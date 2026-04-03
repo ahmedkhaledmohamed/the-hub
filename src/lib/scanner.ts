@@ -134,7 +134,22 @@ function getGroup(relativePath: string, config: HubConfig): string {
   return "other";
 }
 
-export function scan(config: HubConfig): Manifest {
+export function readFileContent(fullPath: string): string {
+  try {
+    return fs.readFileSync(fullPath, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+export interface ScanResult {
+  manifest: Manifest;
+  contentMap: Map<string, string>;
+}
+
+export function scan(config: HubConfig): Manifest;
+export function scan(config: HubConfig, options: { withContent: true }): ScanResult;
+export function scan(config: HubConfig, options?: { withContent?: boolean }): Manifest | ScanResult {
   const allFiles: ScanFile[] = [];
 
   for (const workspace of config.workspaces) {
@@ -225,10 +240,20 @@ export function scan(config: HubConfig): Manifest {
     });
   }
 
-  return {
+  const manifest: Manifest = {
     generatedAt: new Date().toISOString(),
     workspaces: config.workspaces.map((w) => w.path),
     groups,
     artifacts,
   };
+
+  if (options?.withContent) {
+    const contentMap = new Map<string, string>();
+    for (const { fullPath, relativePath } of allFiles) {
+      contentMap.set(relativePath, readFileContent(fullPath));
+    }
+    return { manifest, contentMap };
+  }
+
+  return manifest;
 }
