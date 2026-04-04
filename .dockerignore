@@ -1,0 +1,8 @@
+node_modules
+.next
+.hub-data
+.git
+*.log
+hub.config.ts
+.env*
+certs/

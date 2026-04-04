@@ -292,3 +292,70 @@ describe("context manager", () => {
     });
   });
 });
+
+// ── Source abstraction & Docker tests ──────────────────────────────
+
+import {
+  resolveSource,
+  getSupportedSourceTypes,
+  isValidSourceConfig,
+} from "@/lib/sources";
+
+describe("cloud-hosted / sources", () => {
+  describe("getSupportedSourceTypes", () => {
+    it("includes filesystem, github, s3", () => {
+      const types = getSupportedSourceTypes();
+      expect(types).toContain("filesystem");
+      expect(types).toContain("github");
+      expect(types).toContain("s3");
+    });
+  });
+
+  describe("isValidSourceConfig", () => {
+    it("validates correct config", () => {
+      expect(isValidSourceConfig({ type: "filesystem", path: "/tmp/test", label: "Test" })).toBe(true);
+    });
+
+    it("rejects missing fields", () => {
+      expect(isValidSourceConfig({ type: "filesystem", path: "", label: "Test" })).toBe(false);
+      expect(isValidSourceConfig({ type: "filesystem", path: "/tmp", label: "" })).toBe(false);
+    });
+  });
+
+  describe("resolveSource", () => {
+    it("resolves filesystem source to absolute path", () => {
+      const result = resolveSource({ type: "filesystem", path: "/tmp/test-hub", label: "Test" });
+      expect(result.type).toBe("filesystem");
+      expect(result.localPath).toBe("/tmp/test-hub");
+      expect(result.label).toBe("Test");
+    });
+
+    it("expands ~ in filesystem paths", () => {
+      const result = resolveSource({ type: "filesystem", path: "~/Developer", label: "Dev" });
+      expect(result.localPath).not.toContain("~");
+      expect(result.localPath).toContain("Developer");
+    });
+
+    it("handles github source type", () => {
+      // Don't actually clone — just verify the structure
+      const result = resolveSource({ type: "github", path: "https://github.com/test/repo.git", label: "Repo" });
+      expect(result.type).toBe("github");
+      expect(result.label).toBe("Repo");
+      expect(typeof result.localPath).toBe("string");
+    });
+  });
+
+  describe("Docker files", () => {
+    it("Dockerfile exists", () => {
+      expect(existsSync(resolve("Dockerfile"))).toBe(true);
+    });
+
+    it("docker-compose.yml exists", () => {
+      expect(existsSync(resolve("docker-compose.yml"))).toBe(true);
+    });
+
+    it(".dockerignore exists", () => {
+      expect(existsSync(resolve(".dockerignore"))).toBe(true);
+    });
+  });
+});

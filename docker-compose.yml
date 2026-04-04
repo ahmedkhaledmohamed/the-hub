@@ -1,0 +1,47 @@
+# The Hub — Docker Compose
+#
+# Usage:
+#   docker compose up -d
+#   open http://localhost:9002
+#
+# Configuration:
+#   Mount your hub.config.ts and workspace directories
+#   Set environment variables for AI and auth features
+
+services:
+  hub:
+    build: .
+    ports:
+      - "9001:9001"  # HTTPS (if certs mounted)
+      - "9002:9002"  # HTTP (main access)
+    volumes:
+      # Mount your config (required)
+      - ./hub.config.ts:/app/hub.config.ts:ro
+      # Mount workspace directories (adjust paths)
+      # - ~/Developer/my-project:/workspaces/my-project:ro
+      # Persist data (SQLite, snapshots)
+      - hub-data:/app/.hub-data
+      # Mount certs for HTTPS (optional)
+      # - ./certs:/app/certs:ro
+    environment:
+      - NODE_ENV=production
+      - PORT=9001
+      - HTTP_PORT=9002
+      # AI Gateway (optional)
+      # - AI_GATEWAY_URL=https://api.openai.com/v1/chat/completions
+      # - AI_GATEWAY_KEY=sk-...
+      # - AI_MODEL=gpt-4
+      # Authentication (optional)
+      # - HUB_API_KEYS=key1,key2
+      # GitHub plugin (optional)
+      # - GITHUB_TOKEN=ghp_...
+      # - GITHUB_REPOS=owner/repo1,owner/repo2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9002/api/manifest"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hub-data:
