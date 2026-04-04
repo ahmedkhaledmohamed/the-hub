@@ -376,3 +376,127 @@ describe("governance", () => {
     });
   });
 });
+
+// ── Job queue tests ────────────────────────────────────────────────
+
+import {
+  enqueueJob,
+  getJob,
+  getNextPendingJob,
+  getJobCounts,
+  markJobRunning,
+  markJobCompleted,
+  markJobFailed,
+  processNextJob,
+  registerJobHandler,
+} from "@/lib/job-queue";
+
+describe("job queue", () => {
+  describe("enqueueJob", () => {
+    it("creates a job and returns its ID", () => {
+      const id = enqueueJob("test-job", { key: "value" });
+      expect(id).toBeGreaterThan(0);
+
+      const job = getJob(id);
+      expect(job).not.toBeNull();
+      expect(job!.type).toBe("test-job");
+      expect(job!.status).toBe("pending");
+    });
+  });
+
+  describe("getNextPendingJob", () => {
+    it("returns oldest pending job", () => {
+      enqueueJob("queue-test-a", {});
+      enqueueJob("queue-test-b", {});
+      const job = getNextPendingJob();
+      expect(job).not.toBeNull();
+      expect(job!.status).toBe("pending");
+    });
+  });
+
+  describe("state transitions", () => {
+    it("marks job as running", () => {
+      const id = enqueueJob("transition-test", {});
+      markJobRunning(id);
+      const job = getJob(id);
+      expect(job!.status).toBe("running");
+      expect(job!.attempts).toBe(1);
+    });
+
+    it("marks job as completed", () => {
+      const id = enqueueJob("complete-test", {});
+      markJobRunning(id);
+      markJobCompleted(id, "done");
+      const job = getJob(id);
+      expect(job!.status).toBe("completed");
+      expect(job!.result).toBe("done");
+    });
+
+    it("marks job as failed", () => {
+      const id = enqueueJob("fail-test", {});
+      markJobRunning(id);
+      markJobFailed(id, "oops");
+      const job = getJob(id);
+      expect(job!.status).toBe("failed");
+      expect(job!.error).toBe("oops");
+    });
+  });
+
+  describe("getJobCounts", () => {
+    it("returns counts by status", () => {
+      const counts = getJobCounts();
+      expect(typeof counts.pending).toBe("number");
+      expect(typeof counts.completed).toBe("number");
+      expect(typeof counts.failed).toBe("number");
+    });
+  });
+
+  describe("processNextJob", () => {
+    it("executes handler and completes job", async () => {
+      // Drain any leftover pending jobs first
+      registerJobHandler("echo", async (payload) => `echoed: ${JSON.stringify(payload)}`);
+      // Mark all existing pending as failed to clear the queue
+      let pending = getNextPendingJob();
+      while (pending) {
+        markJobFailed(pending.id, "cleared for test");
+        pending = getNextPendingJob();
+      }
+
+      const id = enqueueJob("echo", { msg: "hello" });
+      const processed = await processNextJob();
+      expect(processed).toBe(true);
+
+      const job = getJob(id);
+      expect(job!.status).toBe("completed");
+      expect(job!.result).toContain("hello");
+    });
+
+    it("fails job when handler throws", async () => {
+      registerJobHandler("fail-handler", async () => {
+        throw new Error("intentional failure");
+      });
+      // Clear queue
+      let pending = getNextPendingJob();
+      while (pending) {
+        markJobFailed(pending.id, "cleared for test");
+        pending = getNextPendingJob();
+      }
+
+      const id = enqueueJob("fail-handler", {}, 1);
+      await processNextJob();
+
+      const job = getJob(id);
+      expect(job!.status).toBe("failed");
+      expect(job!.error).toContain("intentional failure");
+    });
+
+    it("returns false when no pending jobs", async () => {
+      let pending = getNextPendingJob();
+      while (pending) {
+        markJobFailed(pending.id, "cleared");
+        pending = getNextPendingJob();
+      }
+      expect(await processNextJob()).toBe(false);
+    });
+  });
+});
