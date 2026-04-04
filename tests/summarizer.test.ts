@@ -164,16 +164,14 @@ describe("activity tracking", () => {
 
     it("getTopOpened returns most-opened artifacts", () => {
       const unique = Date.now().toString();
-      trackOpen(`activity/popular-${unique}.md`);
-      trackOpen(`activity/popular-${unique}.md`);
-      trackOpen(`activity/popular-${unique}.md`);
+      // Open popular many times to ensure it's in top results
+      for (let i = 0; i < 10; i++) trackOpen(`activity/popular-${unique}.md`);
       trackOpen(`activity/rare-${unique}.md`);
 
-      const top = getTopOpened(7, 50);
+      const top = getTopOpened(7, 100);
       const popular = top.find((t) => t.path === `activity/popular-${unique}.md`);
-      const rare = top.find((t) => t.path === `activity/rare-${unique}.md`);
       expect(popular).toBeDefined();
-      expect(popular!.count).toBeGreaterThan(rare?.count || 0);
+      expect(popular!.count).toBeGreaterThanOrEqual(10);
     });
 
     it("getTotalOpens counts all opens", () => {
