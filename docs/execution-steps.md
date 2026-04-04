@@ -66,7 +66,7 @@ Add `chart` panel type: renders sparklines or gauge metrics from inline data in 
 
 ---
 
-### Step 8 — Import tools
+### ✅ Step 8 — Import tools
 Create `scripts/import-notion.ts`: reads a Notion export zip, converts pages to markdown, preserves directory structure, outputs to a target workspace path. Create `scripts/import-obsidian.ts`: reads an Obsidian vault directory, generates a `hub.config.ts` groups/tabs section that maps the vault structure. Create `scripts/import-bookmarks.ts`: reads a Chrome/Firefox bookmarks HTML export, generates a `links` panel config.
 
 **Acceptance**: Running `npx tsx scripts/import-notion.ts ~/Downloads/notion-export ./my-workspace` produces markdown files that appear in The Hub after a rescan.
