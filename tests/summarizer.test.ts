@@ -328,3 +328,53 @@ describe("Slack integration", () => {
     });
   });
 });
+
+// ── Knowledge decay tests ──────────────────────────────────────────
+
+import { detectDecay, decaySummary, getDecayingDocs } from "@/lib/knowledge-decay";
+import type { DecayReport } from "@/lib/knowledge-decay";
+
+describe("knowledge decay detection", () => {
+  describe("detectDecay", () => {
+    it("returns array (may be empty with no historical data)", () => {
+      const reports = detectDecay();
+      expect(Array.isArray(reports)).toBe(true);
+    });
+
+    it("accepts custom time windows", () => {
+      const reports = detectDecay({ recentDays: 3, historicalDays: 14, minHistoricalViews: 1 });
+      expect(Array.isArray(reports)).toBe(true);
+    });
+  });
+
+  describe("decaySummary", () => {
+    it("counts by decay level", () => {
+      const reports: DecayReport[] = [
+        { path: "a", title: "A", group: "docs", decayLevel: "critical", recentViews: 0, historicalViews: 10, decayRatio: 0, lastAccessed: null, reason: "" },
+        { path: "b", title: "B", group: "docs", decayLevel: "declining", recentViews: 1, historicalViews: 10, decayRatio: 0.1, lastAccessed: null, reason: "" },
+        { path: "c", title: "C", group: "docs", decayLevel: "stable", recentViews: 5, historicalViews: 5, decayRatio: 1, lastAccessed: null, reason: "" },
+      ];
+      const summary = decaySummary(reports);
+      expect(summary.critical).toBe(1);
+      expect(summary.declining).toBe(1);
+      expect(summary.stable).toBe(1);
+    });
+
+    it("handles empty", () => {
+      expect(decaySummary([]).critical).toBe(0);
+    });
+  });
+
+  describe("getDecayingDocs", () => {
+    it("filters to critical + declining", () => {
+      const reports: DecayReport[] = [
+        { path: "a", title: "A", group: "docs", decayLevel: "critical", recentViews: 0, historicalViews: 10, decayRatio: 0, lastAccessed: null, reason: "" },
+        { path: "b", title: "B", group: "docs", decayLevel: "stable", recentViews: 5, historicalViews: 5, decayRatio: 1, lastAccessed: null, reason: "" },
+        { path: "c", title: "C", group: "docs", decayLevel: "growing", recentViews: 15, historicalViews: 5, decayRatio: 3, lastAccessed: null, reason: "" },
+      ];
+      const decaying = getDecayingDocs(reports);
+      expect(decaying.length).toBe(1);
+      expect(decaying[0].path).toBe("a");
+    });
+  });
+});
