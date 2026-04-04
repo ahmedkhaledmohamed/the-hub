@@ -219,7 +219,7 @@ Create a `Dockerfile` and `docker-compose.yml` for containerized deployment. Rep
 
 ---
 
-### Step 29 — Governance and compliance
+### ✅ Step 29 — Governance and compliance
 Add `governance` config section with: `retentionPolicy` (auto-archive docs older than N days), `complianceTags` (PII, confidential, public — applied via frontmatter or AI classification), `auditLog` (track all views, edits, deletions in SQLite with user + timestamp). Add an admin panel at `/admin` showing audit logs, compliance dashboard, and retention queue. AI auto-classification suggests tags for untagged docs.
 
 **Acceptance**: The admin panel shows an audit trail of who accessed what. Docs tagged "confidential" show a badge. Expired docs are auto-archived.

@@ -288,3 +288,91 @@ describe("agent scheduler", () => {
     });
   });
 });
+
+// ── Governance tests ───────────────────────────────────────────────
+
+import {
+  logAudit,
+  getAuditLog,
+  getAuditCount,
+  addComplianceTag,
+  removeComplianceTag,
+  getComplianceTags,
+  getTaggedArtifacts,
+  getAllTags,
+  isGovernanceEnabled,
+  getRetentionQueue,
+} from "@/lib/governance";
+
+describe("governance", () => {
+  describe("isGovernanceEnabled", () => {
+    it("returns false when not configured", () => {
+      expect(isGovernanceEnabled()).toBe(false);
+    });
+  });
+
+  describe("audit log", () => {
+    it("logs and retrieves entries", () => {
+      const unique = `gov-test-${Date.now()}`;
+      logAudit(unique, "view", "/briefing", "test audit");
+
+      const log = getAuditLog(10);
+      expect(log.some((e) => e.userName === unique)).toBe(true);
+    });
+
+    it("counts audit entries", () => {
+      const before = getAuditCount();
+      logAudit("counter", "test-action");
+      expect(getAuditCount()).toBeGreaterThanOrEqual(before + 1);
+    });
+
+    it("filters by action", () => {
+      const unique = `action-${Date.now()}`;
+      logAudit("user", unique);
+
+      const filtered = getAuditLog(10, unique);
+      expect(filtered.length).toBeGreaterThanOrEqual(1);
+      expect(filtered.every((e) => e.action === unique)).toBe(true);
+    });
+  });
+
+  describe("compliance tags", () => {
+    it("adds and retrieves tags", () => {
+      const path = `gov/tagged-${Date.now()}.md`;
+      addComplianceTag(path, "confidential");
+      addComplianceTag(path, "pii");
+
+      const tags = getComplianceTags(path);
+      expect(tags).toContain("confidential");
+      expect(tags).toContain("pii");
+    });
+
+    it("removes tags", () => {
+      const path = `gov/untag-${Date.now()}.md`;
+      addComplianceTag(path, "internal");
+      removeComplianceTag(path, "internal");
+
+      expect(getComplianceTags(path)).not.toContain("internal");
+    });
+
+    it("finds artifacts by tag", () => {
+      const unique = `tag-${Date.now()}`;
+      addComplianceTag(`gov/find-a.md`, unique);
+      addComplianceTag(`gov/find-b.md`, unique);
+
+      const paths = getTaggedArtifacts(unique);
+      expect(paths.length).toBe(2);
+    });
+
+    it("getAllTags returns tag counts", () => {
+      const tags = getAllTags();
+      expect(Array.isArray(tags)).toBe(true);
+    });
+  });
+
+  describe("retention queue", () => {
+    it("returns empty when no policy", () => {
+      expect(getRetentionQueue()).toEqual([]);
+    });
+  });
+});
