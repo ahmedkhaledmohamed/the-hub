@@ -202,3 +202,79 @@ describe("MCP server data layer", () => {
     });
   });
 });
+
+// ── Review request tests ───────────────────────────────────────────
+
+import {
+  createReviewRequest,
+  updateReviewStatus,
+  getReviewRequest,
+  getReviewsForArtifact,
+  getReviewsForReviewer,
+  getPendingReviews,
+  getReviewCounts,
+} from "@/lib/reviews";
+
+describe("review requests", () => {
+  describe("createReviewRequest", () => {
+    it("creates and retrieves a review", () => {
+      const id = createReviewRequest({
+        artifactPath: "review/doc.md",
+        requestedBy: "alice",
+        reviewer: "bob",
+        message: "Please review my changes",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      const review = getReviewRequest(id);
+      expect(review).not.toBeNull();
+      expect(review!.status).toBe("pending");
+      expect(review!.reviewer).toBe("bob");
+      expect(review!.message).toBe("Please review my changes");
+    });
+  });
+
+  describe("updateReviewStatus", () => {
+    it("approves a review", () => {
+      const id = createReviewRequest({ artifactPath: "review/approve.md", requestedBy: "a", reviewer: "b" });
+      updateReviewStatus(id, "approved", "Looks good!");
+      const review = getReviewRequest(id);
+      expect(review!.status).toBe("approved");
+      expect(review!.responseMessage).toBe("Looks good!");
+    });
+
+    it("requests changes", () => {
+      const id = createReviewRequest({ artifactPath: "review/changes.md", requestedBy: "a", reviewer: "b" });
+      updateReviewStatus(id, "changes-requested", "Fix section 3");
+      expect(getReviewRequest(id)!.status).toBe("changes-requested");
+    });
+  });
+
+  describe("queries", () => {
+    it("getReviewsForArtifact returns reviews for a path", () => {
+      const path = `review/query-${Date.now()}.md`;
+      createReviewRequest({ artifactPath: path, requestedBy: "x", reviewer: "y" });
+      const reviews = getReviewsForArtifact(path);
+      expect(reviews.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("getReviewsForReviewer returns reviews for a person", () => {
+      const reviewer = `reviewer-${Date.now()}`;
+      createReviewRequest({ artifactPath: "review/person.md", requestedBy: "x", reviewer });
+      const reviews = getReviewsForReviewer(reviewer);
+      expect(reviews.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("getPendingReviews returns pending only", () => {
+      const pending = getPendingReviews();
+      expect(Array.isArray(pending)).toBe(true);
+      for (const r of pending) expect(r.status).toBe("pending");
+    });
+
+    it("getReviewCounts returns counts by status", () => {
+      const counts = getReviewCounts();
+      expect(typeof counts.pending).toBe("number");
+      expect(typeof counts.approved).toBe("number");
+    });
+  });
+});
