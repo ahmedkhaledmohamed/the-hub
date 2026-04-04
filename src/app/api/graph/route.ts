@@ -58,7 +58,14 @@ export async function GET(req: NextRequest) {
  * Body: { action: "add" | "remove", sourcePath, targetPath, linkType }
  */
 export async function POST(req: NextRequest) {
-  const { action, sourcePath, targetPath, linkType } = await req.json() as {
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { action, sourcePath, targetPath, linkType } = body as {
     action: "add" | "remove";
     sourcePath: string;
     targetPath: string;
@@ -67,6 +74,10 @@ export async function POST(req: NextRequest) {
 
   if (!sourcePath || !targetPath || !linkType) {
     return NextResponse.json({ error: "sourcePath, targetPath, and linkType required" }, { status: 400 });
+  }
+
+  if (typeof sourcePath !== "string" || typeof targetPath !== "string" || sourcePath.length > 500 || targetPath.length > 500) {
+    return NextResponse.json({ error: "Invalid path format" }, { status: 400 });
   }
 
   if (!["references", "supersedes", "related"].includes(linkType)) {

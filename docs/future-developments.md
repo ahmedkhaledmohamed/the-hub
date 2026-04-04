@@ -203,7 +203,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 | ✅ 2 | Incremental scanning (mtime + hash check) | High | Medium |
 | ✅ 3 | OpenAPI spec auto-generation | Medium | Low |
 | ✅ 4 | Rate limiting middleware | Medium | Low |
-| 5 | Input validation on all POST endpoints | Medium | Low |
+| ✅ 5 | Input validation on all POST endpoints | Medium | Low |
 
 ### Short-term (1-2 months)
 
