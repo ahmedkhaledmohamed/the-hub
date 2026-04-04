@@ -17,7 +17,19 @@ export interface HubConfig {
   contexts?: ContextConfig[];
   sharing?: SharingConfig;
   federation?: FederationConfig;
+  governance?: GovernanceConfig;
 }
+
+export interface GovernanceConfig {
+  /** Auto-archive docs older than N days */
+  retentionPolicy?: { maxDays: number; action: "archive" | "flag" };
+  /** Compliance tags that can be applied to artifacts */
+  complianceTags?: string[];
+  /** Enable audit logging */
+  auditLog?: boolean;
+}
+
+export type ComplianceTag = "pii" | "confidential" | "internal" | "public" | string;
 
 export interface FederationConfig {
   /** Peer Hub instances to federate with */
