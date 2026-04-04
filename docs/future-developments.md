@@ -225,7 +225,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 | ✅ 14 | Conflict detection between docs | High | High |
 | ✅ 15 | Onboarding path generation | Medium | Medium |
 | ✅ 16 | Knowledge decay detection | Medium | Medium |
-| 17 | Review request system | Medium | High |
+| ✅ 17 | Review request system | Medium | High |
 | 18 | Vector index (sqlite-vec) | Medium | Medium |
 | 19 | Decision tracking with AI extraction | High | High |
 
