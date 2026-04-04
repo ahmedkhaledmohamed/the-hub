@@ -187,3 +187,140 @@ describe("panel types", () => {
     });
   });
 });
+
+// ── Plugin system tests ────────────────────────────────────────────
+
+import type { HubPlugin, Artifact, Manifest } from "@/lib/types";
+import {
+  registerPlugin,
+  unregisterPlugin,
+  getLoadedPlugins,
+  getPluginCount,
+  runOnScan,
+  runOnSearch,
+  runOnRender,
+} from "@/lib/plugin-registry";
+
+describe("plugin system", () => {
+  const testPlugin: HubPlugin = {
+    name: "test-plugin",
+    version: "1.0.0",
+    description: "Test plugin for unit tests",
+
+    onScan: () => [{
+      path: "plugin:test/virtual",
+      title: "Virtual Artifact",
+      type: "md",
+      group: "other",
+      modifiedAt: new Date().toISOString(),
+      size: 0,
+      staleDays: 0,
+    }],
+
+    onSearch: (query) => {
+      if (query.includes("test")) {
+        return [{
+          path: "plugin:test/search-result",
+          title: "Plugin Search Result",
+          type: "md",
+          group: "other",
+          modifiedAt: new Date().toISOString(),
+          size: 0,
+          staleDays: 0,
+        }];
+      }
+      return [];
+    },
+
+    onRender: () => [{
+      type: "custom" as const,
+      title: "Test Plugin Panel",
+      markdown: "# Hello from test plugin",
+    }],
+  };
+
+  afterEach(() => {
+    unregisterPlugin("test-plugin");
+  });
+
+  describe("registerPlugin", () => {
+    it("registers and retrieves a plugin", () => {
+      registerPlugin(testPlugin);
+      expect(getPluginCount()).toBeGreaterThanOrEqual(1);
+      const loaded = getLoadedPlugins();
+      expect(loaded.some((p) => p.name === "test-plugin")).toBe(true);
+    });
+  });
+
+  describe("unregisterPlugin", () => {
+    it("removes a plugin", () => {
+      registerPlugin(testPlugin);
+      const before = getPluginCount();
+      unregisterPlugin("test-plugin");
+      expect(getPluginCount()).toBe(before - 1);
+    });
+  });
+
+  describe("runOnScan", () => {
+    it("collects virtual artifacts from plugins", async () => {
+      registerPlugin(testPlugin);
+      const manifest: Manifest = {
+        generatedAt: new Date().toISOString(),
+        workspaces: [],
+        groups: [],
+        artifacts: [],
+      };
+      const artifacts = await runOnScan(manifest);
+      expect(artifacts.length).toBeGreaterThanOrEqual(1);
+      expect(artifacts[0].path).toBe("plugin:test/virtual");
+    });
+  });
+
+  describe("runOnSearch", () => {
+    it("extends search results for matching queries", async () => {
+      registerPlugin(testPlugin);
+      const results = await runOnSearch("test query", []);
+      expect(results.some((r) => r.path === "plugin:test/search-result")).toBe(true);
+    });
+
+    it("returns empty for non-matching queries", async () => {
+      registerPlugin(testPlugin);
+      const results = await runOnSearch("nothing", []);
+      expect(results.length).toBe(0);
+    });
+  });
+
+  describe("runOnRender", () => {
+    it("collects panel configs from plugins", async () => {
+      registerPlugin(testPlugin);
+      const panels = await runOnRender();
+      expect(panels.length).toBeGreaterThanOrEqual(1);
+      expect(panels.some((p) => p.title === "Test Plugin Panel")).toBe(true);
+    });
+  });
+
+  describe("HubPlugin interface", () => {
+    it("accepts minimal plugin (name + version only)", () => {
+      const minimal: HubPlugin = { name: "minimal", version: "0.1.0" };
+      registerPlugin(minimal);
+      expect(getLoadedPlugins().some((p) => p.name === "minimal")).toBe(true);
+      unregisterPlugin("minimal");
+    });
+
+    it("accepts plugin with all hooks", () => {
+      const full: HubPlugin = {
+        name: "full",
+        version: "1.0.0",
+        description: "Full plugin",
+        onInit: () => {},
+        onScan: () => [],
+        onSearch: () => [],
+        onRender: () => [],
+        onDestroy: () => {},
+      };
+      registerPlugin(full);
+      expect(getLoadedPlugins().some((p) => p.name === "full")).toBe(true);
+      unregisterPlugin("full");
+    });
+  });
+});

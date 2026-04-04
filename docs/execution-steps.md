@@ -140,7 +140,7 @@ Add an Ollama provider to `ai-client.ts`. Auto-detect a running Ollama instance 
 
 ## Phase 3: Platform
 
-### Step 18 — Plugin system
+### ✅ Step 18 — Plugin system
 Define `HubPlugin` interface in `src/lib/types.ts`: `name`, `version`, lifecycle hooks (`onScan`, `onIndex`, `onSearch`, `onRender`). Create `src/lib/plugin-registry.ts` that loads plugins from `plugins/` directory (each plugin is a directory with `index.ts` exporting a `HubPlugin`). Plugins can: contribute new file type extractors, add panel renderers, provide virtual artifacts (from external sources), extend search results. Create an example plugin (`plugins/hello-world/`) that adds a simple panel.
 
 **Acceptance**: Dropping a plugin into `plugins/` and restarting The Hub loads it. The hello-world plugin renders a panel.
