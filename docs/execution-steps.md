@@ -31,7 +31,7 @@ Create `/api/search?q=` endpoint that queries the FTS5 index. Return ranked resu
 
 ---
 
-### Step 3 — Expanded file type support
+### ✅ Step 3 — Expanded file type support
 Refactor `scanner.ts` to use an extractor registry pattern. Each extractor handles: can-it-process (by extension), extract-title, extract-text-content, render-preview. Add extractors for `.txt`, `.json`, `.yaml`, `.toml`. Add `pdf-parse` dependency and a PDF extractor. Add `mammoth` dependency and a `.docx` extractor. Code files (`.ts`, `.py`, `.go`, `.rs`, etc.) get syntax-highlighted preview via existing `highlight.js`.
 
 **Acceptance**: A PDF file in a configured workspace appears in the artifact list, is searchable by content, and renders a text preview.

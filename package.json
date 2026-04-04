@@ -29,6 +29,7 @@
     "marked-highlight": "^2.2.1",
     "minimatch": "^10.2.5",
     "next": "^15.3.0",
+    "pdf-parse": "^2.4.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.0.2"
