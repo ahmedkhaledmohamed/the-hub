@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchArtifacts } from "@/lib/db";
 import { hybridSearch, getEmbeddingCount } from "@/lib/embeddings";
+import { trackSearch } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
 
   if (useHybrid) {
     const results = await hybridSearch(q, cappedLimit);
+    try { trackSearch(q, results.length); } catch { /* non-fatal */ }
     return NextResponse.json({
       query: q,
       mode: "hybrid",
@@ -38,6 +40,7 @@ export async function GET(req: NextRequest) {
 
   // FTS-only fallback
   const results = searchArtifacts(q, cappedLimit);
+  try { trackSearch(q, results.length); } catch { /* non-fatal */ }
   return NextResponse.json({
     query: q,
     mode: "fts",
