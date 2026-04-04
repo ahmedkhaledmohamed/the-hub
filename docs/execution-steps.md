@@ -75,7 +75,7 @@ Create `scripts/import-notion.ts`: reads a Notion export zip, converts pages to 
 
 ## Phase 2: Intelligence
 
-### Step 9 — AI client abstraction
+### ✅ Step 9 — AI client abstraction
 Extract the AI gateway logic from `src/app/api/hygiene/review/route.ts` into a shared `src/lib/ai-client.ts` module. Support configurable providers (OpenAI-compatible, Anthropic native, Ollama). Add streaming via Server-Sent Events. Add response caching in SQLite with configurable TTL. Config: `ai.provider`, `ai.model`, `ai.apiKey`, `ai.baseUrl` in env vars.
 
 **Acceptance**: The hygiene review endpoint uses the shared client. A new `/api/ai/complete` endpoint accepts arbitrary prompts and streams responses.
