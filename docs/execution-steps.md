@@ -89,7 +89,7 @@ Add a summarization pipeline that uses the AI client. On scan, for artifacts lon
 
 ---
 
-### Step 11 — Semantic search with embeddings
+### ✅ Step 11 — Semantic search with embeddings
 Add embedding generation to the scan pipeline. Use the AI client to embed artifact content (chunked at ~500 tokens). Store embeddings in SQLite via `sqlite-vec` extension or a separate HNSW index file. Create a hybrid search function that combines FTS5 BM25 scores with cosine similarity. Update `/api/search` to use hybrid ranking. Update the MCP server's search tool to use hybrid search.
 
 **Acceptance**: Searching "how do we handle enterprise customers" returns the pricing strategy doc even if it never uses those exact words.
