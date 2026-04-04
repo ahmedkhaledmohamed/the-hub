@@ -1,8 +1,9 @@
-import type { Manifest } from "./types";
+import type { Manifest, HubConfig } from "./types";
 import { loadConfig, getResolvedWorkspacePaths, invalidateConfigCache } from "./config";
 import { scan } from "./scanner";
 import { persistArtifacts } from "./db";
 import { recordSnapshot } from "./trends";
+import { readPreferences } from "./preferences";
 import path from "path";
 
 let cachedManifest: Manifest | null = null;
@@ -26,12 +27,27 @@ export function getManifest(): Manifest {
   return cachedManifest!;
 }
 
+function getEffectiveConfig(): HubConfig {
+  const config = loadConfig();
+  const prefs = readPreferences();
+  if (prefs.scannerExclude?.length) {
+    return {
+      ...config,
+      scanner: {
+        ...config.scanner,
+        skipDirs: [...(config.scanner?.skipDirs || []), ...prefs.scannerExclude],
+      },
+    };
+  }
+  return config;
+}
+
 export function regenerate(reason: string = "manual"): Manifest {
   if (isScanning) return cachedManifest!;
   isScanning = true;
 
   try {
-    const config = loadConfig();
+    const config = getEffectiveConfig();
     const result = scan(config, { withContent: true });
     cachedManifest = result.manifest;
     cachedManifest.lastScanReason = reason;
