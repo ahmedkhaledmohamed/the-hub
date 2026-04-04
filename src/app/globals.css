@@ -52,3 +52,17 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-dim);
 }
+
+/* PWA / Mobile */
+@media (max-width: 768px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (display-mode: standalone) {
+  /* Extra padding for notch/status bar in PWA mode */
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}

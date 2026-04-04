@@ -1,16 +1,31 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { HubProvider } from "@/components/providers/hub-provider";
 import { HubShell } from "@/components/layout/hub-shell";
+import { PwaRegister } from "@/components/pwa-register";
 import { getClientConfig } from "@/lib/config-client";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#3b82f6",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getClientConfig();
   return {
     title: config.name,
     description: "A personal command center — your starting point.",
+    manifest: "/manifest.json",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: config.name,
+    },
   };
 }
 
@@ -33,6 +48,7 @@ export default async function RootLayout({
           <main className="flex-1 overflow-y-auto">{children}</main>
           <CommandPalette />
           <HubShell />
+          <PwaRegister />
         </HubProvider>
       </body>
     </html>

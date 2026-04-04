@@ -1,0 +1,22 @@
+{
+  "name": "The Hub",
+  "short_name": "Hub",
+  "description": "Your personal command center — search, browse, and navigate your workspace",
+  "start_url": "/briefing",
+  "display": "standalone",
+  "background_color": "#050508",
+  "theme_color": "#3b82f6",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

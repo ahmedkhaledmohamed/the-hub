@@ -184,7 +184,7 @@ Create `src/lib/events.ts` with an internal event bus. Events: `scan.complete`, 
 
 ## Phase 4: Network
 
-### Step 24 — Mobile PWA
+### ✅ Step 24 — Mobile PWA
 Add `manifest.json` to `docs/` (or `public/` for the Next.js app) with app name, icons, theme color. Add a service worker that caches the shell and recent API responses. Make the existing UI responsive for mobile viewports (the layout already mostly works — fix any overflow/touch issues). Add a `/briefing` route that works well on small screens. Test on iOS Safari and Android Chrome.
 
 **Acceptance**: Adding The Hub to your phone's home screen opens a full-screen app-like experience with the morning briefing.
