@@ -404,3 +404,101 @@ describe("GitHub plugin", () => {
     });
   });
 });
+
+// ── Marketplace tests ──────────────────────────────────────────────
+
+import {
+  getMarketplacePlugins,
+  searchMarketplace,
+  getInstalledPlugins,
+  isPluginInstalled,
+  installPlugin,
+  uninstallPlugin,
+} from "@/lib/marketplace";
+
+describe("plugin marketplace", () => {
+  describe("getMarketplacePlugins", () => {
+    it("returns builtin plugins", () => {
+      const plugins = getMarketplacePlugins();
+      expect(plugins.length).toBeGreaterThanOrEqual(2);
+      expect(plugins.some((p) => p.name === "hello-world")).toBe(true);
+      expect(plugins.some((p) => p.name === "github")).toBe(true);
+    });
+
+    it("plugins have required fields", () => {
+      for (const p of getMarketplacePlugins()) {
+        expect(p.name).toBeTruthy();
+        expect(p.displayName).toBeTruthy();
+        expect(p.description).toBeTruthy();
+        expect(p.version).toBeTruthy();
+        expect(typeof p.installed).toBe("boolean");
+      }
+    });
+
+    it("marks installed plugins", () => {
+      const plugins = getMarketplacePlugins();
+      const hw = plugins.find((p) => p.name === "hello-world");
+      expect(hw?.installed).toBe(true); // hello-world exists in plugins/
+    });
+  });
+
+  describe("searchMarketplace", () => {
+    it("finds plugins by name", () => {
+      expect(searchMarketplace("github").some((p) => p.name === "github")).toBe(true);
+    });
+
+    it("finds plugins by tag", () => {
+      expect(searchMarketplace("issues").some((p) => p.name === "github")).toBe(true);
+    });
+
+    it("returns empty for no matches", () => {
+      expect(searchMarketplace("xyznonexistent")).toEqual([]);
+    });
+  });
+
+  describe("getInstalledPlugins", () => {
+    it("returns array of installed plugin names", () => {
+      const installed = getInstalledPlugins();
+      expect(Array.isArray(installed)).toBe(true);
+      expect(installed).toContain("hello-world");
+      expect(installed).toContain("github");
+    });
+  });
+
+  describe("isPluginInstalled", () => {
+    it("returns true for installed plugins", () => {
+      expect(isPluginInstalled("hello-world")).toBe(true);
+    });
+
+    it("returns false for uninstalled plugins", () => {
+      expect(isPluginInstalled("nonexistent-plugin")).toBe(false);
+    });
+  });
+
+  describe("installPlugin", () => {
+    it("reports builtin plugins as already installed", () => {
+      const result = installPlugin("hello-world");
+      expect(result.name).toBe("hello-world");
+      expect(result.message).toContain("already installed");
+    });
+
+    it("returns failure for unknown npm packages", () => {
+      const result = installPlugin("definitely-not-a-real-hub-plugin-xyz");
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("uninstallPlugin", () => {
+    it("prevents uninstalling builtins", () => {
+      const result = uninstallPlugin("hello-world");
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("builtin");
+    });
+
+    it("reports not-installed for missing plugins", () => {
+      const result = uninstallPlugin("nonexistent-plugin");
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("not installed");
+    });
+  });
+});
