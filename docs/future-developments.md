@@ -199,7 +199,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 
 | # | Feature | Impact | Effort |
 |---|---|---|---|
-| 1 | Pagination on `/api/search` and `/api/manifest` | High | Low |
+| ✅ 1 | Pagination on `/api/search` and `/api/manifest` | High | Low |
 | 2 | Incremental scanning (mtime + hash check) | High | Medium |
 | 3 | OpenAPI spec auto-generation | Medium | Low |
 | 4 | Rate limiting middleware | Medium | Low |
