@@ -274,6 +274,8 @@ export interface DiffLine {
   content: string;
 }
 
+export type TriageLevel = "routine" | "attention" | "breaking" | "unknown";
+
 export interface ChangeFeedEntry {
   path: string;
   title: string;
@@ -281,6 +283,8 @@ export interface ChangeFeedEntry {
   group: string;
   modifiedAt?: string;
   diff?: DiffLine[];
+  triage?: TriageLevel;
+  triageReason?: string;
 }
 
 // ── Framework integration types ────────────────────────────────────────

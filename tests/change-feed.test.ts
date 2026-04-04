@@ -500,3 +500,67 @@ describe("job queue", () => {
     });
   });
 });
+
+// ── AI triage tests ────────────────────────────────────────────────
+
+import { triageByHeuristic, triageSummary } from "@/lib/triage";
+import type { ChangeFeedEntry } from "@/lib/types";
+
+describe("AI change feed triage", () => {
+  describe("triageByHeuristic", () => {
+    it("flags deleted files as attention", () => {
+      const entry: ChangeFeedEntry = { path: "t/deleted.md", title: "Deleted", type: "deleted", group: "docs" };
+      const result = triageByHeuristic(entry);
+      expect(result.level).toBe("attention");
+      expect(result.reason).toContain("deleted");
+    });
+
+    it("flags new files in critical groups as attention", () => {
+      const entry: ChangeFeedEntry = { path: "t/new.md", title: "New", type: "added", group: "strategy" };
+      const result = triageByHeuristic(entry);
+      expect(result.level).toBe("attention");
+    });
+
+    it("flags large diffs as attention", () => {
+      const diff = Array.from({ length: 25 }, (_, i) => ({ type: "added" as const, content: `line ${i}` }));
+      const entry: ChangeFeedEntry = { path: "t/big.md", title: "Big", type: "modified", group: "docs", diff };
+      const result = triageByHeuristic(entry);
+      expect(result.level).toBe("attention");
+      expect(result.reason).toContain("rewrite");
+    });
+
+    it("classifies normal additions as routine", () => {
+      const entry: ChangeFeedEntry = { path: "t/normal.md", title: "Normal", type: "added", group: "docs" };
+      const result = triageByHeuristic(entry);
+      expect(result.level).toBe("routine");
+    });
+
+    it("classifies minor modifications as routine", () => {
+      const entry: ChangeFeedEntry = { path: "t/minor.md", title: "Minor", type: "modified", group: "docs" };
+      const result = triageByHeuristic(entry);
+      expect(result.level).toBe("routine");
+    });
+  });
+
+  describe("triageSummary", () => {
+    it("counts triage levels", () => {
+      const entries: ChangeFeedEntry[] = [
+        { path: "a", title: "A", type: "added", group: "docs", triage: "routine" },
+        { path: "b", title: "B", type: "modified", group: "docs", triage: "attention" },
+        { path: "c", title: "C", type: "deleted", group: "docs", triage: "breaking" },
+        { path: "d", title: "D", type: "modified", group: "docs" }, // no triage = unknown
+      ];
+      const summary = triageSummary(entries);
+      expect(summary.routine).toBe(1);
+      expect(summary.attention).toBe(1);
+      expect(summary.breaking).toBe(1);
+      expect(summary.unknown).toBe(1);
+    });
+
+    it("handles empty list", () => {
+      const summary = triageSummary([]);
+      expect(summary.routine).toBe(0);
+      expect(summary.attention).toBe(0);
+    });
+  });
+});
