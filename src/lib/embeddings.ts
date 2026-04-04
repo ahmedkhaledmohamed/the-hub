@@ -86,34 +86,52 @@ export function chunkText(text: string, maxChunkSize = CHUNK_SIZE): string[] {
 // ── Embedding generation ───────────────────────────────────────────
 
 export async function generateEmbedding(text: string): Promise<number[] | null> {
+  // Try explicit gateway first
   const gatewayUrl = process.env.AI_GATEWAY_URL;
   const apiKey = process.env.AI_GATEWAY_KEY;
 
-  if (!gatewayUrl || !apiKey) return null;
-
-  // Derive embeddings endpoint from chat completions URL
-  const embeddingsUrl = gatewayUrl.replace(/\/chat\/completions\/?$/, "/embeddings");
-
-  try {
-    const res = await fetch(embeddingsUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.AI_EMBEDDING_MODEL || "text-embedding-3-small",
-        input: text.slice(0, 8000),
-      }),
-    });
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    return data.data?.[0]?.embedding || null;
-  } catch {
-    return null;
+  if (gatewayUrl && apiKey) {
+    const embeddingsUrl = gatewayUrl.replace(/\/chat\/completions\/?$/, "/embeddings");
+    try {
+      const res = await fetch(embeddingsUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.AI_EMBEDDING_MODEL || "text-embedding-3-small",
+          input: text.slice(0, 8000),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.data?.[0]?.embedding || null;
+      }
+    } catch { /* fall through to Ollama */ }
   }
+
+  // Try Ollama embeddings
+  if (process.env.AI_PROVIDER === "ollama" || (!gatewayUrl && !apiKey)) {
+    const ollamaUrl = process.env.OLLAMA_URL?.replace(/\/v1\/chat\/completions\/?$/, "") || "http://localhost:11434";
+    try {
+      const res = await fetch(`${ollamaUrl}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: process.env.AI_EMBEDDING_MODEL || "nomic-embed-text",
+          prompt: text.slice(0, 8000),
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.embedding || null;
+      }
+    } catch { /* no embeddings available */ }
+  }
+
+  return null;
 }
 
 // ── Storage ────────────────────────────────────────────────────────

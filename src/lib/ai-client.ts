@@ -49,21 +49,92 @@ export interface AiStreamChunk {
 // ── Configuration ──────────────────────────────────────────────────
 
 const DEFAULT_MODEL = "claude-sonnet-4-5";
+const OLLAMA_URL = "http://localhost:11434/v1/chat/completions";
+const OLLAMA_DEFAULT_MODEL = "llama3";
+
+let ollamaDetected: boolean | null = null; // cached detection result
+
+/**
+ * Check if Ollama is running locally.
+ * Result is cached for the process lifetime.
+ */
+export async function detectOllama(): Promise<boolean> {
+  if (ollamaDetected !== null) return ollamaDetected;
+
+  try {
+    const res = await fetch("http://localhost:11434/api/tags", {
+      signal: AbortSignal.timeout(2000),
+    });
+    ollamaDetected = res.ok;
+  } catch {
+    ollamaDetected = false;
+  }
+  return ollamaDetected;
+}
+
+/**
+ * Synchronous check — returns cached Ollama detection result.
+ * Returns false if detection hasn't run yet.
+ */
+export function isOllamaDetected(): boolean {
+  return ollamaDetected === true;
+}
+
+/**
+ * Reset Ollama detection cache (useful for testing).
+ */
+export function resetOllamaDetection(): void {
+  ollamaDetected = null;
+}
 
 export function getAiConfig(): AiConfig | null {
+  // Explicit disable
+  if (process.env.AI_PROVIDER === "none") return null;
+
+  // Explicit env var config takes priority
   const gatewayUrl = process.env.AI_GATEWAY_URL;
   const apiKey = process.env.AI_GATEWAY_KEY;
 
-  if (!gatewayUrl || !apiKey) return null;
+  if (gatewayUrl && apiKey) {
+    return {
+      gatewayUrl,
+      apiKey,
+      model: process.env.AI_MODEL || DEFAULT_MODEL,
+    };
+  }
 
-  return {
-    gatewayUrl,
-    apiKey,
-    model: process.env.AI_MODEL || DEFAULT_MODEL,
-  };
+  // Explicit Ollama provider config
+  if (process.env.AI_PROVIDER === "ollama") {
+    return {
+      gatewayUrl: process.env.OLLAMA_URL || OLLAMA_URL,
+      apiKey: "ollama", // Ollama doesn't require a key but the header is sent
+      model: process.env.AI_MODEL || OLLAMA_DEFAULT_MODEL,
+    };
+  }
+
+  // Auto-detected Ollama (cached sync check)
+  if (ollamaDetected === true) {
+    return {
+      gatewayUrl: OLLAMA_URL,
+      apiKey: "ollama",
+      model: process.env.AI_MODEL || OLLAMA_DEFAULT_MODEL,
+    };
+  }
+
+  return null;
 }
 
 export function isAiConfigured(): boolean {
+  return getAiConfig() !== null;
+}
+
+/**
+ * Async version that runs Ollama detection if needed.
+ */
+export async function ensureAiConfigured(): Promise<boolean> {
+  if (getAiConfig()) return true;
+  // Try Ollama auto-detection
+  await detectOllama();
   return getAiConfig() !== null;
 }
 
@@ -120,17 +191,22 @@ function setCachedResponse(cacheKey: string, response: string, model: string, tt
 // ── Completion (non-streaming) ─────────────────────────────────────
 
 export async function complete(options: AiCompletionOptions): Promise<AiCompletionResult> {
-  const config = getAiConfig();
-
   // Check cache first
   if (options.cacheKey) {
     const cached = getCachedResponse(options.cacheKey);
     if (cached) return cached;
   }
 
+  // Try to get config, with Ollama auto-detection fallback
+  let config = getAiConfig();
+  if (!config) {
+    await detectOllama();
+    config = getAiConfig();
+  }
+
   if (!config) {
     return {
-      content: `**AI unavailable** — no \`AI_GATEWAY_URL\` configured.\n\nSet \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\` in \`.env.local\` to enable AI features.`,
+      content: `**AI unavailable** — no \`AI_GATEWAY_URL\` configured and no local Ollama detected.\n\nOptions:\n1. Set \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\` in \`.env.local\`\n2. Install and run [Ollama](https://ollama.com) locally (auto-detected)`,
       cached: false,
       model: "none",
     };
@@ -192,10 +268,14 @@ export async function complete(options: AiCompletionOptions): Promise<AiCompleti
 // ── Streaming ──────────────────────────────────────────────────────
 
 export async function* stream(options: AiCompletionOptions): AsyncGenerator<AiStreamChunk> {
-  const config = getAiConfig();
+  let config = getAiConfig();
+  if (!config) {
+    await detectOllama();
+    config = getAiConfig();
+  }
 
   if (!config) {
-    yield { content: "AI unavailable — no AI_GATEWAY_URL configured.", done: true };
+    yield { content: "AI unavailable — no AI gateway configured and no local Ollama detected.", done: true };
     return;
   }
 

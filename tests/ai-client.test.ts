@@ -2,12 +2,30 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getAiConfig,
   isAiConfigured,
+  isOllamaDetected,
+  resetOllamaDetection,
   complete,
   ask,
   promptCacheKey,
 } from "@/lib/ai-client";
 
+// Save original env at module load
+const origEnv = {
+  AI_GATEWAY_URL: process.env.AI_GATEWAY_URL,
+  AI_GATEWAY_KEY: process.env.AI_GATEWAY_KEY,
+  AI_MODEL: process.env.AI_MODEL,
+  AI_PROVIDER: process.env.AI_PROVIDER,
+};
+
 describe("ai-client", () => {
+  afterEach(() => {
+    // Restore all AI env vars after each test
+    for (const [key, val] of Object.entries(origEnv)) {
+      if (val !== undefined) process.env[key] = val;
+      else delete process.env[key];
+    }
+    resetOllamaDetection();
+  });
   describe("getAiConfig", () => {
     it("returns null when env vars are not set", () => {
       const origUrl = process.env.AI_GATEWAY_URL;
@@ -62,16 +80,68 @@ describe("ai-client", () => {
   });
 
   describe("isAiConfigured", () => {
-    it("returns false when not configured", () => {
+    it("returns false when not configured and no Ollama", () => {
       const origUrl = process.env.AI_GATEWAY_URL;
       const origKey = process.env.AI_GATEWAY_KEY;
+      const origProvider = process.env.AI_PROVIDER;
       delete process.env.AI_GATEWAY_URL;
       delete process.env.AI_GATEWAY_KEY;
+      delete process.env.AI_PROVIDER;
+      resetOllamaDetection();
 
       expect(isAiConfigured()).toBe(false);
 
       if (origUrl) process.env.AI_GATEWAY_URL = origUrl;
       if (origKey) process.env.AI_GATEWAY_KEY = origKey;
+      if (origProvider) process.env.AI_PROVIDER = origProvider;
+    });
+  });
+
+  describe("Ollama provider", () => {
+    it("uses Ollama when AI_PROVIDER=ollama", () => {
+      const origUrl = process.env.AI_GATEWAY_URL;
+      const origKey = process.env.AI_GATEWAY_KEY;
+      const origProvider = process.env.AI_PROVIDER;
+      const origModel = process.env.AI_MODEL;
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+      process.env.AI_PROVIDER = "ollama";
+      delete process.env.AI_MODEL;
+
+      const config = getAiConfig();
+      expect(config).not.toBeNull();
+      expect(config!.gatewayUrl).toContain("localhost:11434");
+      expect(config!.model).toBe("llama3");
+      expect(config!.apiKey).toBe("ollama");
+
+      if (origUrl) process.env.AI_GATEWAY_URL = origUrl; else delete process.env.AI_GATEWAY_URL;
+      if (origKey) process.env.AI_GATEWAY_KEY = origKey; else delete process.env.AI_GATEWAY_KEY;
+      if (origProvider) process.env.AI_PROVIDER = origProvider; else delete process.env.AI_PROVIDER;
+      if (origModel) process.env.AI_MODEL = origModel; else delete process.env.AI_MODEL;
+    });
+
+    it("explicit gateway takes priority over Ollama", () => {
+      process.env.AI_GATEWAY_URL = "https://custom.api.com/v1/chat/completions";
+      process.env.AI_GATEWAY_KEY = "custom-key";
+      process.env.AI_PROVIDER = "ollama";
+
+      const config = getAiConfig();
+      expect(config!.gatewayUrl).toBe("https://custom.api.com/v1/chat/completions");
+      expect(config!.apiKey).toBe("custom-key");
+
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+      delete process.env.AI_PROVIDER;
+    });
+
+    it("resetOllamaDetection clears cached result", () => {
+      resetOllamaDetection();
+      expect(isOllamaDetected()).toBe(false);
+    });
+
+    it("isOllamaDetected returns false before detection", () => {
+      resetOllamaDetection();
+      expect(isOllamaDetected()).toBe(false);
     });
   });
 
@@ -81,6 +151,7 @@ describe("ai-client", () => {
       const origKey = process.env.AI_GATEWAY_KEY;
       delete process.env.AI_GATEWAY_URL;
       delete process.env.AI_GATEWAY_KEY;
+      process.env.AI_PROVIDER = "none";
 
       const result = await complete({
         messages: [{ role: "user", content: "Hello" }],
@@ -143,6 +214,7 @@ describe("ai-client", () => {
       const origKey = process.env.AI_GATEWAY_KEY;
       delete process.env.AI_GATEWAY_URL;
       delete process.env.AI_GATEWAY_KEY;
+      process.env.AI_PROVIDER = "none";
 
       const result = await complete({
         messages: [{ role: "user", content: "test" }],
@@ -164,6 +236,7 @@ describe("ai-client", () => {
       const origKey = process.env.AI_GATEWAY_KEY;
       delete process.env.AI_GATEWAY_URL;
       delete process.env.AI_GATEWAY_KEY;
+      process.env.AI_PROVIDER = "none";
 
       const result = await ask("Hello world");
       // Without config, returns unavailable
@@ -204,6 +277,14 @@ function makeRagArtifact(overrides: Partial<Artifact>): Artifact {
 }
 
 describe("RAG pipeline", () => {
+  afterEach(() => {
+    for (const [key, val] of Object.entries(origEnv)) {
+      if (val !== undefined) process.env[key] = val;
+      else delete process.env[key];
+    }
+    resetOllamaDetection();
+  });
+
   beforeEach(() => {
     persistArtifacts([
       makeRagArtifact({ path: "rag/roadmap.md", title: "Q2 Roadmap", snippet: "Goals." }),
@@ -219,6 +300,7 @@ describe("RAG pipeline", () => {
     const origKey = process.env.AI_GATEWAY_KEY;
     delete process.env.AI_GATEWAY_URL;
     delete process.env.AI_GATEWAY_KEY;
+    process.env.AI_PROVIDER = "none";
 
     const result = await askWorkspace("What's the Q2 roadmap?");
     expect(result.answer).toContain("AI not configured");
@@ -259,6 +341,14 @@ describe("RAG pipeline", () => {
 import { generate, getTemplates } from "@/lib/generator";
 
 describe("content generation", () => {
+  afterEach(() => {
+    for (const [key, val] of Object.entries(origEnv)) {
+      if (val !== undefined) process.env[key] = val;
+      else delete process.env[key];
+    }
+    resetOllamaDetection();
+  });
+
   describe("getTemplates", () => {
     it("returns all template types", () => {
       const templates = getTemplates();
@@ -290,6 +380,7 @@ describe("content generation", () => {
       const origKey = process.env.AI_GATEWAY_KEY;
       delete process.env.AI_GATEWAY_URL;
       delete process.env.AI_GATEWAY_KEY;
+      process.env.AI_PROVIDER = "none";
 
       const result = await generate({ template: "status-update" });
       expect(result.content).toContain("AI not configured");

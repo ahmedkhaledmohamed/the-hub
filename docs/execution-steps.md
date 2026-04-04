@@ -131,7 +131,7 @@ Track artifact opens in SQLite: `(path, opened_at)`. Track search queries: `(que
 
 ---
 
-### Step 17 — Ollama / local model support
+### ✅ Step 17 — Ollama / local model support
 Add an Ollama provider to `ai-client.ts`. Auto-detect a running Ollama instance at `localhost:11434`. If detected, use it for embeddings and completions without requiring any API key. Add a config toggle: `ai.provider: "ollama"` with `ai.model: "llama3"`. Fall back gracefully if Ollama isn't running. Update the AI review, summarization, Q&A, and generation flows to work with local models.
 
 **Acceptance**: With Ollama running locally, all AI features work without setting any API key or env var.
