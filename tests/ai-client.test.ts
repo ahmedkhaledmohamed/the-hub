@@ -189,3 +189,67 @@ describe("ai-client", () => {
     });
   });
 });
+
+// ── RAG pipeline tests ─────────────────────────────────────────────
+
+import { askWorkspace, buildRagContext } from "@/lib/rag";
+import { persistArtifacts } from "@/lib/db";
+import type { Artifact } from "@/lib/types";
+
+function makeRagArtifact(overrides: Partial<Artifact>): Artifact {
+  return {
+    path: "ws/doc.md", title: "Document", type: "md", group: "docs",
+    modifiedAt: new Date().toISOString(), size: 500, staleDays: 1, ...overrides,
+  };
+}
+
+describe("RAG pipeline", () => {
+  beforeEach(() => {
+    persistArtifacts([
+      makeRagArtifact({ path: "rag/roadmap.md", title: "Q2 Roadmap", snippet: "Goals." }),
+      makeRagArtifact({ path: "rag/pricing.md", title: "Pricing Strategy", snippet: "Tiers." }),
+    ], new Map([
+      ["rag/roadmap.md", "# Q2 Roadmap\n\nShip semantic search, plugin system, mobile PWA.\n\nStatus: on track, 80% complete."],
+      ["rag/pricing.md", "# Pricing\n\nFree, Pro ($12/mo), Enterprise ($80/user). Enterprise includes SSO."],
+    ]), { deleteStale: false });
+  });
+
+  it("returns unavailable when AI not configured", async () => {
+    const origUrl = process.env.AI_GATEWAY_URL;
+    const origKey = process.env.AI_GATEWAY_KEY;
+    delete process.env.AI_GATEWAY_URL;
+    delete process.env.AI_GATEWAY_KEY;
+
+    const result = await askWorkspace("What's the Q2 roadmap?");
+    expect(result.answer).toContain("AI not configured");
+    expect(result.sources).toEqual([]);
+
+    if (origUrl) process.env.AI_GATEWAY_URL = origUrl;
+    if (origKey) process.env.AI_GATEWAY_KEY = origKey;
+  });
+
+  it("buildRagContext creates context from results", () => {
+    const { context, sources } = buildRagContext([
+      { path: "rag/roadmap.md", title: "Q2 Roadmap" },
+      { path: "rag/pricing.md", title: "Pricing Strategy" },
+    ]);
+    expect(context).toContain("Q2 Roadmap");
+    expect(context).toContain("Pricing");
+    expect(sources.length).toBe(2);
+  });
+
+  it("buildRagContext skips missing artifacts", () => {
+    const { sources } = buildRagContext([
+      { path: "rag/nonexistent.md", title: "Missing" },
+      { path: "rag/roadmap.md", title: "Q2 Roadmap" },
+    ]);
+    expect(sources.length).toBe(1);
+    expect(sources[0].title).toBe("Q2 Roadmap");
+  });
+
+  it("buildRagContext returns empty for no results", () => {
+    const { context, sources } = buildRagContext([]);
+    expect(context).toBe("");
+    expect(sources).toEqual([]);
+  });
+});
