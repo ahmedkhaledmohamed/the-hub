@@ -147,7 +147,7 @@ Define `HubPlugin` interface in `src/lib/types.ts`: `name`, `version`, lifecycle
 
 ---
 
-### Step 19 — GitHub plugin
+### ✅ Step 19 — GitHub plugin
 Create `plugins/github/` that uses the GitHub API (via personal access token in env) to: show PR status and issue counts on repo cards, add a "GitHub Activity" panel type showing recent PRs/issues, contribute open issues as virtual artifacts searchable via Cmd+K. Respects rate limits, caches responses in SQLite.
 
 **Acceptance**: Repo cards show PR count badges. Open GitHub issues appear in search results.
