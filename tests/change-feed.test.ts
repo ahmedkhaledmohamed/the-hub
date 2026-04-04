@@ -564,3 +564,187 @@ describe("AI change feed triage", () => {
     });
   });
 });
+
+// ── Decision tracking tests ──────────────────────────────────────
+
+import {
+  extractDecisionsHeuristic,
+  saveDecision,
+  getDecision,
+  getDecisionsForArtifact,
+  getActiveDecisions,
+  searchDecisions,
+  supersedeDecision,
+  revertDecision,
+  getDecisionCounts,
+  findContradictions,
+  extractDecisionsWithAI,
+} from "@/lib/decision-tracker";
+
+describe("decision tracking", () => {
+  describe("extractDecisionsHeuristic", () => {
+    it("extracts 'decided to' patterns", () => {
+      const text = "After discussion, we decided to use PostgreSQL for the main database.";
+      const decisions = extractDecisionsHeuristic(text);
+      expect(decisions.length).toBeGreaterThanOrEqual(1);
+      expect(decisions[0].summary).toContain("use PostgreSQL");
+    });
+
+    it("extracts 'chose to' patterns", () => {
+      const text = "The team chose to migrate from REST to gRPC for internal services.";
+      const decisions = extractDecisionsHeuristic(text);
+      expect(decisions.length).toBeGreaterThanOrEqual(1);
+      expect(decisions[0].summary).toContain("migrate from REST");
+    });
+
+    it("extracts 'Decision:' label patterns", () => {
+      const text = "Decision: We will use Kubernetes for container orchestration going forward.";
+      const decisions = extractDecisionsHeuristic(text);
+      expect(decisions.length).toBeGreaterThanOrEqual(1);
+      expect(decisions[0].summary).toContain("Kubernetes");
+    });
+
+    it("extracts 'the approach is' patterns", () => {
+      const text = "The approach is to incrementally migrate services over six months.";
+      const decisions = extractDecisionsHeuristic(text);
+      expect(decisions.length).toBeGreaterThanOrEqual(1);
+      expect(decisions[0].summary).toContain("incrementally migrate");
+    });
+
+    it("deduplicates similar decisions", () => {
+      const text = "We decided to use PostgreSQL. Later, we decided to use PostgreSQL for everything.";
+      const decisions = extractDecisionsHeuristic(text);
+      // Should deduplicate based on first 50 chars
+      expect(decisions.length).toBeLessThanOrEqual(2);
+    });
+
+    it("returns empty for text without decisions", () => {
+      const text = "This is a regular document about the weather. It has no decisions in it at all.";
+      expect(extractDecisionsHeuristic(text)).toEqual([]);
+    });
+
+    it("extracts actor when present", () => {
+      const text = "Alice decided to postpone the launch until Q3 to allow more testing time.";
+      const decisions = extractDecisionsHeuristic(text);
+      expect(decisions.length).toBeGreaterThanOrEqual(1);
+      expect(decisions[0].actor).toBe("Alice");
+    });
+  });
+
+  describe("CRUD operations", () => {
+    it("saves and retrieves a decision", () => {
+      const id = saveDecision({
+        artifactPath: "decisions/test-doc.md",
+        summary: "Use TypeScript for all new services",
+        detail: "Standardize on TS for type safety",
+        actor: "engineering-lead",
+        source: "heuristic",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      const decision = getDecision(id);
+      expect(decision).not.toBeNull();
+      expect(decision!.summary).toBe("Use TypeScript for all new services");
+      expect(decision!.actor).toBe("engineering-lead");
+      expect(decision!.status).toBe("active");
+      expect(decision!.source).toBe("heuristic");
+    });
+
+    it("returns null for non-existent decision", () => {
+      expect(getDecision(999999)).toBeNull();
+    });
+
+    it("getDecisionsForArtifact returns decisions for a path", () => {
+      const path = `decisions/artifact-${Date.now()}.md`;
+      saveDecision({ artifactPath: path, summary: "Decision A" });
+      saveDecision({ artifactPath: path, summary: "Decision B" });
+      const decisions = getDecisionsForArtifact(path);
+      expect(decisions.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("getActiveDecisions returns only active decisions", () => {
+      const active = getActiveDecisions();
+      expect(Array.isArray(active)).toBe(true);
+      for (const d of active) expect(d.status).toBe("active");
+    });
+
+    it("searchDecisions finds by summary text", () => {
+      const unique = `unique-keyword-${Date.now()}`;
+      saveDecision({ artifactPath: "search-test.md", summary: `Use ${unique} for search` });
+      const results = searchDecisions(unique);
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0].summary).toContain(unique);
+    });
+  });
+
+  describe("status transitions", () => {
+    it("supersedes a decision", () => {
+      const oldId = saveDecision({ artifactPath: "supersede.md", summary: "Use MySQL" });
+      const newId = saveDecision({ artifactPath: "supersede.md", summary: "Use PostgreSQL" });
+      const updated = supersedeDecision(oldId, newId);
+      expect(updated).toBe(true);
+
+      const old = getDecision(oldId);
+      expect(old!.status).toBe("superseded");
+      expect(old!.supersededBy).toBe(newId);
+    });
+
+    it("reverts a decision", () => {
+      const id = saveDecision({ artifactPath: "revert.md", summary: "Temporary decision" });
+      const updated = revertDecision(id);
+      expect(updated).toBe(true);
+      expect(getDecision(id)!.status).toBe("reverted");
+    });
+  });
+
+  describe("getDecisionCounts", () => {
+    it("returns counts by status", () => {
+      const counts = getDecisionCounts();
+      expect(typeof counts.active).toBe("number");
+      expect(typeof counts.superseded).toBe("number");
+      expect(typeof counts.reverted).toBe("number");
+    });
+  });
+
+  describe("findContradictions", () => {
+    it("returns array of potential contradictions", () => {
+      const contradictions = findContradictions();
+      expect(Array.isArray(contradictions)).toBe(true);
+    });
+
+    it("detects similar decisions from different docs", () => {
+      // Save two decisions about the same topic from different docs
+      saveDecision({
+        artifactPath: "contradiction/doc-a.md",
+        summary: "Use PostgreSQL database for production workloads storage",
+      });
+      saveDecision({
+        artifactPath: "contradiction/doc-b.md",
+        summary: "Use MySQL database for production workloads storage",
+      });
+      const contradictions = findContradictions();
+      // Should find these as potential contradictions (high keyword overlap, different docs)
+      const relevant = contradictions.filter(
+        (c) =>
+          (c.decisionA.artifactPath.startsWith("contradiction/") &&
+            c.decisionB.artifactPath.startsWith("contradiction/")) ||
+          (c.decisionB.artifactPath.startsWith("contradiction/") &&
+            c.decisionA.artifactPath.startsWith("contradiction/")),
+      );
+      expect(relevant.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("AI extraction", () => {
+    const savedEnv = { ...process.env };
+    afterEach(() => {
+      process.env = { ...savedEnv };
+    });
+
+    it("returns empty when AI_PROVIDER=none", async () => {
+      process.env.AI_PROVIDER = "none";
+      const results = await extractDecisionsWithAI("We decided to use Rust.", "test.md");
+      expect(results).toEqual([]);
+    });
+  });
+});

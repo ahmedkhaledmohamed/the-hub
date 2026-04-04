@@ -227,7 +227,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 | ✅ 16 | Knowledge decay detection | Medium | Medium |
 | ✅ 17 | Review request system | Medium | High |
 | ✅ 18 | Vector index (sqlite-vec) | Medium | Medium |
-| 19 | Decision tracking with AI extraction | High | High |
+| ✅ 19 | Decision tracking with AI extraction | High | High |
 
 ### Long-term (6+ months)
 
