@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   persistArtifacts,
   searchArtifacts,
@@ -20,7 +20,7 @@ function makeArtifact(overrides: Partial<Artifact>): Artifact {
 }
 
 describe("full-text search", () => {
-  beforeAll(() => {
+  beforeEach(() => {
     // Seed the database with test artifacts that have deep content
     const artifacts = [
       makeArtifact({
