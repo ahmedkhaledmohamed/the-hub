@@ -385,3 +385,196 @@ describe("database migrations", () => {
     expect(getPendingMigrations(db)).toEqual([]);
   });
 });
+
+// ── Vector index tests ───────────────────────────────────────────
+
+import {
+  buildIndex,
+  searchIndex,
+  clearIndex,
+  getIndexSize,
+  isIndexStale,
+  addToIndex,
+  removeFromIndex,
+  getIndexStats,
+  vectorNorm,
+  cosineSimilarityFast,
+} from "@/lib/vector-index";
+
+describe("vector index", () => {
+  const dim = 4;
+
+  // Helper: create a normalized embedding
+  function vec(...values: number[]): number[] {
+    return values;
+  }
+
+  beforeEach(() => {
+    clearIndex();
+  });
+
+  describe("buildIndex", () => {
+    it("loads embeddings and returns count", () => {
+      const count = buildIndex([
+        { path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) },
+        { path: "b.md", chunkIndex: 0, embedding: vec(0, 1, 0, 0) },
+      ]);
+      expect(count).toBe(2);
+      expect(getIndexSize()).toBe(2);
+    });
+
+    it("replaces previous index on rebuild", () => {
+      buildIndex([{ path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) }]);
+      expect(getIndexSize()).toBe(1);
+      buildIndex([
+        { path: "x.md", chunkIndex: 0, embedding: vec(0, 1, 0, 0) },
+        { path: "y.md", chunkIndex: 0, embedding: vec(0, 0, 1, 0) },
+      ]);
+      expect(getIndexSize()).toBe(2);
+    });
+  });
+
+  describe("vectorNorm", () => {
+    it("computes correct L2 norm", () => {
+      const n = vectorNorm(new Float32Array([3, 4]));
+      expect(n).toBeCloseTo(5, 5);
+    });
+
+    it("returns 0 for zero vector", () => {
+      expect(vectorNorm(new Float32Array([0, 0, 0]))).toBe(0);
+    });
+  });
+
+  describe("cosineSimilarityFast", () => {
+    it("returns 1 for identical vectors", () => {
+      const a = new Float32Array([1, 2, 3]);
+      const norm = vectorNorm(a);
+      expect(cosineSimilarityFast(a, norm, a, norm)).toBeCloseTo(1, 5);
+    });
+
+    it("returns 0 for orthogonal vectors", () => {
+      const a = new Float32Array([1, 0]);
+      const b = new Float32Array([0, 1]);
+      expect(cosineSimilarityFast(a, vectorNorm(a), b, vectorNorm(b))).toBeCloseTo(0, 5);
+    });
+
+    it("returns 0 for zero-norm vectors", () => {
+      const a = new Float32Array([0, 0]);
+      const b = new Float32Array([1, 1]);
+      expect(cosineSimilarityFast(a, 0, b, vectorNorm(b))).toBe(0);
+    });
+
+    it("handles mismatched lengths gracefully", () => {
+      const a = new Float32Array([1, 0]);
+      const b = new Float32Array([1, 0, 0]);
+      expect(cosineSimilarityFast(a, vectorNorm(a), b, vectorNorm(b))).toBe(0);
+    });
+  });
+
+  describe("searchIndex", () => {
+    beforeEach(() => {
+      buildIndex([
+        { path: "docs/arch.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) },
+        { path: "docs/arch.md", chunkIndex: 1, embedding: vec(0.9, 0.1, 0, 0) },
+        { path: "docs/pricing.md", chunkIndex: 0, embedding: vec(0, 1, 0, 0) },
+        { path: "code/server.ts", chunkIndex: 0, embedding: vec(0, 0, 1, 0) },
+        { path: "code/client.ts", chunkIndex: 0, embedding: vec(0, 0, 0, 1) },
+      ]);
+    });
+
+    it("returns top-K results sorted by score", () => {
+      const results = searchIndex(vec(1, 0, 0, 0), { topK: 3 });
+      expect(results.length).toBeLessThanOrEqual(3);
+      expect(results[0].path).toBe("docs/arch.md");
+      expect(results[0].score).toBeGreaterThan(results[results.length - 1].score);
+    });
+
+    it("deduplicates by path keeping highest score", () => {
+      const results = searchIndex(vec(1, 0, 0, 0), { topK: 10 });
+      const archResults = results.filter((r) => r.path === "docs/arch.md");
+      expect(archResults.length).toBe(1);
+      // Should keep chunkIndex 0 (exact match, score=1) not chunkIndex 1
+      expect(archResults[0].chunkIndex).toBe(0);
+    });
+
+    it("filters by path prefix", () => {
+      const results = searchIndex(vec(0.5, 0.5, 0.5, 0.5), { pathPrefix: "code/" });
+      for (const r of results) expect(r.path.startsWith("code/")).toBe(true);
+    });
+
+    it("respects minScore threshold", () => {
+      const results = searchIndex(vec(1, 0, 0, 0), { minScore: 0.5 });
+      for (const r of results) expect(r.score).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it("returns empty for zero query", () => {
+      expect(searchIndex(vec(0, 0, 0, 0))).toEqual([]);
+    });
+
+    it("returns empty when index is empty", () => {
+      clearIndex();
+      expect(searchIndex(vec(1, 0, 0, 0))).toEqual([]);
+    });
+  });
+
+  describe("addToIndex / removeFromIndex", () => {
+    it("adds vectors incrementally", () => {
+      buildIndex([{ path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) }]);
+      addToIndex([{ path: "b.md", chunkIndex: 0, embedding: vec(0, 1, 0, 0) }]);
+      expect(getIndexSize()).toBe(2);
+    });
+
+    it("removes vectors by path", () => {
+      buildIndex([
+        { path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) },
+        { path: "a.md", chunkIndex: 1, embedding: vec(0.9, 0.1, 0, 0) },
+        { path: "b.md", chunkIndex: 0, embedding: vec(0, 1, 0, 0) },
+      ]);
+      const removed = removeFromIndex("a.md");
+      expect(removed).toBe(2);
+      expect(getIndexSize()).toBe(1);
+    });
+
+    it("returns 0 when removing non-existent path", () => {
+      buildIndex([{ path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) }]);
+      expect(removeFromIndex("nonexistent.md")).toBe(0);
+    });
+  });
+
+  describe("getIndexStats", () => {
+    it("returns correct stats", () => {
+      buildIndex([
+        { path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) },
+        { path: "a.md", chunkIndex: 1, embedding: vec(0, 1, 0, 0) },
+        { path: "b.md", chunkIndex: 0, embedding: vec(0, 0, 1, 0) },
+      ]);
+      const stats = getIndexStats();
+      expect(stats.vectorCount).toBe(3);
+      expect(stats.uniquePaths).toBe(2);
+      expect(stats.dimensions).toBe(4);
+      expect(stats.builtAt).toBeGreaterThan(0);
+      expect(stats.stale).toBe(false);
+    });
+
+    it("reports empty index", () => {
+      const stats = getIndexStats();
+      expect(stats.vectorCount).toBe(0);
+      expect(stats.uniquePaths).toBe(0);
+      expect(stats.dimensions).toBe(0);
+    });
+  });
+
+  describe("isIndexStale / clearIndex", () => {
+    it("new index is not stale", () => {
+      buildIndex([{ path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) }]);
+      expect(isIndexStale()).toBe(false);
+    });
+
+    it("cleared index is stale", () => {
+      buildIndex([{ path: "a.md", chunkIndex: 0, embedding: vec(1, 0, 0, 0) }]);
+      clearIndex();
+      expect(isIndexStale()).toBe(true);
+      expect(getIndexSize()).toBe(0);
+    });
+  });
+});
