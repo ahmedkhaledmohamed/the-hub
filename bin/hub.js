@@ -133,6 +133,49 @@ async function compileContext() {
   console.log(data.compiled);
 }
 
+async function pluginCmd() {
+  const sub = args[0];
+  if (sub === "install" && args[1]) {
+    const data = await fetchJson("/api/marketplace", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "install", name: args[1] }),
+    });
+    if (data.success) {
+      console.log(`\n  ${green("✓")} ${data.message}\n`);
+    } else {
+      console.error(`\n  ${red("✗")} ${data.message}\n`);
+      process.exit(1);
+    }
+  } else if (sub === "uninstall" && args[1]) {
+    const data = await fetchJson("/api/marketplace", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "uninstall", name: args[1] }),
+    });
+    if (data.success) {
+      console.log(`\n  ${green("✓")} ${data.message}\n`);
+    } else {
+      console.error(`\n  ${red("✗")} ${data.message}\n`);
+    }
+  } else if (sub === "list") {
+    const data = await fetchJson("/api/marketplace");
+    console.log(`\n  Plugin Marketplace (${data.plugins?.length || 0} plugins)\n`);
+    for (const p of data.plugins || []) {
+      const status = p.installed ? green("installed") : dim("available");
+      console.log(`  ${p.displayName} (${p.name}) — ${status}`);
+      console.log(`  ${dim(p.description)}\n`);
+    }
+  } else {
+    console.log(`
+  Plugin commands:
+    hub plugin list                    Browse available plugins
+    hub plugin install <name|url>      Install a plugin
+    hub plugin uninstall <name>        Remove a plugin
+`);
+  }
+}
+
 function help() {
   console.log(`
   The Hub CLI
@@ -142,6 +185,8 @@ function help() {
     hub open [tab]                    Open a tab in the browser
     hub status                        Show workspace status
     hub context compile --group <id>  Compile context for a group
+    hub plugin list                   Browse available plugins
+    hub plugin install <name>         Install a plugin
     hub help                          Show this help
 
   Environment:
@@ -176,6 +221,10 @@ async function main() {
       } else {
         help();
       }
+      break;
+    case "plugin":
+      args.shift();
+      await pluginCmd();
       break;
     case "help":
     case "--help":

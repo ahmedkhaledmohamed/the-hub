@@ -226,7 +226,7 @@ Add `governance` config section with: `retentionPolicy` (auto-archive docs older
 
 ---
 
-### Step 30 — Plugin marketplace
+### ✅ Step 30 — Plugin marketplace
 Create a `hub-marketplace` repo/page that lists community plugins with install instructions. Add a `hub plugin install <name>` CLI command that downloads a plugin from npm or a git repo into `plugins/`. Add a "Browse plugins" section in the Hub UI. Revenue split: 70% to plugin author, 30% to platform (for paid plugins).
 
 **Acceptance**: Running `hub plugin install github` downloads and installs the GitHub plugin. The marketplace page lists available plugins.
