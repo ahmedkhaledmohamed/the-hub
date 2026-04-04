@@ -161,7 +161,7 @@ Create `src/lib/agent-scheduler.ts` that runs scheduled and event-driven tasks. 
 
 ---
 
-### Step 21 — MCP server (full)
+### ✅ Step 21 — MCP server (full)
 Expand the MCP server from step 5 with additional tools: `ask_question` (RAG Q&A), `generate_content` (status updates, PRDs), `get_hygiene_report` (duplicate findings), `get_trends` (temporal data), `list_repos` (connected repositories). Add resource support: expose artifacts as MCP resources that Claude can read directly. Register in MCP directories / awesome-mcp lists.
 
 **Acceptance**: Claude Code can ask "generate a status update for my workspace" and The Hub's MCP server produces one using real change feed data.

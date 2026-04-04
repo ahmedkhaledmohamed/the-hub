@@ -122,12 +122,56 @@ describe("MCP server data layer", () => {
       expect(content).toContain("Q2 2026 Roadmap");
     });
 
-    it("search → read: find code file by content", () => {
+    it("search then read: find code file by content", () => {
       const results = searchArtifacts("express");
       expect(results.length).toBeGreaterThanOrEqual(1);
 
       const content = getArtifactContent(results[0].path);
       expect(content).toContain("app.listen");
+    });
+  });
+
+  describe("new MCP tools (Phase 2+)", () => {
+    it("askWorkspace returns result structure", async () => {
+      const { askWorkspace } = await import("@/lib/rag");
+      // With AI_PROVIDER=none, returns unavailable but correct structure
+      process.env.AI_PROVIDER = "none";
+      const result = await askWorkspace("test question");
+      expect(typeof result.answer).toBe("string");
+      expect(Array.isArray(result.sources)).toBe(true);
+      expect(typeof result.model).toBe("string");
+      delete process.env.AI_PROVIDER;
+    });
+
+    it("generate returns result structure", async () => {
+      const { generate } = await import("@/lib/generator");
+      process.env.AI_PROVIDER = "none";
+      const result = await generate({ template: "status-update" });
+      expect(typeof result.content).toBe("string");
+      expect(result.template).toBe("status-update");
+      expect(Array.isArray(result.sourcePaths)).toBe(true);
+      delete process.env.AI_PROVIDER;
+    });
+
+    it("getTrends returns trend data", async () => {
+      const { getTrends } = await import("@/lib/trends");
+      const trends = getTrends(7);
+      expect(Array.isArray(trends.dates)).toBe(true);
+      expect(Array.isArray(trends.total)).toBe(true);
+      expect(Array.isArray(trends.stale)).toBe(true);
+    });
+
+    it("analyzeHygiene returns report structure", async () => {
+      const { analyzeHygiene } = await import("@/lib/hygiene-analyzer");
+      const report = analyzeHygiene([], "2026-01-01");
+      expect(Array.isArray(report.findings)).toBe(true);
+      expect(typeof report.stats.totalFindings).toBe("number");
+    });
+
+    it("discoverRepos returns array", async () => {
+      const { discoverRepos } = await import("@/lib/repo-scanner");
+      const repos = discoverRepos([]);
+      expect(Array.isArray(repos)).toBe(true);
     });
   });
 });
