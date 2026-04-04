@@ -233,7 +233,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 
 | # | Feature | Impact | Effort |
 |---|---|---|---|
-| 20 | Google Docs live sync | High | Very High |
+| ✅ 20 | Google Docs live sync | High | Very High |
 | 21 | Notion real-time sync | High | Very High |
 | 22 | Impact scoring (who needs to know?) | Very High | Very High |
 | 23 | Predictive briefings | High | High |
