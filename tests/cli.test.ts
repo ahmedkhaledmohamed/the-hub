@@ -320,3 +320,50 @@ describe("sharing", () => {
     });
   });
 });
+
+// ── OpenAPI spec tests ─────────────────────────────────────────────
+
+import { generateOpenApiSpec } from "@/lib/openapi";
+
+describe("OpenAPI spec", () => {
+  it("generates valid OpenAPI 3.1 structure", () => {
+    const spec = generateOpenApiSpec();
+    expect(spec.openapi).toBe("3.1.0");
+    expect(spec.info.title).toBe("The Hub API");
+    expect(spec.info.version).toBeTruthy();
+  });
+
+  it("includes all API tags", () => {
+    const spec = generateOpenApiSpec();
+    const tagNames = spec.tags.map((t: { name: string }) => t.name);
+    expect(tagNames).toContain("Core");
+    expect(tagNames).toContain("AI");
+    expect(tagNames).toContain("Hygiene");
+    expect(tagNames).toContain("Intelligence");
+    expect(tagNames).toContain("Platform");
+    expect(tagNames).toContain("Network");
+  });
+
+  it("includes key endpoints", () => {
+    const spec = generateOpenApiSpec();
+    const paths = Object.keys(spec.paths);
+    expect(paths).toContain("/api/manifest");
+    expect(paths).toContain("/api/search");
+    expect(paths).toContain("/api/ai/ask");
+    expect(paths).toContain("/api/graph");
+    expect(paths).toContain("/api/federation");
+    expect(paths).toContain("/api/docs");
+  });
+
+  it("search endpoint has required query param", () => {
+    const spec = generateOpenApiSpec();
+    const searchParams = spec.paths["/api/search"].get.parameters;
+    const qParam = searchParams.find((p: { name: string }) => p.name === "q");
+    expect(qParam.required).toBe(true);
+  });
+
+  it("has 30+ endpoint paths", () => {
+    const spec = generateOpenApiSpec();
+    expect(Object.keys(spec.paths).length).toBeGreaterThanOrEqual(30);
+  });
+});
