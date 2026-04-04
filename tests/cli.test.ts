@@ -367,3 +367,68 @@ describe("OpenAPI spec", () => {
     expect(Object.keys(spec.paths).length).toBeGreaterThanOrEqual(30);
   });
 });
+
+// ── Rate limiter tests ─────────────────────────────────────────────
+
+import {
+  checkRateLimit,
+  clearBuckets,
+  getBucketCount,
+  getRateLimit,
+  isRateLimitEnabled,
+} from "@/lib/rate-limiter";
+
+describe("rate limiter", () => {
+  afterEach(() => {
+    clearBuckets();
+    delete process.env.HUB_RATE_LIMIT;
+    delete process.env.HUB_RATE_BURST;
+  });
+
+  it("allows requests under the limit", () => {
+    process.env.HUB_RATE_LIMIT = "120";
+    const result = checkRateLimit("test-ip-1");
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBeGreaterThanOrEqual(0);
+  });
+
+  it("creates a bucket per IP", () => {
+    process.env.HUB_RATE_LIMIT = "120";
+    checkRateLimit("ip-a");
+    checkRateLimit("ip-b");
+    expect(getBucketCount()).toBeGreaterThanOrEqual(2);
+  });
+
+  it("blocks when burst is exhausted", () => {
+    process.env.HUB_RATE_LIMIT = "120";
+    process.env.HUB_RATE_BURST = "3";
+
+    for (let i = 0; i < 3; i++) {
+      expect(checkRateLimit("burst-test").allowed).toBe(true);
+    }
+    // 4th request should be blocked
+    expect(checkRateLimit("burst-test").allowed).toBe(false);
+  });
+
+  it("getRateLimit reads env", () => {
+    process.env.HUB_RATE_LIMIT = "60";
+    expect(getRateLimit()).toBe(60);
+  });
+
+  it("isRateLimitEnabled checks env", () => {
+    delete process.env.HUB_RATE_LIMIT;
+    delete process.env.NODE_ENV;
+    expect(isRateLimitEnabled()).toBe(false);
+
+    process.env.HUB_RATE_LIMIT = "100";
+    expect(isRateLimitEnabled()).toBe(true);
+  });
+
+  it("clearBuckets resets state", () => {
+    process.env.HUB_RATE_LIMIT = "120";
+    checkRateLimit("clear-test");
+    expect(getBucketCount()).toBeGreaterThanOrEqual(1);
+    clearBuckets();
+    expect(getBucketCount()).toBe(0);
+  });
+});
