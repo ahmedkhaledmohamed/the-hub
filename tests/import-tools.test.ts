@@ -282,3 +282,53 @@ describe("import-bookmarks", () => {
     });
   });
 });
+
+// ── PWA manifest tests ─────────────────────────────────────────────
+
+describe("PWA", () => {
+  const publicDir = resolve(".test-import-tools/../public"); // relative to project root
+  const realPublicDir = resolve("public");
+
+  describe("manifest.json", () => {
+    it("exists in public/", () => {
+      expect(existsSync(realPublicDir + "/manifest.json")).toBe(true);
+    });
+
+    it("has valid JSON structure", () => {
+      const content = readFileSync(realPublicDir + "/manifest.json", "utf8");
+      const manifest = JSON.parse(content);
+      expect(manifest.name).toBe("The Hub");
+      expect(manifest.short_name).toBe("Hub");
+      expect(manifest.display).toBe("standalone");
+      expect(manifest.start_url).toBe("/briefing");
+      expect(manifest.background_color).toBeTruthy();
+      expect(manifest.theme_color).toBeTruthy();
+    });
+
+    it("has icon entries", () => {
+      const content = readFileSync(realPublicDir + "/manifest.json", "utf8");
+      const manifest = JSON.parse(content);
+      expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("service worker", () => {
+    it("sw.js exists in public/", () => {
+      expect(existsSync(realPublicDir + "/sw.js")).toBe(true);
+    });
+
+    it("sw.js contains cache strategy", () => {
+      const content = readFileSync(realPublicDir + "/sw.js", "utf8");
+      expect(content).toContain("CACHE_NAME");
+      expect(content).toContain("install");
+      expect(content).toContain("fetch");
+    });
+  });
+
+  describe("icons", () => {
+    it("icon SVGs exist", () => {
+      expect(existsSync(realPublicDir + "/icon-192.svg")).toBe(true);
+      expect(existsSync(realPublicDir + "/icon-512.svg")).toBe(true);
+    });
+  });
+});
