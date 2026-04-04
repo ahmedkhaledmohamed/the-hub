@@ -110,7 +110,7 @@ Create `/api/ai/generate` endpoint with template types: `status-update` (uses ch
 
 ---
 
-### Step 14 — Knowledge graph (explicit links)
+### ✅ Step 14 — Knowledge graph (explicit links)
 Add a `links` table in SQLite: `(source_path, target_path, link_type, created_at)`. Link types: `references`, `supersedes`, `related`. Parse markdown files for `[[wiki-style]]` links and auto-create relationships. Add a UI for manually linking artifacts (from the artifact card or preview panel). Show backlinks on each artifact: "Referenced by: doc-A, doc-B." Add a `/graph` page with a simple force-directed graph visualization (use `d3-force` or a lightweight canvas renderer).
 
 **Acceptance**: Opening an artifact shows its backlinks. The `/graph` page renders a navigable graph of connected artifacts.
