@@ -76,6 +76,13 @@ function migrate(db: Database.Database): void {
       INSERT INTO search_index(rowid, path, title, content, snippet)
         VALUES (new.rowid, new.path, new.title, new.content, new.snippet);
     END;
+
+    -- File mtime cache for incremental scanning
+    CREATE TABLE IF NOT EXISTS file_mtimes (
+      path        TEXT PRIMARY KEY,
+      mtime_ms    INTEGER NOT NULL,
+      size        INTEGER NOT NULL DEFAULT 0
+    );
   `);
 }
 
@@ -206,6 +213,85 @@ export function setUserState(key: string, value: string): void {
     INSERT INTO user_state (key, value, updated_at) VALUES (?, ?, datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
   `).run(key, value);
+}
+
+// ── Cleanup ────────────────────────────────────────────────────────
+
+// ── Incremental scan helpers ───────────────────────────────────────
+
+export interface FileMtime {
+  path: string;
+  mtimeMs: number;
+  size: number;
+}
+
+export function getStoredMtimes(): Map<string, FileMtime> {
+  const db = getDb();
+  const rows = db.prepare("SELECT path, mtime_ms, size FROM file_mtimes").all() as Array<{
+    path: string; mtime_ms: number; size: number;
+  }>;
+  const map = new Map<string, FileMtime>();
+  for (const r of rows) {
+    map.set(r.path, { path: r.path, mtimeMs: r.mtime_ms, size: r.size });
+  }
+  return map;
+}
+
+export function updateMtimes(files: FileMtime[]): void {
+  const db = getDb();
+  const upsert = db.prepare(
+    "INSERT INTO file_mtimes (path, mtime_ms, size) VALUES (?, ?, ?) ON CONFLICT(path) DO UPDATE SET mtime_ms = excluded.mtime_ms, size = excluded.size"
+  );
+  const remove = db.prepare("DELETE FROM file_mtimes WHERE path = ?");
+
+  const transaction = db.transaction(() => {
+    // Upsert current files
+    for (const f of files) {
+      upsert.run(f.path, f.mtimeMs, f.size);
+    }
+
+    // Remove files that no longer exist
+    const currentPaths = new Set(files.map((f) => f.path));
+    const stored = db.prepare("SELECT path FROM file_mtimes").all() as Array<{ path: string }>;
+    for (const row of stored) {
+      if (!currentPaths.has(row.path)) {
+        remove.run(row.path);
+      }
+    }
+  });
+
+  transaction();
+}
+
+export function getChangedFiles(
+  currentFiles: Array<{ path: string; mtimeMs: number; size: number }>,
+): { changed: string[]; added: string[]; removed: string[]; unchanged: string[] } {
+  const stored = getStoredMtimes();
+  const currentPaths = new Set(currentFiles.map((f) => f.path));
+
+  const changed: string[] = [];
+  const added: string[] = [];
+  const unchanged: string[] = [];
+
+  for (const file of currentFiles) {
+    const prev = stored.get(file.path);
+    if (!prev) {
+      added.push(file.path);
+    } else if (prev.mtimeMs !== file.mtimeMs || prev.size !== file.size) {
+      changed.push(file.path);
+    } else {
+      unchanged.push(file.path);
+    }
+  }
+
+  const removed: string[] = [];
+  for (const [storedPath] of stored) {
+    if (!currentPaths.has(storedPath)) {
+      removed.push(storedPath);
+    }
+  }
+
+  return { changed, added, removed, unchanged };
 }
 
 // ── Cleanup ────────────────────────────────────────────────────────

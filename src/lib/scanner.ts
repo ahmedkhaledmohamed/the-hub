@@ -12,6 +12,8 @@ const DEFAULT_SKIP_DIRS = new Set([
 interface ScanFile {
   fullPath: string;
   relativePath: string;
+  mtimeMs?: number;
+  fileSize?: number;
 }
 
 function shouldSkipDir(name: string, config: HubConfig): boolean {
@@ -63,7 +65,7 @@ function walk(
       if (skipPaths.some((p) => relativePath === p)) continue;
       // Only include if we have an extractor for it
       if (getExtractor(fullPath)) {
-        results.push({ fullPath, relativePath });
+        results.push({ fullPath, relativePath, mtimeMs: stat.mtimeMs, fileSize: stat.size });
       }
     }
   }
@@ -99,6 +101,7 @@ export function readFileContent(fullPath: string): string {
 export interface ScanResult {
   manifest: Manifest;
   contentMap: Map<string, string>;
+  fileMtimes: Array<{ path: string; mtimeMs: number; size: number }>;
 }
 
 export function scan(config: HubConfig): Manifest;
@@ -224,7 +227,12 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
         contentMap.set(relativePath, text);
       }
     }
-    return { manifest, contentMap };
+    const fileMtimes = allFiles.map((f) => ({
+      path: f.relativePath,
+      mtimeMs: f.mtimeMs || 0,
+      size: f.fileSize || 0,
+    }));
+    return { manifest, contentMap, fileMtimes };
   }
 
   return manifest;
