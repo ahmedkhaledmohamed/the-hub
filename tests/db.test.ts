@@ -162,3 +162,24 @@ describe("db", () => {
     });
   });
 });
+
+// ── Vector math tests (for semantic search) ────────────────────────
+
+function cosineSim(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]; normA += a[i] * a[i]; normB += b[i] * b[i];
+  }
+  const d = Math.sqrt(normA) * Math.sqrt(normB);
+  return d === 0 ? 0 : dot / d;
+}
+
+describe("vector math (semantic search)", () => {
+  it("identical vectors → 1", () => expect(cosineSim([1,2,3],[1,2,3])).toBeCloseTo(1,5));
+  it("orthogonal → 0", () => expect(cosineSim([1,0,0],[0,1,0])).toBeCloseTo(0,5));
+  it("opposite → -1", () => expect(cosineSim([1,0,0],[-1,0,0])).toBeCloseTo(-1,5));
+  it("empty → 0", () => expect(cosineSim([],[])).toBe(0));
+  it("mismatched dims → 0", () => expect(cosineSim([1,2],[1,2,3])).toBe(0));
+  it("similar vectors → high", () => expect(cosineSim([0.1,0.2,0.3],[0.12,0.22,0.28])).toBeGreaterThan(0.99));
+});
