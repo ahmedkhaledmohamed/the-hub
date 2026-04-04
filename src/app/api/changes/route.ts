@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getManifest } from "@/lib/manifest-store";
 import { computeChangeFeed, loadPreviousSnapshot, saveSnapshot } from "@/lib/change-feed";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const includeDiffs = req.nextUrl.searchParams.get("diffs") !== "false";
   const manifest = getManifest();
   const previous = loadPreviousSnapshot();
-  const changes = computeChangeFeed(manifest, previous);
+  const changes = computeChangeFeed(manifest, previous, { includeDiffs });
 
   return NextResponse.json({
     changes,

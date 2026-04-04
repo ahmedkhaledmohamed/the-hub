@@ -38,7 +38,7 @@ Refactor `scanner.ts` to use an extractor registry pattern. Each extractor handl
 
 ---
 
-### Step 4 — Content diffs in change feed
+### ✅ Step 4 — Content diffs in change feed
 Store content hashes per artifact in SQLite (from step 1). On change detection in `change-feed.ts`, load the previous hash and current content. For markdown files, compute a word-level diff. Update the change feed UI component to show added/removed lines inline, collapsible per entry.
 
 **Acceptance**: Editing a markdown file and reloading the change feed shows the specific lines that changed, not just "modified."

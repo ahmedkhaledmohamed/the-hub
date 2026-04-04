@@ -140,7 +140,13 @@ export interface HealthPanelConfig {
 
 export interface ManifestSnapshot {
   generatedAt: string;
-  artifacts: Record<string, string>;
+  artifacts: Record<string, string>; // path -> modifiedAt
+  hashes?: Record<string, string>;   // path -> content hash
+}
+
+export interface DiffLine {
+  type: "added" | "removed" | "context";
+  content: string;
 }
 
 export interface ChangeFeedEntry {
@@ -149,6 +155,7 @@ export interface ChangeFeedEntry {
   type: "added" | "modified" | "deleted";
   group: string;
   modifiedAt?: string;
+  diff?: DiffLine[];
 }
 
 // ── Framework integration types ────────────────────────────────────────

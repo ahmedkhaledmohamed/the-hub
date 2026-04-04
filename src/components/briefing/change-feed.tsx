@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { FilePlus2, FileEdit, FileX2, RefreshCw, Save } from "lucide-react";
-import type { ChangeFeedEntry } from "@/lib/types";
+import { FilePlus2, FileEdit, FileX2, RefreshCw, Save, ChevronDown, ChevronRight } from "lucide-react";
+import type { ChangeFeedEntry, DiffLine } from "@/lib/types";
 import { relativeTime, cn } from "@/lib/utils";
 
 const typeIcons = {
@@ -10,6 +10,69 @@ const typeIcons = {
   modified: { Icon: FileEdit, color: "text-[#b3b300]" },
   deleted: { Icon: FileX2, color: "text-[#e74c3c]" },
 } as const;
+
+function DiffView({ diff }: { diff: DiffLine[] }) {
+  return (
+    <div className="mt-1.5 rounded bg-surface-hover border border-border overflow-hidden font-mono text-[11px] leading-relaxed">
+      {diff.map((line, i) => (
+        <div
+          key={i}
+          className={cn(
+            "px-3 py-0.5",
+            line.type === "added" && "bg-[#22c55e]/10 text-[#4ade80]",
+            line.type === "removed" && "bg-[#ef4444]/10 text-[#f87171]",
+            line.type === "context" && "text-text-dim",
+          )}
+        >
+          <span className="inline-block w-4 shrink-0 text-text-dim select-none">
+            {line.type === "added" ? "+" : line.type === "removed" ? "−" : " "}
+          </span>
+          {line.content || " "}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChangeItem({ entry }: { entry: ChangeFeedEntry }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDiff = entry.diff && entry.diff.length > 0;
+
+  return (
+    <div className="bg-surface border border-transparent rounded hover:border-border transition-colors">
+      <button
+        onClick={() => hasDiff && setExpanded((v) => !v)}
+        className={cn(
+          "flex items-center gap-2 px-3 py-1.5 w-full text-left text-[12px]",
+          hasDiff && "cursor-pointer",
+          !hasDiff && "cursor-default",
+        )}
+      >
+        {hasDiff ? (
+          expanded ? <ChevronDown size={10} className="text-text-dim shrink-0" /> : <ChevronRight size={10} className="text-text-dim shrink-0" />
+        ) : (
+          <span className="w-[10px] shrink-0" />
+        )}
+        <span className="truncate flex-1 text-text-muted">{entry.title}</span>
+        {hasDiff && (
+          <span className="text-[10px] text-text-dim shrink-0">
+            {entry.diff!.filter((l) => l.type === "added").length} added, {entry.diff!.filter((l) => l.type === "removed").length} removed
+          </span>
+        )}
+        {entry.modifiedAt && (
+          <span className="text-[10px] text-text-dim shrink-0">
+            {relativeTime(entry.modifiedAt)}
+          </span>
+        )}
+      </button>
+      {expanded && hasDiff && (
+        <div className="px-3 pb-2">
+          <DiffView diff={entry.diff!} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ChangeFeed() {
   const [changes, setChanges] = useState<ChangeFeedEntry[]>([]);
@@ -92,19 +155,9 @@ export function ChangeFeed() {
                     {type} ({items.length})
                   </span>
                 </div>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1">
+                <div className="space-y-1">
                   {items.map((c) => (
-                    <div
-                      key={c.path}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-transparent rounded text-[12px] hover:border-border transition-colors"
-                    >
-                      <span className="truncate flex-1 text-text-muted">{c.title}</span>
-                      {c.modifiedAt && (
-                        <span className="text-[10px] text-text-dim shrink-0">
-                          {relativeTime(c.modifiedAt)}
-                        </span>
-                      )}
-                    </div>
+                    <ChangeItem key={c.path} entry={c} />
                   ))}
                 </div>
               </div>
