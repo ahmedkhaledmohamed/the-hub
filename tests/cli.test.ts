@@ -432,3 +432,125 @@ describe("rate limiter", () => {
     expect(getBucketCount()).toBe(0);
   });
 });
+
+// ── Validation tests ───────────────────────────────────────────────
+
+import {
+  validateString,
+  validateEnum,
+  validateArray,
+  validate,
+  sanitizeHtml,
+  sanitizePath,
+  isValidUrl,
+} from "@/lib/validation";
+
+describe("input validation", () => {
+  describe("validateString", () => {
+    it("passes valid string", () => {
+      expect(validateString("hello", "name")).toBeNull();
+    });
+
+    it("fails when required and empty", () => {
+      expect(validateString("", "name", { required: true })?.message).toContain("required");
+    });
+
+    it("fails when too short", () => {
+      expect(validateString("ab", "name", { minLength: 3 })?.message).toContain("at least 3");
+    });
+
+    it("fails when too long", () => {
+      expect(validateString("abc", "name", { maxLength: 2 })?.message).toContain("at most 2");
+    });
+
+    it("fails for non-string", () => {
+      expect(validateString(123, "name")?.message).toContain("must be a string");
+    });
+  });
+
+  describe("validateEnum", () => {
+    it("passes valid enum value", () => {
+      expect(validateEnum("a", "field", ["a", "b", "c"])).toBeNull();
+    });
+
+    it("fails for invalid value", () => {
+      expect(validateEnum("d", "field", ["a", "b"])?.message).toContain("must be one of");
+    });
+  });
+
+  describe("validateArray", () => {
+    it("passes valid array", () => {
+      expect(validateArray([1, 2], "items")).toBeNull();
+    });
+
+    it("fails when required and missing", () => {
+      expect(validateArray(undefined, "items", { required: true })?.message).toContain("required");
+    });
+
+    it("fails for non-array", () => {
+      expect(validateArray("not-array", "items")?.message).toContain("must be an array");
+    });
+
+    it("checks item types", () => {
+      expect(validateArray([1, "two"], "items", { itemType: "number" })?.message).toContain("must be a number");
+    });
+  });
+
+  describe("validate (batch)", () => {
+    it("returns valid when all pass", () => {
+      const result = validate(
+        validateString("ok", "a"),
+        validateEnum("x", "b", ["x", "y"]),
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it("returns errors when any fail", () => {
+      const result = validate(
+        validateString("", "a", { required: true }),
+        validateEnum("z", "b", ["x"]),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors?.length).toBe(2);
+    });
+  });
+
+  describe("sanitizeHtml", () => {
+    it("escapes HTML entities", () => {
+      expect(sanitizeHtml('<script>alert("xss")</script>')).toBe("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;");
+    });
+  });
+
+  describe("sanitizePath", () => {
+    it("removes path traversal", () => {
+      expect(sanitizePath("../../../etc/passwd")).not.toContain("..");
+    });
+
+    it("removes leading slashes", () => {
+      expect(sanitizePath("/etc/passwd")).toBe("etc/passwd");
+    });
+
+    it("removes null bytes", () => {
+      expect(sanitizePath("file\0name")).toBe("filename");
+    });
+  });
+
+  describe("isValidUrl", () => {
+    it("accepts http URLs", () => {
+      expect(isValidUrl("http://example.com")).toBe(true);
+    });
+
+    it("accepts https URLs", () => {
+      expect(isValidUrl("https://example.com/path")).toBe(true);
+    });
+
+    it("rejects non-http protocols", () => {
+      expect(isValidUrl("ftp://example.com")).toBe(false);
+      expect(isValidUrl("javascript:alert(1)")).toBe(false);
+    });
+
+    it("rejects invalid URLs", () => {
+      expect(isValidUrl("not a url")).toBe(false);
+    });
+  });
+});

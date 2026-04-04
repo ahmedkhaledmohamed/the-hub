@@ -4,36 +4,45 @@ import type { HubEventType } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-/**
- * POST /api/webhooks/test — emit a test event to trigger webhooks
- * Body: { event: "scan.complete", data?: { ... } }
- */
+const VALID_EVENTS: HubEventType[] = [
+  "scan.complete", "artifact.created", "artifact.modified",
+  "artifact.deleted", "hygiene.finding", "agent.output",
+];
+
 export async function POST(req: NextRequest) {
-  const { event, data } = await req.json() as {
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { event, data } = body as {
     event?: HubEventType;
     data?: Record<string, unknown>;
   };
 
-  const validEvents: HubEventType[] = [
-    "scan.complete", "artifact.created", "artifact.modified",
-    "artifact.deleted", "hygiene.finding", "agent.output",
-  ];
-
-  if (!event || !validEvents.includes(event)) {
+  if (!event || typeof event !== "string" || !VALID_EVENTS.includes(event as HubEventType)) {
     return NextResponse.json({
-      error: `Invalid event type. Valid types: ${validEvents.join(", ")}`,
+      error: `Invalid event type. Valid types: ${VALID_EVENTS.join(", ")}`,
     }, { status: 400 });
   }
 
-  await emit(event, {
-    ...data,
-    test: true,
-    triggeredBy: "api",
-  });
+  // Sanitize data: only allow simple values (no nested objects deeper than 2 levels)
+  const safeData: Record<string, unknown> = {};
+  if (data && typeof data === "object") {
+    for (const [k, v] of Object.entries(data)) {
+      if (typeof k === "string" && k.length <= 100) {
+        safeData[k] = v;
+      }
+    }
+  }
+
+  await emit(event, { ...safeData, test: true, triggeredBy: "api" });
 
   return NextResponse.json({
     emitted: true,
     event,
-    message: `Event "${event}" emitted. Check configured webhook endpoints for delivery.`,
+    message: `Event "${event}" emitted.`,
   });
 }
