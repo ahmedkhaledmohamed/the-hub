@@ -212,7 +212,7 @@ Add a `federation` config section: `{ peers: [{ name, url, apiKey }] }`. Create 
 
 ---
 
-### Step 28 — Cloud-hosted option
+### ✅ Step 28 — Cloud-hosted option
 Create a `Dockerfile` and `docker-compose.yml` for containerized deployment. Replace filesystem scanning with a "source" abstraction: `FilesystemSource` (existing), `GitHubSource` (clones/pulls repos), `S3Source` (syncs from a bucket). Add a Vercel deployment template with GitHub as the source. The local Hub becomes the offline-capable client; the cloud version is always-on.
 
 **Acceptance**: Deploying to Vercel with a GitHub repo as the source produces a working Hub that scans the repo on push.
