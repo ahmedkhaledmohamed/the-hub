@@ -246,3 +246,63 @@ describe("knowledge graph", () => {
     });
   });
 });
+
+// ── Conflict detection tests ───────────────────────────────────────
+
+import { extractClaims, findClaimConflicts, conflictSummary } from "@/lib/conflict-detector";
+
+describe("conflict detection", () => {
+  describe("extractClaims", () => {
+    it("extracts date claims", () => {
+      const claims = extractClaims("We will launch on March 15, 2026. The deadline is Q2 2026.");
+      expect(claims.some((c) => c.startsWith("date:"))).toBe(true);
+    });
+
+    it("extracts decision claims", () => {
+      const claims = extractClaims("We decided to use PostgreSQL for the database.");
+      expect(claims.some((c) => c.startsWith("decision:"))).toBe(true);
+    });
+
+    it("returns empty for no claims", () => {
+      expect(extractClaims("Hello world.")).toEqual([]);
+    });
+  });
+
+  describe("findClaimConflicts", () => {
+    it("finds contradictory dates", () => {
+      const docA = { path: "a.md", title: "Doc A", content: "We will launch on March 15, 2026." };
+      const docB = { path: "b.md", title: "Doc B", content: "We will launch on April 1, 2026." };
+      const conflicts = findClaimConflicts(docA, docB);
+      expect(conflicts.length).toBeGreaterThanOrEqual(1);
+      expect(conflicts[0].type).toBe("contradictory-fact");
+    });
+
+    it("finds no conflicts for identical claims", () => {
+      const doc = { path: "a.md", title: "Doc", content: "We will launch on March 15." };
+      expect(findClaimConflicts(doc, doc)).toEqual([]);
+    });
+
+    it("finds no conflicts for unrelated docs", () => {
+      const docA = { path: "a.md", title: "A", content: "This is about marketing." };
+      const docB = { path: "b.md", title: "B", content: "This is about engineering." };
+      expect(findClaimConflicts(docA, docB)).toEqual([]);
+    });
+  });
+
+  describe("conflictSummary", () => {
+    it("counts by severity", () => {
+      const conflicts = [
+        { id: "1", docA: { path: "", title: "", excerpt: "" }, docB: { path: "", title: "", excerpt: "" }, type: "contradictory-fact" as const, severity: "high" as const, description: "", detectedAt: "" },
+        { id: "2", docA: { path: "", title: "", excerpt: "" }, docB: { path: "", title: "", excerpt: "" }, type: "contradictory-fact" as const, severity: "medium" as const, description: "", detectedAt: "" },
+      ];
+      const summary = conflictSummary(conflicts);
+      expect(summary.high).toBe(1);
+      expect(summary.medium).toBe(1);
+      expect(summary.total).toBe(2);
+    });
+
+    it("handles empty", () => {
+      expect(conflictSummary([]).total).toBe(0);
+    });
+  });
+});
