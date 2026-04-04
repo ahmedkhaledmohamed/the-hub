@@ -52,7 +52,7 @@ Add `@modelcontextprotocol/sdk` dependency. Create `src/mcp/server.ts` implement
 
 ---
 
-### Step 6 — CLI tool
+### ✅ Step 6 — CLI tool
 Create `bin/hub.js` as a thin HTTP client calling the existing API. Commands: `hub search <query>` (calls `/api/search`), `hub open <tab>` (opens browser to that tab), `hub status` (calls `/api/manifest`, prints artifact/group counts and staleness summary), `hub context compile --group <id>` (calls `/api/compile-context`). Add `"bin": { "hub": "./bin/hub.js" }` to `package.json`.
 
 **Acceptance**: `npx hub search "architecture"` returns matching artifacts from the running Hub instance.

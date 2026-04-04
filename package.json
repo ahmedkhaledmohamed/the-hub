@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
+    "hub": "./bin/hub.js",
     "hub-mcp": "./bin/hub-mcp.js"
   },
   "scripts": {
