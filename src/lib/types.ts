@@ -42,7 +42,10 @@ export type PanelConfig =
   | UrlPanelConfig
   | MarkdownPanelConfig
   | EmbedPanelConfig
-  | HealthPanelConfig;
+  | HealthPanelConfig
+  | ChartPanelConfig
+  | ChecklistPanelConfig
+  | CustomPanelConfig;
 
 export interface TimelinePanelConfig {
   type: "timeline";
@@ -134,6 +137,43 @@ export interface HealthPanelConfig {
   type: "health";
   title: string;
   badge?: BadgeConfig;
+}
+
+export interface ChartPanelConfig {
+  type: "chart";
+  title: string;
+  badge?: BadgeConfig;
+  series: ChartSeries[];
+  height?: number;
+}
+
+export interface ChartSeries {
+  label: string;
+  data: number[];
+  color?: string;
+}
+
+export interface ChecklistPanelConfig {
+  type: "checklist";
+  title: string;
+  badge?: BadgeConfig;
+  items: ChecklistItem[];
+  persistKey?: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export interface CustomPanelConfig {
+  type: "custom";
+  title: string;
+  badge?: BadgeConfig;
+  url?: string;
+  markdown?: string;
+  height?: number;
 }
 
 // ── Change feed types ──────────────────────────────────────────────────

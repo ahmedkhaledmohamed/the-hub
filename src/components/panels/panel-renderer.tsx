@@ -8,6 +8,9 @@ import { HealthPanel } from "./health-panel";
 import { UrlPanel } from "./url-panel";
 import { MarkdownPanel } from "./markdown-panel";
 import { EmbedPanel } from "./embed-panel";
+import { ChartPanel } from "./chart-panel";
+import { ChecklistPanel } from "./checklist-panel";
+import { CustomPanel } from "./custom-panel";
 
 interface PanelRendererProps {
   panels: PanelConfig[];
@@ -34,6 +37,12 @@ export function PanelRenderer({ panels }: PanelRendererProps) {
             return <MarkdownPanel key={i} config={panel} />;
           case "embed":
             return <EmbedPanel key={i} config={panel} />;
+          case "chart":
+            return <ChartPanel key={i} config={panel} />;
+          case "checklist":
+            return <ChecklistPanel key={i} config={panel} />;
+          case "custom":
+            return <CustomPanel key={i} config={panel} />;
           default:
             return null;
         }
