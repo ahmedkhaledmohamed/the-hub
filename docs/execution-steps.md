@@ -124,7 +124,7 @@ Add a `snapshots` table in SQLite that stores daily aggregate stats: total artif
 
 ---
 
-### Step 16 — Personalization
+### ✅ Step 16 — Personalization
 Track artifact opens in SQLite: `(path, opened_at)`. Track search queries: `(query, result_count, clicked_path, searched_at)`. Use this data to: reorder Cmd+K results (boost frequently accessed), show "Suggested for you" on the briefing page, detect search gaps (queries with 0 results → suggest creating a doc). Add a "Your activity" section to briefing: most-visited artifacts this week, time-of-day patterns.
 
 **Acceptance**: Frequently opened artifacts appear higher in Cmd+K results. The briefing shows "You opened Architecture Overview 12 times this week."

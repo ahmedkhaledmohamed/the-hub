@@ -137,3 +137,100 @@ describe("summarizer", () => {
     });
   });
 });
+
+// ── Activity tracking tests ────────────────────────────────────────
+
+import {
+  trackOpen,
+  trackSearch,
+  getTopOpened,
+  getOpenCount,
+  getTotalOpens,
+  getSearchGaps,
+  getPopularSearches,
+  getBoostScores,
+  getActivitySummary,
+} from "@/lib/activity";
+
+describe("activity tracking", () => {
+  describe("artifact opens", () => {
+    it("tracks and counts opens", () => {
+      const path = `activity/test-${Date.now()}.md`;
+      trackOpen(path);
+      trackOpen(path);
+      trackOpen(path);
+      expect(getOpenCount(path, 1)).toBe(3);
+    });
+
+    it("getTopOpened returns most-opened artifacts", () => {
+      const unique = Date.now().toString();
+      trackOpen(`activity/popular-${unique}.md`);
+      trackOpen(`activity/popular-${unique}.md`);
+      trackOpen(`activity/popular-${unique}.md`);
+      trackOpen(`activity/rare-${unique}.md`);
+
+      const top = getTopOpened(1, 10);
+      const popular = top.find((t) => t.path === `activity/popular-${unique}.md`);
+      const rare = top.find((t) => t.path === `activity/rare-${unique}.md`);
+      expect(popular).toBeDefined();
+      expect(popular!.count).toBeGreaterThan(rare?.count || 0);
+    });
+
+    it("getTotalOpens counts all opens", () => {
+      const before = getTotalOpens(1);
+      trackOpen("activity/total-test.md");
+      expect(getTotalOpens(1)).toBe(before + 1);
+    });
+  });
+
+  describe("search tracking", () => {
+    it("tracks searches and detects gaps", () => {
+      const unique = `gap-query-${Date.now()}`;
+      trackSearch(unique, 0); // 0 results = gap
+      trackSearch(unique, 0);
+
+      const gaps = getSearchGaps(1, 10);
+      const found = gaps.find((g) => g.query === unique);
+      expect(found).toBeDefined();
+      expect(found!.searchCount).toBe(2);
+    });
+
+    it("tracks popular searches", () => {
+      const unique = `popular-${Date.now()}`;
+      trackSearch(unique, 5);
+      trackSearch(unique, 5);
+
+      const popular = getPopularSearches(1, 10);
+      expect(popular.some((p) => p.query === unique)).toBe(true);
+    });
+  });
+
+  describe("boost scores", () => {
+    it("returns normalized scores (0-1)", () => {
+      const unique = Date.now().toString();
+      trackOpen(`boost/a-${unique}.md`);
+      trackOpen(`boost/a-${unique}.md`);
+      trackOpen(`boost/a-${unique}.md`);
+      trackOpen(`boost/b-${unique}.md`);
+
+      const scores = getBoostScores(1);
+      expect(scores.size).toBeGreaterThanOrEqual(2);
+      // Most opened should have score 1.0
+      const maxScore = Math.max(...scores.values());
+      expect(maxScore).toBeCloseTo(1.0, 1);
+    });
+  });
+
+  describe("activity summary", () => {
+    it("returns summary with all fields", () => {
+      trackOpen("summary/test.md");
+      trackSearch("summary query", 3);
+
+      const summary = getActivitySummary(1);
+      expect(typeof summary.totalOpens).toBe("number");
+      expect(Array.isArray(summary.topArtifacts)).toBe(true);
+      expect(Array.isArray(summary.searchGaps)).toBe(true);
+      expect(Array.isArray(summary.popularSearches)).toBe(true);
+    });
+  });
+});
