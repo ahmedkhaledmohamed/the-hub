@@ -13,7 +13,27 @@ export interface HubConfig {
   staleness?: { fresh?: number; aging?: number; stale?: number };
   templates?: DocTemplate[];
   agents?: AgentConfig[];
+  webhooks?: WebhookConfig[];
 }
+
+export interface WebhookConfig {
+  /** Webhook URL to POST to */
+  url: string;
+  /** Events to subscribe to */
+  events: HubEventType[];
+  /** HMAC secret for signature verification */
+  secret?: string;
+  /** Whether this webhook is active */
+  enabled?: boolean;
+}
+
+export type HubEventType =
+  | "scan.complete"
+  | "artifact.created"
+  | "artifact.modified"
+  | "artifact.deleted"
+  | "hygiene.finding"
+  | "agent.output";
 
 export interface AgentConfig {
   /** Unique agent identifier */
