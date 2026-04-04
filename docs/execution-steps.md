@@ -45,7 +45,7 @@ Store content hashes per artifact in SQLite (from step 1). On change detection i
 
 ---
 
-### Step 5 — MCP server (basic)
+### ✅ Step 5 — MCP server (basic)
 Add `@modelcontextprotocol/sdk` dependency. Create `src/mcp/server.ts` implementing an MCP server with tools: `search` (query the FTS5 index), `read_artifact` (return full content of an artifact by path), `list_groups` (return all groups with artifact counts), `get_manifest` (return the full manifest). Create a `hub-mcp` CLI entry point that starts the MCP server over stdio. Add MCP config example to README.
 
 **Acceptance**: Adding The Hub to Claude Code's MCP config and asking "search my workspace for pricing" returns results from indexed artifacts.

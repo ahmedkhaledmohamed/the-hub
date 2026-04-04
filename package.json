@@ -2,7 +2,11 @@
   "name": "the-hub",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "hub-mcp": "./bin/hub-mcp.js"
+  },
   "scripts": {
+    "mcp": "tsx src/mcp/server.ts",
     "dev": "next dev --turbopack -p 9001",
     "build": "next build",
     "start": "NODE_ENV=production node server.mjs",
@@ -13,6 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-scroll-area": "^1.2.3",
     "@radix-ui/react-separator": "^1.1.2",
@@ -41,6 +46,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^3.2.4"
   }
