@@ -7,50 +7,56 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim();
-  const limit = parseInt(req.nextUrl.searchParams.get("limit") || "20", 10);
-  const mode = req.nextUrl.searchParams.get("mode") || "auto"; // "fts", "semantic", "hybrid", "auto"
+  const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") || "20", 10), 100);
+  const offset = Math.max(parseInt(req.nextUrl.searchParams.get("offset") || "0", 10), 0);
+  const mode = req.nextUrl.searchParams.get("mode") || "auto";
 
   if (!q) {
-    return NextResponse.json({ results: [], query: "" });
+    return NextResponse.json({ results: [], query: "", total: 0, limit, offset, hasMore: false });
   }
 
-  const cappedLimit = Math.min(limit, 50);
-
-  // Auto mode: use hybrid if embeddings exist, otherwise FTS only
   const useHybrid = mode === "hybrid" || mode === "semantic" || (mode === "auto" && getEmbeddingCount() > 0);
 
+  // Fetch limit + 1 to detect hasMore without a separate count query
+  const fetchLimit = limit + offset + 1;
+
   if (useHybrid) {
-    const results = await hybridSearch(q, cappedLimit);
-    try { trackSearch(q, results.length); } catch { /* non-fatal */ }
+    const allResults = await hybridSearch(q, fetchLimit);
+    const paged = allResults.slice(offset, offset + limit);
+    const hasMore = allResults.length > offset + limit;
+    try { trackSearch(q, allResults.length); } catch {}
+
     return NextResponse.json({
       query: q,
       mode: "hybrid",
-      results: results.map((r) => ({
-        path: r.path,
-        title: r.title,
-        type: r.type,
-        group: r.group,
-        snippet: r.snippet,
-        score: r.score,
-        source: r.source,
+      results: paged.map((r) => ({
+        path: r.path, title: r.title, type: r.type,
+        group: r.group, snippet: r.snippet, score: r.score, source: r.source,
       })),
-      count: results.length,
+      total: allResults.length > fetchLimit - 1 ? fetchLimit : allResults.length,
+      count: paged.length,
+      limit,
+      offset,
+      hasMore,
     });
   }
 
-  // FTS-only fallback
-  const results = searchArtifacts(q, cappedLimit);
-  try { trackSearch(q, results.length); } catch { /* non-fatal */ }
+  const allResults = searchArtifacts(q, fetchLimit);
+  const paged = allResults.slice(offset, offset + limit);
+  const hasMore = allResults.length > offset + limit;
+  try { trackSearch(q, allResults.length); } catch {}
+
   return NextResponse.json({
     query: q,
     mode: "fts",
-    results: results.map((r) => ({
-      path: r.path,
-      title: r.title,
-      type: r.type,
-      group: r.group,
-      snippet: r.snippet,
+    results: paged.map((r) => ({
+      path: r.path, title: r.title, type: r.type,
+      group: r.group, snippet: r.snippet,
     })),
-    count: results.length,
+    total: allResults.length > fetchLimit - 1 ? fetchLimit : allResults.length,
+    count: paged.length,
+    limit,
+    offset,
+    hasMore,
   });
 }

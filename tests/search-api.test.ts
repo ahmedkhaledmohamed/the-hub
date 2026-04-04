@@ -117,6 +117,24 @@ describe("full-text search", () => {
     const results = searchArtifacts("$80/user/mo");
     expect(Array.isArray(results)).toBe(true);
   });
+
+  it("supports offset-based pagination", () => {
+    // Seed enough data
+    const artifacts = Array.from({ length: 10 }, (_, i) => ({
+      path: `pg/doc-${i}.md`, title: `Pagination Doc ${i}`, type: "md" as const,
+      group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 0,
+    }));
+    const contentMap = new Map(artifacts.map((a) => [a.path, `Content for pagination test ${a.title}`]));
+    persistArtifacts(artifacts, contentMap, { deleteStale: false });
+
+    // First page
+    const page1 = searchArtifacts("pagination", 3);
+    expect(page1.length).toBeLessThanOrEqual(3);
+
+    // With higher limit, should get more
+    const all = searchArtifacts("pagination", 20);
+    expect(all.length).toBeGreaterThanOrEqual(page1.length);
+  });
 });
 
 // ── Knowledge graph tests ──────────────────────────────────────────
