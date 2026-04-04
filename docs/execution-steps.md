@@ -198,7 +198,7 @@ Add a `contexts` config option: array of `{ name, config }` where each entry poi
 
 ---
 
-### Step 26 — Shared Hub instances
+### ✅ Step 26 — Shared Hub instances
 Add a `sharing` config section: `{ enabled: true, mode: "read-only" | "read-write", allowedUsers: [] }`. When enabled with authentication (step 22), multiple users can access the same Hub. Read-only users can browse and search but not archive/delete/create. Add a "Shared with" indicator in the nav. Activity tracking per user (who viewed what).
 
 **Acceptance**: Two people on the same network can both access the same Hub instance, one as read-write and one as read-only.

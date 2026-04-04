@@ -15,7 +15,19 @@ export interface HubConfig {
   agents?: AgentConfig[];
   webhooks?: WebhookConfig[];
   contexts?: ContextConfig[];
+  sharing?: SharingConfig;
 }
+
+export interface SharingConfig {
+  /** Enable shared access */
+  enabled: boolean;
+  /** Default access mode for shared users */
+  mode: "read-only" | "read-write";
+  /** API keys mapped to user roles: { key: { name, role } } */
+  users?: Record<string, { name: string; role: "read-only" | "read-write" | "admin" }>;
+}
+
+export type UserRole = "admin" | "read-write" | "read-only" | "anonymous";
 
 export interface ContextConfig {
   /** Context display name */
