@@ -234,3 +234,99 @@ describe("activity tracking", () => {
     });
   });
 });
+
+// ── Slack integration tests ────────────────────────────────────────
+
+import {
+  isSlackConfigured,
+  formatChangeSummary,
+  formatHygieneAlert,
+  formatAgentOutput,
+  handleSlashCommand,
+} from "@/lib/slack";
+
+describe("Slack integration", () => {
+  describe("isSlackConfigured", () => {
+    it("returns false when not configured", () => {
+      const origWebhook = process.env.SLACK_WEBHOOK_URL;
+      const origToken = process.env.SLACK_BOT_TOKEN;
+      delete process.env.SLACK_WEBHOOK_URL;
+      delete process.env.SLACK_BOT_TOKEN;
+      expect(isSlackConfigured()).toBe(false);
+      if (origWebhook) process.env.SLACK_WEBHOOK_URL = origWebhook;
+      if (origToken) process.env.SLACK_BOT_TOKEN = origToken;
+    });
+
+    it("returns true when webhook set", () => {
+      process.env.SLACK_WEBHOOK_URL = "https://hooks.slack.com/test";
+      expect(isSlackConfigured()).toBe(true);
+      delete process.env.SLACK_WEBHOOK_URL;
+    });
+  });
+
+  describe("formatChangeSummary", () => {
+    it("formats added/modified/deleted changes", () => {
+      const msg = formatChangeSummary([
+        { title: "Doc A", type: "added", path: "a.md" },
+        { title: "Doc B", type: "modified", path: "b.md" },
+        { title: "Doc C", type: "deleted", path: "c.md" },
+      ]);
+      expect(msg.text).toContain("3 change");
+      expect(msg.blocks!.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("handles empty changes", () => {
+      const msg = formatChangeSummary([]);
+      expect(msg.text).toContain("0 change");
+    });
+  });
+
+  describe("formatHygieneAlert", () => {
+    it("formats findings", () => {
+      const msg = formatHygieneAlert([
+        { type: "exact-duplicate", severity: "high", suggestion: "Remove duplicate" },
+      ]);
+      expect(msg.text).toContain("1 finding");
+      expect(msg.text).toContain("1 high");
+    });
+  });
+
+  describe("formatAgentOutput", () => {
+    it("formats agent result", () => {
+      const msg = formatAgentOutput("weekly-summary", "# Status Update\n\nAll good.");
+      expect(msg.text).toContain("weekly-summary");
+    });
+  });
+
+  describe("handleSlashCommand", () => {
+    const basePayload = {
+      command: "/hub", text: "", response_url: "", user_id: "U1",
+      user_name: "tester", channel_id: "C1", channel_name: "general",
+    };
+
+    it("returns help for empty command", async () => {
+      const result = await handleSlashCommand({ ...basePayload, text: "" });
+      expect(result).toContain("Hub Commands");
+    });
+
+    it("returns help for 'help'", async () => {
+      const result = await handleSlashCommand({ ...basePayload, text: "help" });
+      expect(result).toContain("search");
+    });
+
+    it("handles search command", async () => {
+      const result = await handleSlashCommand({ ...basePayload, text: "search architecture" });
+      expect(result).toContain("architecture");
+    });
+
+    it("handles search without query", async () => {
+      const result = await handleSlashCommand({ ...basePayload, text: "search" });
+      expect(result).toContain("Usage");
+    });
+
+    it("handles status command", async () => {
+      const result = await handleSlashCommand({ ...basePayload, text: "status" });
+      expect(result).toContain("status");
+    });
+  });
+});
