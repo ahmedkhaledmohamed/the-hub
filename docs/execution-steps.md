@@ -191,7 +191,7 @@ Add `manifest.json` to `docs/` (or `public/` for the Next.js app) with app name,
 
 ---
 
-### Step 25 — Multi-workspace contexts
+### ✅ Step 25 — Multi-workspace contexts
 Add a `contexts` config option: array of `{ name, config }` where each entry points to a different `hub.config.ts`. Add a context switcher in the sidebar. Each context has its own SQLite database, manifest, and scan state. Add a "Search across all contexts" toggle in Cmd+K that queries all databases. Persist active context in localStorage.
 
 **Acceptance**: Switching between "Work" and "Side Projects" contexts loads completely different workspaces, tabs, and panels.

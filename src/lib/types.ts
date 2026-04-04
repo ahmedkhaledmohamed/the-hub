@@ -14,6 +14,16 @@ export interface HubConfig {
   templates?: DocTemplate[];
   agents?: AgentConfig[];
   webhooks?: WebhookConfig[];
+  contexts?: ContextConfig[];
+}
+
+export interface ContextConfig {
+  /** Context display name */
+  name: string;
+  /** Path to the hub.config.ts for this context (relative or absolute) */
+  config: string;
+  /** Optional icon identifier */
+  icon?: string;
 }
 
 export interface WebhookConfig {
