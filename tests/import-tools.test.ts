@@ -389,3 +389,145 @@ describe("calendar integration", () => {
     });
   });
 });
+
+// ── Google Docs sync tests ───────────────────────────────────────
+
+import {
+  parseDocId,
+  textToMarkdown,
+  isGoogleDocsConfigured,
+  linkDoc,
+  unlinkDoc,
+  getLinkedDoc,
+  getLinkedDocByPath,
+  getAllLinkedDocs,
+  getSyncSummary,
+} from "@/lib/google-docs";
+
+describe("google docs sync", () => {
+  describe("parseDocId", () => {
+    it("extracts ID from a full Google Docs URL", () => {
+      const url = "https://docs.google.com/document/d/1aBcDeFgHiJkLmNoPqRsTuVwXyZ/edit";
+      expect(parseDocId(url)).toBe("1aBcDeFgHiJkLmNoPqRsTuVwXyZ");
+    });
+
+    it("extracts ID from URL with hash", () => {
+      const url = "https://docs.google.com/document/d/abc123_def/edit#heading=h.123";
+      expect(parseDocId(url)).toBe("abc123_def");
+    });
+
+    it("returns raw string if not a URL", () => {
+      expect(parseDocId("my-doc-id-123")).toBe("my-doc-id-123");
+    });
+  });
+
+  describe("textToMarkdown", () => {
+    it("converts bullet points to markdown", () => {
+      const text = "● First item\n● Second item\n• Third item";
+      const md = textToMarkdown(text);
+      expect(md).toContain("- First item");
+      expect(md).toContain("- Second item");
+      expect(md).toContain("- Third item");
+    });
+
+    it("preserves numbered lists", () => {
+      const text = "1. First\n2. Second";
+      expect(textToMarkdown(text)).toContain("1. First");
+    });
+
+    it("converts all-caps lines to headings", () => {
+      const text = "INTRODUCTION\n\nSome content here.";
+      const md = textToMarkdown(text);
+      expect(md).toContain("## INTRODUCTION");
+    });
+
+    it("handles empty text", () => {
+      expect(textToMarkdown("")).toBe("");
+    });
+  });
+
+  describe("isGoogleDocsConfigured", () => {
+    const saved = { ...process.env };
+    afterEach(() => {
+      process.env = { ...saved };
+    });
+
+    it("false when no env vars", () => {
+      delete process.env.GOOGLE_DOCS_API_KEY;
+      delete process.env.GOOGLE_DOCS_TOKEN;
+      expect(isGoogleDocsConfigured()).toBe(false);
+    });
+
+    it("true with API key", () => {
+      process.env.GOOGLE_DOCS_API_KEY = "test-key";
+      expect(isGoogleDocsConfigured()).toBe(true);
+    });
+
+    it("true with OAuth token", () => {
+      process.env.GOOGLE_DOCS_TOKEN = "test-token";
+      expect(isGoogleDocsConfigured()).toBe(true);
+    });
+  });
+
+  describe("link management", () => {
+    it("links and retrieves a doc", () => {
+      const docId = `gdoc-${Date.now()}`;
+      const id = linkDoc({ docId, artifactPath: "gdocs/test.md", title: "Test Doc" });
+      expect(id).toBeGreaterThan(0);
+
+      const link = getLinkedDoc(docId);
+      expect(link).not.toBeNull();
+      expect(link!.artifactPath).toBe("gdocs/test.md");
+      expect(link!.title).toBe("Test Doc");
+      expect(link!.syncDirection).toBe("pull");
+      expect(link!.remoteUrl).toContain(docId);
+    });
+
+    it("upserts on duplicate docId", () => {
+      const docId = `gdoc-upsert-${Date.now()}`;
+      linkDoc({ docId, artifactPath: "gdocs/v1.md", title: "V1" });
+      linkDoc({ docId, artifactPath: "gdocs/v2.md", title: "V2" });
+
+      const link = getLinkedDoc(docId);
+      expect(link!.artifactPath).toBe("gdocs/v2.md");
+      expect(link!.title).toBe("V2");
+    });
+
+    it("retrieves by artifact path", () => {
+      const docId = `gdoc-path-${Date.now()}`;
+      const path = `gdocs/by-path-${Date.now()}.md`;
+      linkDoc({ docId, artifactPath: path });
+
+      const link = getLinkedDocByPath(path);
+      expect(link).not.toBeNull();
+      expect(link!.docId).toBe(docId);
+    });
+
+    it("unlinks a doc", () => {
+      const docId = `gdoc-unlink-${Date.now()}`;
+      linkDoc({ docId, artifactPath: "gdocs/unlink.md" });
+      expect(unlinkDoc(docId)).toBe(true);
+      expect(getLinkedDoc(docId)).toBeNull();
+    });
+
+    it("unlink returns false for non-existent", () => {
+      expect(unlinkDoc("nonexistent-doc-id")).toBe(false);
+    });
+
+    it("getAllLinkedDocs returns array", () => {
+      const docs = getAllLinkedDocs();
+      expect(Array.isArray(docs)).toBe(true);
+    });
+  });
+
+  describe("getSyncSummary", () => {
+    it("returns summary structure", () => {
+      const summary = getSyncSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.synced).toBe("number");
+      expect(typeof summary.errors).toBe("number");
+      expect(typeof summary.pullOnly).toBe("number");
+      expect(typeof summary.bidirectional).toBe("number");
+    });
+  });
+});
