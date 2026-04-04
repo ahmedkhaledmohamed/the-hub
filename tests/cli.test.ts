@@ -225,3 +225,98 @@ describe("API authentication", () => {
     });
   });
 });
+
+// ── Sharing tests ──────────────────────────────────────────────────
+
+import {
+  isSharingEnabled,
+  getUserRole,
+  getUserName,
+  canWrite,
+  canRead,
+  canPerformAction,
+  trackUserActivity,
+  getRecentUserActivity,
+  getUserActivityCount,
+  getSharedUsers,
+} from "@/lib/sharing";
+import type { UserRole } from "@/lib/types";
+
+describe("sharing", () => {
+  describe("isSharingEnabled", () => {
+    it("returns false when no sharing config", () => {
+      expect(isSharingEnabled()).toBe(false);
+    });
+  });
+
+  describe("getUserRole", () => {
+    it("returns admin when sharing disabled", () => {
+      expect(getUserRole(null)).toBe("admin");
+    });
+
+    it("returns admin when sharing disabled with key", () => {
+      expect(getUserRole("some-key")).toBe("admin");
+    });
+  });
+
+  describe("getUserName", () => {
+    it("returns anonymous for null key", () => {
+      expect(getUserName(null)).toBe("anonymous");
+    });
+
+    it("returns user for unknown key", () => {
+      expect(getUserName("unknown-key")).toBe("user");
+    });
+  });
+
+  describe("permissions", () => {
+    it("admin can do everything", () => {
+      expect(canWrite("admin")).toBe(true);
+      expect(canRead("admin")).toBe(true);
+      expect(canPerformAction("admin", "delete")).toBe(true);
+    });
+
+    it("read-write can write", () => {
+      expect(canWrite("read-write")).toBe(true);
+      expect(canRead("read-write")).toBe(true);
+    });
+
+    it("read-only cannot write", () => {
+      expect(canWrite("read-only")).toBe(false);
+      expect(canRead("read-only")).toBe(true);
+      expect(canPerformAction("read-only", "delete")).toBe(false);
+      expect(canPerformAction("read-only", "archive")).toBe(false);
+    });
+
+    it("read-only can read actions", () => {
+      expect(canPerformAction("read-only", "search")).toBe(true);
+      expect(canPerformAction("read-only", "view")).toBe(true);
+    });
+
+    it("anonymous cannot access", () => {
+      expect(canWrite("anonymous")).toBe(false);
+      expect(canRead("anonymous")).toBe(false);
+    });
+  });
+
+  describe("user activity tracking", () => {
+    it("tracks and retrieves activity", () => {
+      trackUserActivity("test-user", "admin", "view", "/briefing");
+      const recent = getRecentUserActivity(5);
+      expect(recent.some((a) => a.userName === "test-user")).toBe(true);
+    });
+
+    it("counts activity per user", () => {
+      const unique = `count-user-${Date.now()}`;
+      trackUserActivity(unique, "admin", "search");
+      trackUserActivity(unique, "admin", "view");
+      expect(getUserActivityCount(unique, 1)).toBe(2);
+    });
+  });
+
+  describe("getSharedUsers", () => {
+    it("returns empty when no sharing config", () => {
+      expect(getSharedUsers()).toEqual([]);
+    });
+  });
+});
