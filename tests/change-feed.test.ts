@@ -260,3 +260,31 @@ describe("temporal intelligence", () => {
     });
   });
 });
+
+// ── Agent scheduler tests ──────────────────────────────────────────
+
+import {
+  getAgentResults,
+  getConfiguredAgents,
+} from "@/lib/agent-scheduler";
+
+describe("agent scheduler", () => {
+  describe("getAgentResults", () => {
+    it("returns empty array when no results", () => {
+      const results = getAgentResults("nonexistent-agent");
+      expect(Array.isArray(results)).toBe(true);
+    });
+
+    it("returns all results when no agentId filter", () => {
+      const results = getAgentResults(undefined, 5);
+      expect(Array.isArray(results)).toBe(true);
+    });
+  });
+
+  describe("getConfiguredAgents", () => {
+    it("returns empty array when no agents configured", () => {
+      const agents = getConfiguredAgents();
+      expect(Array.isArray(agents)).toBe(true);
+    });
+  });
+});

@@ -12,6 +12,20 @@ export interface HubConfig {
   framework?: FrameworkConfig;
   staleness?: { fresh?: number; aging?: number; stale?: number };
   templates?: DocTemplate[];
+  agents?: AgentConfig[];
+}
+
+export interface AgentConfig {
+  /** Unique agent identifier */
+  id: string;
+  /** Agent type */
+  type: "stale-doc-reminder" | "weekly-summary" | "duplicate-resolver" | "custom";
+  /** Whether this agent is active */
+  enabled?: boolean;
+  /** Cron-like schedule: "daily", "weekly", "hourly", or cron expression */
+  schedule?: string;
+  /** Agent-specific options */
+  options?: Record<string, unknown>;
 }
 
 export interface WorkspaceConfig {
