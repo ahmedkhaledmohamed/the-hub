@@ -70,6 +70,21 @@ function shingle(tokens: string[], n: number = 5): Set<string> {
   return shingles;
 }
 
+function isSourceExportPair(pathA: string, pathB: string): boolean {
+  const extA = extname(pathA).toLowerCase();
+  const extB = extname(pathB).toLowerCase();
+  if (!((extA === ".md" && extB === ".html") || (extA === ".html" && extB === ".md"))) return false;
+  const baseA = basename(pathA, extA).toLowerCase().replace(/[_-]/g, " ");
+  const baseB = basename(pathB, extB).toLowerCase().replace(/[_-]/g, " ");
+  const tokA = new Set(baseA.split(/\s+/).filter((w) => w.length > 2));
+  const tokB = new Set(baseB.split(/\s+/).filter((w) => w.length > 2));
+  return jaccard(tokA, tokB) >= 0.5;
+}
+
+function stripBrandSuffix(title: string): string {
+  return title.replace(/\s*\|\s*[^|]+$/, "").trim();
+}
+
 // ── Detectors ─────────────────────────────────────────────────────────
 
 interface ContentEntry {
@@ -110,14 +125,13 @@ function detectExactDuplicates(entries: ContentEntry[]): HygieneFinding[] {
 
 function detectNearDuplicates(entries: ContentEntry[], exactPairs: Set<string>): HygieneFinding[] {
   const findings: HygieneFinding[] = [];
-  const eligible = entries.filter((e) => e.tokens.length >= 20);
+  const eligible = entries.filter((e) => e.tokens.length >= 50);
 
   const shingledEntries = eligible.map((e) => ({
     ...e,
     shingles: shingle(e.tokens),
   }));
 
-  // LSH-style bucketing: hash each shingle, bucket by hash prefix
   const buckets = new Map<string, number[]>();
   for (let i = 0; i < shingledEntries.length; i++) {
     const seen = new Set<string>();
@@ -144,64 +158,104 @@ function detectNearDuplicates(entries: ContentEntry[], exactPairs: Set<string>):
         compared.add(pairKey);
 
         const sizeRatio = Math.min(a.tokens.length, b.tokens.length) / Math.max(a.tokens.length, b.tokens.length);
-        if (sizeRatio < 0.3) continue;
+        if (sizeRatio < 0.15) continue;
 
         const sim = jaccard(a.shingles, b.shingles);
-        if (sim < 0.35) continue;
+        if (sim < 0.45) continue;
 
+        const isExport = isSourceExportPair(a.artifact.path, b.artifact.path);
         const severity = sim >= 0.7 ? "high" : sim >= 0.5 ? "medium" : "low";
+        const tag = isExport ? " (source↔export pair)" : "";
         findings.push({
           id: `near:${sha256(pairKey).slice(0, 12)}`,
           type: "near-duplicate",
           severity,
           artifacts: [a.artifact, b.artifact],
           similarity: Math.round(sim * 100) / 100,
-          suggestion: `${Math.round(sim * 100)}% content overlap. Review both files and consider consolidating into a single source of truth.`,
+          suggestion: `${Math.round(sim * 100)}% content overlap${tag}. Review both files and consider consolidating into a single source of truth.`,
         });
       }
     }
   }
 
-  return findings.sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, 100);
+  const sorted = findings.sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, 100);
+  return classifyTemplateOverlap(sorted);
+}
+
+/**
+ * Reclassify near-duplicate findings that are likely template/boilerplate overlap.
+ * If a document appears in 4+ near-duplicate pairs, its lower-similarity matches
+ * (below 0.6) are likely driven by shared template structure, not genuine content duplication.
+ */
+function classifyTemplateOverlap(findings: HygieneFinding[]): HygieneFinding[] {
+  const pairCount = new Map<string, number>();
+  for (const f of findings) {
+    for (const a of f.artifacts) {
+      pairCount.set(a.path, (pairCount.get(a.path) || 0) + 1);
+    }
+  }
+
+  const hubPaths = new Set(
+    Array.from(pairCount.entries())
+      .filter(([, count]) => count >= 4)
+      .map(([path]) => path)
+  );
+
+  return findings.map((f) => {
+    if (f.type !== "near-duplicate") return f;
+    const sim = f.similarity || 0;
+    const involvesHub = f.artifacts.some((a) => hubPaths.has(a.path));
+    if (involvesHub && sim < 0.6) {
+      return {
+        ...f,
+        type: "template-overlap" as const,
+        severity: "low" as const,
+        suggestion: `${Math.round(sim * 100)}% overlap — likely shared template or boilerplate structure rather than duplicate content. Review if the shared sections can be extracted into a common template.`,
+      };
+    }
+    return f;
+  });
 }
 
 function detectSimilarTitles(artifacts: Artifact[], alreadyFlagged: Set<string>): HygieneFinding[] {
   const findings: HygieneFinding[] = [];
   const titleTokens = artifacts.map((a) => ({
     artifact: a,
-    tokens: new Set(tokenize(a.title)),
+    tokens: new Set(tokenize(stripBrandSuffix(a.title))),
   }));
 
   for (let i = 0; i < titleTokens.length; i++) {
     for (let j = i + 1; j < titleTokens.length; j++) {
       const a = titleTokens[i];
       const b = titleTokens[j];
-      if (a.tokens.size < 2 || b.tokens.size < 2) continue;
+      if (a.tokens.size < 3 || b.tokens.size < 3) continue;
 
       const pairKey = [a.artifact.path, b.artifact.path].sort().join("|");
       if (alreadyFlagged.has(pairKey)) continue;
 
       const sim = jaccard(a.tokens, b.tokens);
-      if (sim < 0.6) continue;
+      if (sim < 0.5) continue;
 
       if (a.artifact.group === b.artifact.group) continue;
 
+      const isExport = isSourceExportPair(a.artifact.path, b.artifact.path);
+      const tag = isExport ? " (likely source↔export)" : "";
       findings.push({
         id: `title:${sha256(pairKey).slice(0, 12)}`,
         type: "similar-title",
-        severity: "medium",
+        severity: sim >= 0.8 ? "high" : "medium",
         artifacts: [a.artifact, b.artifact],
         similarity: Math.round(sim * 100) / 100,
-        suggestion: `Very similar titles across different groups. These may cover the same topic — consider consolidating or cross-referencing.`,
+        suggestion: `Similar titles across different groups${tag}. These may cover the same topic — consider consolidating or cross-referencing.`,
       });
     }
   }
 
-  return findings.sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, 50);
+  return findings.sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, 80);
 }
 
 function detectSameFilename(artifacts: Artifact[], alreadyFlagged: Set<string>): HygieneFinding[] {
-  const IGNORE_NAMES = new Set(["readme.md", "index.md", "index.html", "changelog.md", "license.md"]);
+  const IGNORE_NAMES = new Set(["readme.md", "index.md", "index.html", "changelog.md", "license.md", "claude.md", "skill.md", "agents.md"]);
   const byName = new Map<string, Artifact[]>();
 
   for (const a of artifacts) {
@@ -299,8 +353,9 @@ export function analyzeHygiene(artifacts: Artifact[], manifestGeneratedAt: strin
   console.log(`[hygiene] Analyzing ${artifacts.length} artifacts...`);
   const start = Date.now();
 
+  const TEXT_TYPES = new Set(["md", "html", "csv", "txt", "json"]);
   const entries: ContentEntry[] = artifacts
-    .filter((a) => a.type === "md" || a.type === "html")
+    .filter((a) => TEXT_TYPES.has(a.type))
     .map((a) => {
       const raw = readContent(a.path);
       const ext = extname(a.path).toLowerCase();

@@ -12,6 +12,7 @@ import type { HygieneFinding, HygieneReport, HygieneFindingType } from "@/lib/ty
 const TYPE_LABELS: Record<HygieneFindingType, string> = {
   "exact-duplicate": "Exact Duplicate",
   "near-duplicate": "Near Duplicate",
+  "template-overlap": "Template / Boilerplate",
   "similar-title": "Similar Title",
   "same-filename": "Same Filename",
   "superseded": "Superseded",
@@ -27,6 +28,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 const TYPE_COLORS: Record<string, string> = {
   "exact-duplicate": "#e74c3c",
   "near-duplicate": "#ff6b9d",
+  "template-overlap": "#f59e0b",
   "similar-title": "#4a9eff",
   "same-filename": "#b388ff",
   "superseded": "#e68a00",
