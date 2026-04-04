@@ -324,3 +324,83 @@ describe("plugin system", () => {
     });
   });
 });
+
+// ── GitHub plugin tests ────────────────────────────────────────────
+
+import { getToken, extractGitHubRepos, getCached, setCache, cache } from "../plugins/github/index";
+
+describe("GitHub plugin", () => {
+  afterEach(() => {
+    cache.clear();
+  });
+
+  describe("getToken", () => {
+    it("returns null when GITHUB_TOKEN not set", () => {
+      const orig = process.env.GITHUB_TOKEN;
+      delete process.env.GITHUB_TOKEN;
+      expect(getToken()).toBeNull();
+      if (orig) process.env.GITHUB_TOKEN = orig;
+    });
+
+    it("returns token when set", () => {
+      const orig = process.env.GITHUB_TOKEN;
+      process.env.GITHUB_TOKEN = "test-token-123";
+      expect(getToken()).toBe("test-token-123");
+      if (orig) process.env.GITHUB_TOKEN = orig;
+      else delete process.env.GITHUB_TOKEN;
+    });
+  });
+
+  describe("extractGitHubRepos", () => {
+    it("extracts repos from GITHUB_REPOS env", () => {
+      const orig = process.env.GITHUB_REPOS;
+      process.env.GITHUB_REPOS = "owner/repo1, owner/repo2";
+      const repos = extractGitHubRepos({
+        generatedAt: "", workspaces: [], groups: [], artifacts: [],
+      });
+      expect(repos).toEqual([
+        { owner: "owner", repo: "repo1" },
+        { owner: "owner", repo: "repo2" },
+      ]);
+      if (orig) process.env.GITHUB_REPOS = orig;
+      else delete process.env.GITHUB_REPOS;
+    });
+
+    it("returns empty when GITHUB_REPOS not set", () => {
+      const orig = process.env.GITHUB_REPOS;
+      delete process.env.GITHUB_REPOS;
+      const repos = extractGitHubRepos({
+        generatedAt: "", workspaces: [], groups: [], artifacts: [],
+      });
+      expect(repos).toEqual([]);
+      if (orig) process.env.GITHUB_REPOS = orig;
+    });
+
+    it("deduplicates repos", () => {
+      const orig = process.env.GITHUB_REPOS;
+      process.env.GITHUB_REPOS = "a/b, a/b, a/b";
+      const repos = extractGitHubRepos({
+        generatedAt: "", workspaces: [], groups: [], artifacts: [],
+      });
+      expect(repos).toEqual([{ owner: "a", repo: "b" }]);
+      if (orig) process.env.GITHUB_REPOS = orig;
+      else delete process.env.GITHUB_REPOS;
+    });
+  });
+
+  describe("cache", () => {
+    it("stores and retrieves cached data", () => {
+      setCache("test-key", { value: 42 });
+      expect(getCached<{ value: number }>("test-key")).toEqual({ value: 42 });
+    });
+
+    it("returns null for expired cache", () => {
+      cache.set("expired", { data: "old", expiresAt: Date.now() - 1000 });
+      expect(getCached("expired")).toBeNull();
+    });
+
+    it("returns null for missing keys", () => {
+      expect(getCached("nonexistent")).toBeNull();
+    });
+  });
+});
