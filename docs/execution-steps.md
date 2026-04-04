@@ -82,7 +82,7 @@ Extract the AI gateway logic from `src/app/api/hygiene/review/route.ts` into a s
 
 ---
 
-### Step 10 — AI summarization
+### ✅ Step 10 — AI summarization
 Add a summarization pipeline that uses the AI client. On scan, for artifacts longer than 500 words, generate a 2-sentence summary. Store summaries in SQLite with a content-hash key (only regenerate when content changes). Show AI summaries on artifact cards instead of raw snippets (with a toggle). Add "Summarize this group" action that concatenates all artifacts in a group and generates an aggregate summary.
 
 **Acceptance**: Artifact cards show AI-generated summaries. Clicking "Summarize group" on a group header produces a coherent summary of all docs in that group.
