@@ -62,7 +62,7 @@ describe("MCP server data layer", () => {
       ["project/src/server.ts", "import express from 'express';\n\nconst app = express();\napp.listen(3000);"],
     ]);
 
-    persistArtifacts(artifacts, contentMap);
+    persistArtifacts(artifacts, contentMap, { deleteStale: false });
   });
 
   describe("search tool", () => {
