@@ -185,6 +185,49 @@ import {
   clearAllListeners,
 } from "@/lib/events";
 
+// ── Incremental scan tests ─────────────────────────────────────────
+
+import { getChangedFiles, updateMtimes, getStoredMtimes } from "@/lib/db";
+
+describe("incremental scanning", () => {
+  it("detects new files as added", () => {
+    const files = [{ path: "inc/new.md", mtimeMs: Date.now(), size: 100 }];
+    const result = getChangedFiles(files);
+    expect(result.added).toContain("inc/new.md");
+  });
+
+  it("detects changed files by mtime", () => {
+    updateMtimes([{ path: "inc/changed.md", mtimeMs: 1000, size: 100 }]);
+    const result = getChangedFiles([{ path: "inc/changed.md", mtimeMs: 2000, size: 100 }]);
+    expect(result.changed).toContain("inc/changed.md");
+  });
+
+  it("detects changed files by size", () => {
+    updateMtimes([{ path: "inc/sized.md", mtimeMs: 1000, size: 100 }]);
+    const result = getChangedFiles([{ path: "inc/sized.md", mtimeMs: 1000, size: 200 }]);
+    expect(result.changed).toContain("inc/sized.md");
+  });
+
+  it("detects unchanged files", () => {
+    updateMtimes([{ path: "inc/same.md", mtimeMs: 1000, size: 100 }]);
+    const result = getChangedFiles([{ path: "inc/same.md", mtimeMs: 1000, size: 100 }]);
+    expect(result.unchanged).toContain("inc/same.md");
+  });
+
+  it("detects removed files", () => {
+    updateMtimes([{ path: "inc/gone.md", mtimeMs: 1000, size: 100 }]);
+    const result = getChangedFiles([]);
+    expect(result.removed).toContain("inc/gone.md");
+  });
+
+  it("updateMtimes stores and retrieves", () => {
+    const unique = `inc/store-${Date.now()}.md`;
+    updateMtimes([{ path: unique, mtimeMs: 12345, size: 500 }]);
+    const stored = getStoredMtimes();
+    expect(stored.get(unique)?.mtimeMs).toBe(12345);
+  });
+});
+
 describe("event bus", () => {
   afterEach(() => {
     clearEventLog();

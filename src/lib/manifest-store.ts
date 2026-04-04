@@ -1,7 +1,7 @@
 import type { Manifest, HubConfig } from "./types";
 import { loadConfig, getResolvedWorkspacePaths, invalidateConfigCache } from "./config";
 import { scan } from "./scanner";
-import { persistArtifacts } from "./db";
+import { persistArtifacts, getChangedFiles, updateMtimes } from "./db";
 import { recordSnapshot } from "./trends";
 import { readPreferences } from "./preferences";
 import path from "path";
@@ -52,13 +52,25 @@ export function regenerate(reason: string = "manual"): Manifest {
     cachedManifest = result.manifest;
     cachedManifest.lastScanReason = reason;
 
-    // Persist to SQLite in background (don't block the response)
+    // Persist to SQLite + update mtime cache
     try {
+      // Check what actually changed (incremental)
+      const changes = getChangedFiles(result.fileMtimes);
+      const changedCount = changes.changed.length + changes.added.length + changes.removed.length;
+
       persistArtifacts(cachedManifest.artifacts, result.contentMap);
+      updateMtimes(result.fileMtimes);
       recordSnapshot(cachedManifest);
-      console.log(
-        `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (persisted to SQLite)`,
-      );
+
+      if (changedCount > 0) {
+        console.log(
+          `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (+${changes.added.length} -${changes.removed.length} ~${changes.changed.length} unchanged:${changes.unchanged.length})`,
+        );
+      } else {
+        console.log(
+          `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (no changes detected)`,
+        );
+      }
     } catch (dbErr) {
       console.warn("[hub] SQLite persistence failed (non-fatal):", dbErr);
       console.log(
