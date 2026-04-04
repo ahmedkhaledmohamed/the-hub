@@ -345,6 +345,7 @@ export interface FrameworkCatalog {
 export type HygieneFindingType =
   | "exact-duplicate"
   | "near-duplicate"
+  | "template-overlap"
   | "similar-title"
   | "same-filename"
   | "superseded"
