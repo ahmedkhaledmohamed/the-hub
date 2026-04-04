@@ -502,3 +502,117 @@ describe("plugin marketplace", () => {
     });
   });
 });
+
+// ── Plugin sandbox tests ───────────────────────────────────────────
+
+import {
+  sandboxPlugin,
+  getSandboxConfig,
+  getPluginSandboxLevel,
+  validatePluginStructure,
+  canAccessNetwork,
+  canAccessFilesystem,
+} from "@/lib/plugin-sandbox";
+
+describe("plugin sandbox", () => {
+  describe("getSandboxConfig", () => {
+    it("returns trusted config with full access", () => {
+      const config = getSandboxConfig("trusted");
+      expect(config.level).toBe("trusted");
+      expect(config.allowNetwork).toBe(true);
+      expect(config.allowFs).toBe(true);
+      expect(config.timeout).toBeGreaterThan(10000);
+    });
+
+    it("returns restricted config with limited access", () => {
+      const config = getSandboxConfig("restricted");
+      expect(config.level).toBe("restricted");
+      expect(config.allowNetwork).toBe(false);
+      expect(config.allowFs).toBe(false);
+      expect(config.timeout).toBeLessThanOrEqual(5000);
+    });
+  });
+
+  describe("getPluginSandboxLevel", () => {
+    it("trusts built-in plugins", () => {
+      expect(getPluginSandboxLevel("hello-world")).toBe("trusted");
+      expect(getPluginSandboxLevel("github")).toBe("trusted");
+    });
+
+    it("restricts unknown plugins", () => {
+      expect(getPluginSandboxLevel("community-plugin")).toBe("restricted");
+      expect(getPluginSandboxLevel("random-plugin")).toBe("restricted");
+    });
+  });
+
+  describe("sandboxPlugin", () => {
+    it("wraps hooks in restricted mode", () => {
+      const plugin: HubPlugin = {
+        name: "test",
+        version: "1.0.0",
+        onScan: () => [],
+        onRender: () => [],
+      };
+      const config = getSandboxConfig("restricted");
+      const { plugin: sandboxed, errors } = sandboxPlugin(plugin, config);
+      expect(sandboxed.name).toBe("test");
+      expect(errors.length).toBe(0);
+    });
+
+    it("passes through in trusted mode", () => {
+      const plugin: HubPlugin = { name: "trusted", version: "1.0.0" };
+      const config = getSandboxConfig("trusted");
+      const { plugin: sandboxed } = sandboxPlugin(plugin, config);
+      expect(sandboxed).toBe(plugin); // Same reference
+    });
+
+    it("catches errors in restricted hooks", async () => {
+      const plugin: HubPlugin = {
+        name: "failing",
+        version: "1.0.0",
+        onScan: () => { throw new Error("boom"); },
+      };
+      const config = getSandboxConfig("restricted");
+      const { plugin: sandboxed, errors } = sandboxPlugin(plugin, config);
+
+      const result = await sandboxed.onScan!({} as any);
+      expect(result).toEqual([]);
+      expect(errors.length).toBe(1);
+      expect(errors[0]).toContain("boom");
+    });
+  });
+
+  describe("validatePluginStructure", () => {
+    it("validates correct plugin", () => {
+      const result = validatePluginStructure({ name: "test", version: "1.0.0" });
+      expect(result.valid).toBe(true);
+    });
+
+    it("rejects missing name", () => {
+      const result = validatePluginStructure({ version: "1.0.0" });
+      expect(result.valid).toBe(false);
+    });
+
+    it("rejects non-function hooks", () => {
+      const result = validatePluginStructure({ name: "t", version: "1", onScan: "not a function" });
+      expect(result.valid).toBe(false);
+    });
+
+    it("rejects non-objects", () => {
+      expect(validatePluginStructure(null).valid).toBe(false);
+      expect(validatePluginStructure("string").valid).toBe(false);
+    });
+  });
+
+  describe("permission checks", () => {
+    it("canAccessNetwork reflects config", () => {
+      expect(canAccessNetwork(getSandboxConfig("trusted"))).toBe(true);
+      expect(canAccessNetwork(getSandboxConfig("restricted"))).toBe(false);
+    });
+
+    it("canAccessFilesystem reflects config", () => {
+      expect(canAccessFilesystem(getSandboxConfig("trusted"))).toBe(true);
+      expect(canAccessFilesystem(getSandboxConfig("restricted"))).toBe(false);
+    });
+  });
+});

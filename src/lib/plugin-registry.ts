@@ -9,6 +9,7 @@
 import { existsSync, readdirSync, statSync } from "fs";
 import { join, resolve } from "path";
 import type { HubPlugin, Artifact, PanelConfig, Manifest } from "./types";
+import { sandboxPlugin, getPluginSandboxLevel, getSandboxConfig, validatePluginStructure } from "./plugin-sandbox";
 
 // ── Registry state ─────────────────────────────────────────────────
 
@@ -45,13 +46,21 @@ export async function loadPlugin(name: string): Promise<HubPlugin | null> {
   try {
     // Dynamic import for both TS and JS
     const mod = await import(entryPoint);
-    const plugin: HubPlugin = mod.default || mod;
+    const rawPlugin: HubPlugin = mod.default || mod;
 
-    if (!plugin.name || !plugin.version) {
-      console.warn(`[plugins] ${name}: missing name or version, skipping`);
+    // Validate plugin structure
+    const validation = validatePluginStructure(rawPlugin);
+    if (!validation.valid) {
+      console.warn(`[plugins] ${name}: invalid structure: ${validation.errors.join(", ")}`);
       return null;
     }
 
+    // Apply sandbox based on trust level
+    const level = getPluginSandboxLevel(name);
+    const config = getSandboxConfig(level);
+    const { plugin } = sandboxPlugin(rawPlugin, config);
+
+    console.log(`[plugins] ${name}: sandbox level = ${level}`);
     return plugin;
   } catch (err) {
     console.error(`[plugins] Failed to load ${name}:`, err);
