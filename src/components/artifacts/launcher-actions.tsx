@@ -42,25 +42,30 @@ export function LauncherActions({ artifactPath, compact }: LauncherActionsProps)
     }
   };
 
+  const openInCursor = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(cursorUri, "_self");
+  };
+
   if (compact) {
     return (
       <div className="flex items-center gap-0.5">
-        <a
-          href={cursorUri}
+        <button
+          onClick={openInCursor}
           className="p-1 rounded text-text-dim hover:text-accent hover:bg-surface-hover transition-colors"
-          onClick={(e) => e.stopPropagation()}
           title="Open in Cursor"
         >
           <Code size={12} />
-        </a>
+        </button>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1.5">
-      <a
-        href={cursorUri}
+      <button
+        onClick={openInCursor}
         className={cn(
           "inline-flex items-center gap-1 px-2 py-1 rounded text-[11px]",
           "bg-surface-hover text-text-muted hover:text-accent hover:bg-accent/10 transition-colors",
@@ -69,7 +74,7 @@ export function LauncherActions({ artifactPath, compact }: LauncherActionsProps)
       >
         <Code size={12} />
         Cursor
-      </a>
+      </button>
       <button
         onClick={copyPath}
         className={cn(
