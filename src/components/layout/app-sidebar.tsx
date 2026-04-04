@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
-  type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck,
+  type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
@@ -86,6 +86,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/briefing", label: "Briefing", Icon: Sun },
           { href: "/repos", label: "Repos", Icon: GitFork },
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck },
+          { href: "/ask", label: "Ask AI", Icon: Sparkles },
         ].map(({ href, label, Icon }) => (
           <Link
             key={href}

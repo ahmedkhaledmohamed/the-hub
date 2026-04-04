@@ -96,7 +96,7 @@ Add embedding generation to the scan pipeline. Use the AI client to embed artifa
 
 ---
 
-### Step 12 — Workspace Q&A (RAG)
+### ✅ Step 12 — Workspace Q&A (RAG)
 Create `/api/ai/ask` endpoint. Pipeline: user question → hybrid search → top-5 chunks → construct prompt with chunks as context → LLM → answer with source citations. Create a Q&A UI: either a dedicated `/ask` page or an expanded Cmd+K mode (type a question instead of a keyword). Show cited artifacts as clickable links below the answer.
 
 **Acceptance**: Asking "What's the status of the Q2 roadmap?" returns a synthesized answer citing specific artifacts, with links to open them.
