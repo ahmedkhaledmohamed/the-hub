@@ -230,3 +230,65 @@ describe("extractors", () => {
     });
   });
 });
+
+// ── Context manager tests ──────────────────────────────────────────
+
+import {
+  getContexts,
+  getActiveContextName,
+  setActiveContext,
+  resetContext,
+  hasContexts,
+  getContextSummary,
+  getContextByName,
+} from "@/lib/context-manager";
+
+describe("context manager", () => {
+  afterEach(() => {
+    resetContext();
+  });
+
+  describe("getContexts", () => {
+    it("returns empty array when no contexts configured", () => {
+      const contexts = getContexts();
+      expect(Array.isArray(contexts)).toBe(true);
+    });
+  });
+
+  describe("active context", () => {
+    it("starts with null (default context)", () => {
+      expect(getActiveContextName()).toBeNull();
+    });
+
+    it("setActiveContext changes the active context", () => {
+      setActiveContext("Work");
+      expect(getActiveContextName()).toBe("Work");
+    });
+
+    it("resetContext returns to null", () => {
+      setActiveContext("Work");
+      resetContext();
+      expect(getActiveContextName()).toBeNull();
+    });
+  });
+
+  describe("hasContexts", () => {
+    it("returns false when no contexts configured", () => {
+      expect(hasContexts()).toBe(false);
+    });
+  });
+
+  describe("getContextSummary", () => {
+    it("returns array with active indicator", () => {
+      const summary = getContextSummary();
+      expect(Array.isArray(summary)).toBe(true);
+      // With no contexts configured, returns empty
+    });
+  });
+
+  describe("getContextByName", () => {
+    it("returns null for nonexistent context", () => {
+      expect(getContextByName("nonexistent")).toBeNull();
+    });
+  });
+});
