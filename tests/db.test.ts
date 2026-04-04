@@ -226,3 +226,110 @@ describe("federation", () => {
     });
   });
 });
+
+// ── Annotations tests ──────────────────────────────────────────────
+
+import {
+  addAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
+  getAnnotationsForArtifact,
+  getReplies,
+  getAnnotation,
+  getAnnotationCount,
+  getRecentAnnotations,
+  getAnnotatedArtifacts,
+} from "@/lib/annotations";
+
+describe("annotations", () => {
+  describe("addAnnotation", () => {
+    it("creates an annotation and returns its ID", () => {
+      const id = addAnnotation({
+        artifactPath: "ann/test.md",
+        content: "This is a comment",
+        author: "tester",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      const ann = getAnnotation(id);
+      expect(ann).not.toBeNull();
+      expect(ann!.content).toBe("This is a comment");
+      expect(ann!.author).toBe("tester");
+    });
+
+    it("supports line range annotations", () => {
+      const id = addAnnotation({
+        artifactPath: "ann/lines.md",
+        content: "Comment on lines 5-10",
+        lineStart: 5,
+        lineEnd: 10,
+      });
+      const ann = getAnnotation(id);
+      expect(ann!.lineStart).toBe(5);
+      expect(ann!.lineEnd).toBe(10);
+    });
+
+    it("supports threaded replies", () => {
+      const parentId = addAnnotation({
+        artifactPath: "ann/thread.md",
+        content: "Parent comment",
+      });
+      const replyId = addAnnotation({
+        artifactPath: "ann/thread.md",
+        content: "Reply to parent",
+        parentId,
+      });
+
+      const replies = getReplies(parentId);
+      expect(replies.length).toBeGreaterThanOrEqual(1);
+      expect(replies.some((r) => r.id === replyId)).toBe(true);
+    });
+  });
+
+  describe("updateAnnotation", () => {
+    it("updates content", () => {
+      const id = addAnnotation({ artifactPath: "ann/update.md", content: "original" });
+      updateAnnotation(id, "updated");
+      expect(getAnnotation(id)!.content).toBe("updated");
+    });
+  });
+
+  describe("deleteAnnotation", () => {
+    it("removes annotation", () => {
+      const id = addAnnotation({ artifactPath: "ann/delete.md", content: "temp" });
+      deleteAnnotation(id);
+      expect(getAnnotation(id)).toBeNull();
+    });
+  });
+
+  describe("queries", () => {
+    it("getAnnotationsForArtifact returns top-level only", () => {
+      const path = `ann/query-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, content: "top-level" });
+      const anns = getAnnotationsForArtifact(path);
+      expect(anns.length).toBeGreaterThanOrEqual(1);
+      expect(anns.every((a) => a.parentId === null)).toBe(true);
+    });
+
+    it("getAnnotationCount returns count", () => {
+      const path = `ann/count-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, content: "one" });
+      addAnnotation({ artifactPath: path, content: "two" });
+      expect(getAnnotationCount(path)).toBe(2);
+    });
+
+    it("getRecentAnnotations returns array", () => {
+      const recent = getRecentAnnotations(5);
+      expect(Array.isArray(recent)).toBe(true);
+    });
+
+    it("getAnnotatedArtifacts returns paths with counts", () => {
+      const artifacts = getAnnotatedArtifacts();
+      expect(Array.isArray(artifacts)).toBe(true);
+      if (artifacts.length > 0) {
+        expect(artifacts[0].path).toBeTruthy();
+        expect(artifacts[0].count).toBeGreaterThanOrEqual(1);
+      }
+    });
+  });
+});
