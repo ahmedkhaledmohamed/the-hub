@@ -333,3 +333,55 @@ describe("annotations", () => {
     });
   });
 });
+
+// ── Migration tests ────────────────────────────────────────────────
+
+import {
+  getCurrentVersion,
+  getAppliedMigrations,
+  getLatestVersion,
+  getPendingMigrations,
+  MIGRATIONS,
+} from "@/lib/migrations";
+import { getDb as getTestDb } from "@/lib/db";
+
+describe("database migrations", () => {
+  it("has at least 6 migrations", () => {
+    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("migrations have sequential versions", () => {
+    for (let i = 0; i < MIGRATIONS.length; i++) {
+      expect(MIGRATIONS[i].version).toBe(i + 1);
+    }
+  });
+
+  it("migrations have unique names", () => {
+    const names = MIGRATIONS.map((m) => m.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("getCurrentVersion returns a number", () => {
+    const db = getTestDb();
+    const version = getCurrentVersion(db);
+    expect(typeof version).toBe("number");
+    expect(version).toBeGreaterThanOrEqual(0);
+  });
+
+  it("getAppliedMigrations returns array", () => {
+    const db = getTestDb();
+    const applied = getAppliedMigrations(db);
+    expect(Array.isArray(applied)).toBe(true);
+  });
+
+  it("getLatestVersion matches last migration", () => {
+    expect(getLatestVersion()).toBe(MIGRATIONS[MIGRATIONS.length - 1].version);
+  });
+
+  it("database is up to date after startup", () => {
+    const db = getTestDb();
+    const current = getCurrentVersion(db);
+    expect(current).toBe(getLatestVersion());
+    expect(getPendingMigrations(db)).toEqual([]);
+  });
+});
