@@ -118,3 +118,112 @@ describe("full-text search", () => {
     expect(Array.isArray(results)).toBe(true);
   });
 });
+
+// ── Knowledge graph tests ──────────────────────────────────────────
+
+import {
+  addLink,
+  removeLink,
+  getLinksFrom,
+  getBacklinks,
+  getLinkCount,
+  parseWikiLinks,
+  resolveWikiLink,
+  getGraphData,
+} from "@/lib/knowledge-graph";
+
+describe("knowledge graph", () => {
+  describe("parseWikiLinks", () => {
+    it("extracts wiki-style links", () => {
+      const links = parseWikiLinks("See [[Architecture]] and [[Pricing Strategy]].");
+      expect(links).toEqual(["Architecture", "Pricing Strategy"]);
+    });
+
+    it("handles display text syntax", () => {
+      const links = parseWikiLinks("See [[architecture|Arch Overview]].");
+      expect(links).toEqual(["architecture"]);
+    });
+
+    it("returns empty for no links", () => {
+      expect(parseWikiLinks("No links here.")).toEqual([]);
+    });
+
+    it("handles multiple links on same line", () => {
+      const links = parseWikiLinks("[[A]] and [[B]] and [[C]]");
+      expect(links).toEqual(["A", "B", "C"]);
+    });
+  });
+
+  describe("resolveWikiLink", () => {
+    const paths = ["ws/docs/architecture.md", "ws/docs/pricing.md", "ws/readme.md"];
+
+    it("resolves by filename", () => {
+      expect(resolveWikiLink("architecture", paths)).toBe("ws/docs/architecture.md");
+    });
+
+    it("resolves by exact path", () => {
+      expect(resolveWikiLink("ws/docs/pricing.md", paths)).toBe("ws/docs/pricing.md");
+    });
+
+    it("resolves partial path", () => {
+      expect(resolveWikiLink("docs/pricing", paths)).toBe("ws/docs/pricing.md");
+    });
+
+    it("returns null for no match", () => {
+      expect(resolveWikiLink("nonexistent", paths)).toBeNull();
+    });
+  });
+
+  describe("link CRUD", () => {
+    it("adds and retrieves links", () => {
+      addLink("graph/a.md", "graph/b.md", "references");
+      const links = getLinksFrom("graph/a.md");
+      expect(links.some((l) => l.target_path === "graph/b.md")).toBe(true);
+    });
+
+    it("gets backlinks", () => {
+      addLink("graph/source.md", "graph/target.md", "references");
+      const backlinks = getBacklinks("graph/target.md");
+      expect(backlinks.some((b) => b.path === "graph/source.md")).toBe(true);
+    });
+
+    it("removes links", () => {
+      addLink("graph/x.md", "graph/y.md", "related");
+      removeLink("graph/x.md", "graph/y.md", "related");
+      const links = getLinksFrom("graph/x.md");
+      expect(links.some((l) => l.target_path === "graph/y.md" && l.link_type === "related")).toBe(false);
+    });
+
+    it("counts links", () => {
+      const before = getLinkCount();
+      addLink("graph/cnt1.md", "graph/cnt2.md", "supersedes");
+      expect(getLinkCount()).toBeGreaterThanOrEqual(before + 1);
+    });
+
+    it("ignores duplicate links", () => {
+      addLink("graph/dup.md", "graph/dup2.md", "references");
+      const before = getLinkCount();
+      addLink("graph/dup.md", "graph/dup2.md", "references");
+      expect(getLinkCount()).toBe(before);
+    });
+  });
+
+  describe("getGraphData", () => {
+    it("returns nodes and edges", () => {
+      addLink("graph/n1.md", "graph/n2.md", "references");
+      const data = getGraphData();
+      expect(data.nodes.length).toBeGreaterThanOrEqual(2);
+      expect(data.edges.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("nodes have required fields", () => {
+      addLink("graph/fields1.md", "graph/fields2.md", "related");
+      const data = getGraphData();
+      for (const node of data.nodes) {
+        expect(node.id).toBeTruthy();
+        expect(node.title).toBeTruthy();
+        expect(typeof node.group).toBe("string");
+      }
+    });
+  });
+});
