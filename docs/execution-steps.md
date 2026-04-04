@@ -154,7 +154,7 @@ Create `plugins/github/` that uses the GitHub API (via personal access token in 
 
 ---
 
-### Step 20 — Agentic workflows
+### ✅ Step 20 — Agentic workflows
 Create `src/lib/agent-scheduler.ts` that runs scheduled and event-driven tasks. Define workflows in `hub.config.ts` under an `agents` key. Built-in workflow types: `stale-doc-reminder` (when a doc exceeds staleness threshold, draft an update and create a notification), `weekly-summary` (every Monday, generate a status update from the change feed), `duplicate-resolver` (when hygiene detects a duplicate, auto-create a consolidation suggestion). Workflows use the AI client for generation.
 
 **Acceptance**: Configuring a `weekly-summary` agent in config produces a generated status update every Monday, saved as a new artifact.
