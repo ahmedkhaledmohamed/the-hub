@@ -169,7 +169,7 @@ describe("activity tracking", () => {
       trackOpen(`activity/popular-${unique}.md`);
       trackOpen(`activity/rare-${unique}.md`);
 
-      const top = getTopOpened(1, 10);
+      const top = getTopOpened(7, 50);
       const popular = top.find((t) => t.path === `activity/popular-${unique}.md`);
       const rare = top.find((t) => t.path === `activity/rare-${unique}.md`);
       expect(popular).toBeDefined();

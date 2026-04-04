@@ -328,3 +328,29 @@ export interface Artifact {
   staleDays: number;
   snippet?: string;
 }
+
+// ── Plugin types ───────────────────────────────────────────────────
+
+export interface HubPlugin {
+  /** Unique plugin identifier */
+  name: string;
+  /** Semantic version */
+  version: string;
+  /** Human-readable description */
+  description?: string;
+
+  /** Called after workspace scan completes. Can contribute virtual artifacts. */
+  onScan?: (manifest: Manifest) => Promise<Artifact[]> | Artifact[];
+
+  /** Called when search is performed. Can extend results. */
+  onSearch?: (query: string, results: Artifact[]) => Promise<Artifact[]> | Artifact[];
+
+  /** Returns additional panel configs to render. */
+  onRender?: () => PanelConfig[] | Promise<PanelConfig[]>;
+
+  /** Called when the plugin is loaded. Return cleanup function. */
+  onInit?: () => void | (() => void) | Promise<void | (() => void)>;
+
+  /** Called when the plugin is unloaded. */
+  onDestroy?: () => void | Promise<void>;
+}
