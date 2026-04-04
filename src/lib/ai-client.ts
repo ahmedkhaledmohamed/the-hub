@@ -1,0 +1,293 @@
+/**
+ * Shared AI client for The Hub.
+ *
+ * Supports OpenAI-compatible APIs (including Anthropic via proxy, Ollama, etc.)
+ * with response caching in SQLite and optional streaming via SSE.
+ *
+ * Configuration via environment variables:
+ *   AI_GATEWAY_URL  — Chat completions endpoint (e.g. https://api.openai.com/v1/chat/completions)
+ *   AI_GATEWAY_KEY  — API key (sent as Bearer token)
+ *   AI_MODEL        — Model name (default: claude-sonnet-4-5)
+ */
+
+import { getDb, contentHash } from "./db";
+
+// ── Types ──────────────────────────────────────────────────────────
+
+export interface AiConfig {
+  gatewayUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export interface AiMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface AiCompletionOptions {
+  messages: AiMessage[];
+  maxTokens?: number;
+  temperature?: number;
+  /** Cache key — if provided, responses are cached in SQLite */
+  cacheKey?: string;
+  /** Cache TTL in seconds (default: 3600 = 1 hour) */
+  cacheTtl?: number;
+}
+
+export interface AiCompletionResult {
+  content: string;
+  cached: boolean;
+  model: string;
+}
+
+export interface AiStreamChunk {
+  content: string;
+  done: boolean;
+}
+
+// ── Configuration ──────────────────────────────────────────────────
+
+const DEFAULT_MODEL = "claude-sonnet-4-5";
+
+export function getAiConfig(): AiConfig | null {
+  const gatewayUrl = process.env.AI_GATEWAY_URL;
+  const apiKey = process.env.AI_GATEWAY_KEY;
+
+  if (!gatewayUrl || !apiKey) return null;
+
+  return {
+    gatewayUrl,
+    apiKey,
+    model: process.env.AI_MODEL || DEFAULT_MODEL,
+  };
+}
+
+export function isAiConfigured(): boolean {
+  return getAiConfig() !== null;
+}
+
+// ── Cache ──────────────────────────────────────────────────────────
+
+function ensureCacheTable(): void {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_cache (
+      cache_key   TEXT PRIMARY KEY,
+      response    TEXT NOT NULL,
+      model       TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at  TEXT NOT NULL
+    );
+  `);
+}
+
+function getCachedResponse(cacheKey: string): AiCompletionResult | null {
+  try {
+    ensureCacheTable();
+    const db = getDb();
+    const row = db.prepare(
+      "SELECT response, model FROM ai_cache WHERE cache_key = ? AND expires_at > datetime('now')"
+    ).get(cacheKey) as { response: string; model: string } | undefined;
+
+    if (row) {
+      return { content: row.response, cached: true, model: row.model };
+    }
+  } catch {
+    // Cache miss or DB error — proceed without cache
+  }
+  return null;
+}
+
+function setCachedResponse(cacheKey: string, response: string, model: string, ttlSeconds: number): void {
+  try {
+    ensureCacheTable();
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO ai_cache (cache_key, response, model, expires_at)
+      VALUES (?, ?, ?, datetime('now', '+' || ? || ' seconds'))
+      ON CONFLICT(cache_key) DO UPDATE SET
+        response = excluded.response,
+        model = excluded.model,
+        created_at = datetime('now'),
+        expires_at = excluded.expires_at
+    `).run(cacheKey, response, model, ttlSeconds);
+  } catch {
+    // Cache write failure is non-fatal
+  }
+}
+
+// ── Completion (non-streaming) ─────────────────────────────────────
+
+export async function complete(options: AiCompletionOptions): Promise<AiCompletionResult> {
+  const config = getAiConfig();
+
+  // Check cache first
+  if (options.cacheKey) {
+    const cached = getCachedResponse(options.cacheKey);
+    if (cached) return cached;
+  }
+
+  if (!config) {
+    return {
+      content: `**AI unavailable** — no \`AI_GATEWAY_URL\` configured.\n\nSet \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\` in \`.env.local\` to enable AI features.`,
+      cached: false,
+      model: "none",
+    };
+  }
+
+  try {
+    const res = await fetch(config.gatewayUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature ?? 0.3,
+        messages: options.messages,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(`[ai-client] Gateway returned ${res.status}: ${errText}`);
+      return {
+        content: `**AI error** — Gateway returned ${res.status}. Check your \`AI_GATEWAY_URL\` and \`AI_GATEWAY_KEY\`.`,
+        cached: false,
+        model: config.model,
+      };
+    }
+
+    const data = await res.json();
+    const content =
+      data.choices?.[0]?.message?.content ||
+      data.content?.[0]?.text ||
+      "No response from AI.";
+
+    const result: AiCompletionResult = {
+      content,
+      cached: false,
+      model: config.model,
+    };
+
+    // Cache the result
+    if (options.cacheKey) {
+      setCachedResponse(options.cacheKey, content, config.model, options.cacheTtl || 3600);
+    }
+
+    return result;
+  } catch (err) {
+    console.error("[ai-client] Request error:", err);
+    return {
+      content: "**AI error** — Could not connect to the AI gateway. Check that the server is running.",
+      cached: false,
+      model: config.model,
+    };
+  }
+}
+
+// ── Streaming ──────────────────────────────────────────────────────
+
+export async function* stream(options: AiCompletionOptions): AsyncGenerator<AiStreamChunk> {
+  const config = getAiConfig();
+
+  if (!config) {
+    yield { content: "AI unavailable — no AI_GATEWAY_URL configured.", done: true };
+    return;
+  }
+
+  try {
+    const res = await fetch(config.gatewayUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature ?? 0.3,
+        messages: options.messages,
+        stream: true,
+      }),
+    });
+
+    if (!res.ok || !res.body) {
+      yield { content: `AI error — Gateway returned ${res.status}.`, done: true };
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") {
+          yield { content: "", done: true };
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta =
+            parsed.choices?.[0]?.delta?.content ||
+            parsed.delta?.text ||
+            "";
+          if (delta) {
+            yield { content: delta, done: false };
+          }
+        } catch {
+          // Skip malformed SSE chunks
+        }
+      }
+    }
+
+    yield { content: "", done: true };
+  } catch (err) {
+    console.error("[ai-client] Stream error:", err);
+    yield { content: "AI error — stream failed.", done: true };
+  }
+}
+
+// ── Convenience helpers ────────────────────────────────────────────
+
+/**
+ * Simple single-prompt completion with optional caching.
+ */
+export async function ask(
+  prompt: string,
+  options?: { systemPrompt?: string; cacheKey?: string; cacheTtl?: number; maxTokens?: number },
+): Promise<AiCompletionResult> {
+  const messages: AiMessage[] = [];
+  if (options?.systemPrompt) {
+    messages.push({ role: "system", content: options.systemPrompt });
+  }
+  messages.push({ role: "user", content: prompt });
+
+  return complete({
+    messages,
+    cacheKey: options?.cacheKey,
+    cacheTtl: options?.cacheTtl,
+    maxTokens: options?.maxTokens,
+  });
+}
+
+/**
+ * Generate a cache key from a prompt string.
+ */
+export function promptCacheKey(prompt: string): string {
+  return `ai:${contentHash(prompt)}`;
+}
