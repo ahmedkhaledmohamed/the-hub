@@ -21,6 +21,7 @@ interface ArtifactCardProps {
   selected?: boolean;
   onToggleSelect?: (path: string) => void;
   selectionMode?: boolean;
+  summary?: string;
 }
 
 export function ArtifactCard({
@@ -32,6 +33,7 @@ export function ArtifactCard({
   selected,
   onToggleSelect,
   selectionMode,
+  summary,
 }: ArtifactCardProps) {
   const previewable = artifact.type === "md" || artifact.type === "html";
   const staleness = stalenessInfo(artifact.staleDays);
@@ -61,7 +63,7 @@ export function ArtifactCard({
         "overflow-hidden group",
         selected ? "border-accent bg-accent/5" : "border-transparent",
       )}
-      title={artifact.title}
+      title={summary || artifact.snippet || artifact.title}
     >
       {selectionMode && (
         <span className={cn(
