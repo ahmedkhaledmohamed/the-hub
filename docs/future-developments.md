@@ -209,7 +209,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 
 | # | Feature | Impact | Effort |
 |---|---|---|---|
-| 6 | MCP resources (artifacts as readable resources) | Very High | Medium |
+| ✅ 6 | MCP resources (artifacts as readable resources) | Very High | Medium |
 | 7 | Background job queue for AI calls | High | Medium |
 | 8 | Annotations system (comments on artifacts) | High | Medium |
 | 9 | AI change feed triage (routine / attention / breaking) | High | Medium |

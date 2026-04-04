@@ -23,7 +23,7 @@
  *   # or via bin: npx hub-mcp
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { resolve } from "path";
@@ -288,6 +288,79 @@ async function main() {
       }).join("\n\n");
 
       return { content: [{ type: "text" as const, text: `${repos.length} repository(ies):\n\n${text}` }] };
+    },
+  );
+
+  // ── Resource: artifact (dynamic, template-based) ─────────────────
+
+  server.resource(
+    "artifact",
+    new ResourceTemplate("hub://artifact/{path}", {
+      list: async () => {
+        const store = await getManifestStore();
+        const manifest = store.getManifest();
+        return {
+          resources: manifest.artifacts.slice(0, 100).map((a) => ({
+            uri: `hub://artifact/${a.path}`,
+            name: a.title,
+            mimeType: "text/plain",
+            description: `${a.type} artifact in ${a.group} (${a.staleDays}d old)`,
+          })),
+        };
+      },
+    }),
+    {
+      description: "Read a workspace artifact by path. Use list to discover available artifacts.",
+    },
+    async (uri, { path }) => {
+      const db = await getDb();
+      const content = db.getArtifactContent(path as string);
+
+      if (!content) {
+        return {
+          contents: [{
+            uri: uri.href,
+            text: `Artifact not found: ${path}`,
+            mimeType: "text/plain",
+          }],
+        };
+      }
+
+      return {
+        contents: [{
+          uri: uri.href,
+          text: content,
+          mimeType: "text/plain",
+        }],
+      };
+    },
+  );
+
+  // ── Resource: manifest (static) ─────────────────────────────────
+
+  server.resource(
+    "manifest",
+    "hub://manifest",
+    {
+      description: "The full workspace manifest — all artifacts, groups, and metadata as JSON.",
+    },
+    async (uri) => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+
+      return {
+        contents: [{
+          uri: uri.href,
+          text: JSON.stringify({
+            generatedAt: manifest.generatedAt,
+            artifactCount: manifest.artifacts.length,
+            groupCount: manifest.groups.length,
+            groups: manifest.groups.map((g) => ({ id: g.id, label: g.label, count: g.count })),
+            artifacts: manifest.artifacts.map((a) => ({ path: a.path, title: a.title, type: a.type, group: a.group, staleDays: a.staleDays })),
+          }, null, 2),
+          mimeType: "application/json",
+        }],
+      };
     },
   );
 
