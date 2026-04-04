@@ -3,6 +3,7 @@ import { mkdirSync, existsSync } from "fs";
 import { join, resolve } from "path";
 import { createHash } from "crypto";
 import type { Artifact } from "./types";
+import { runMigrations } from "./migrations";
 
 // ── Database location ──────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ export function getDb(): Database.Database {
   db.pragma("foreign_keys = ON");
 
   migrate(db);
+  runMigrations(db);
   return db;
 }
 
