@@ -103,9 +103,14 @@ const UPSERT_SQL = `
     indexed_at = datetime('now')
 `;
 
-export function persistArtifacts(artifacts: Artifact[], contentMap: Map<string, string>): void {
+export function persistArtifacts(
+  artifacts: Artifact[],
+  contentMap: Map<string, string>,
+  options?: { deleteStale?: boolean },
+): void {
   const db = getDb();
   const upsert = db.prepare(UPSERT_SQL);
+  const shouldDelete = options?.deleteStale ?? true;
 
   const currentPaths = new Set(artifacts.map((a) => a.path));
 
@@ -118,11 +123,13 @@ export function persistArtifacts(artifacts: Artifact[], contentMap: Map<string, 
     }
 
     // Remove artifacts that no longer exist in the scan
-    const existing = db.prepare("SELECT path FROM artifacts").all() as { path: string }[];
-    const deleteStmt = db.prepare("DELETE FROM artifacts WHERE path = ?");
-    for (const row of existing) {
-      if (!currentPaths.has(row.path)) {
-        deleteStmt.run(row.path);
+    if (shouldDelete) {
+      const existing = db.prepare("SELECT path FROM artifacts").all() as { path: string }[];
+      const deleteStmt = db.prepare("DELETE FROM artifacts WHERE path = ?");
+      for (const row of existing) {
+        if (!currentPaths.has(row.path)) {
+          deleteStmt.run(row.path);
+        }
       }
     }
   });

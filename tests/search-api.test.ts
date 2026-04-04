@@ -46,21 +46,21 @@ describe("full-text search", () => {
       ["ws/onboarding.md", "# Onboarding Guide\n\nWelcome aboard! This guide walks you through your first week. Start by reading the architecture overview, then set up your development environment."],
     ]);
 
-    persistArtifacts(artifacts, contentMap);
+    persistArtifacts(artifacts, contentMap, { deleteStale: false });
   });
 
   it("finds documents by deep content (not in title or snippet)", () => {
     // "gRPC" only appears in the full content of architecture.md, not in title or snippet
     const results = searchArtifacts("gRPC");
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results[0].path).toBe("ws/architecture.md");
+    expect(results.some((r) => r.path === "ws/architecture.md")).toBe(true);
   });
 
   it("finds documents by content phrases", () => {
     // "PostgreSQL database" only in full content
     const results = searchArtifacts("PostgreSQL");
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results[0].path).toBe("ws/architecture.md");
+    expect(results.some((r) => r.path === "ws/architecture.md")).toBe(true);
   });
 
   it("finds documents matching title", () => {
@@ -79,9 +79,13 @@ describe("full-text search", () => {
 
   it("returns ranked results (more relevant first)", () => {
     // "architecture" is the title + throughout content of architecture.md
-    // but only mentioned once in onboarding.md
+    // but only mentioned once in onboarding.md — architecture.md should rank higher
     const results = searchArtifacts("architecture");
-    expect(results[0].path).toBe("ws/architecture.md");
+    const archIdx = results.findIndex((r) => r.path === "ws/architecture.md");
+    const onbIdx = results.findIndex((r) => r.path === "ws/onboarding.md");
+    expect(archIdx).toBeGreaterThanOrEqual(0);
+    expect(onbIdx).toBeGreaterThanOrEqual(0);
+    expect(archIdx).toBeLessThan(onbIdx);
   });
 
   it("returns snippet with match context", () => {

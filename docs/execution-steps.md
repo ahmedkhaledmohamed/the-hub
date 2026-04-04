@@ -59,7 +59,7 @@ Create `bin/hub.js` as a thin HTTP client calling the existing API. Commands: `h
 
 ---
 
-### Step 7 — New panel types
+### ✅ Step 7 — New panel types
 Add `chart` panel type: renders sparklines or gauge metrics from inline data in config. Add `checklist` panel type: renders a toggleable checklist with localStorage persistence (useful for sprint ceremonies, launch checklists). Add `custom` panel type: fetches HTML from a URL and renders in an iframe, or renders a markdown template with data bindings from the manifest.
 
 **Acceptance**: Adding a `chart` panel to `hub.config.ts` with sample data renders a sparkline in the tab view.
