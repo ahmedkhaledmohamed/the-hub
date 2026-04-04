@@ -16,6 +16,23 @@ export interface HubConfig {
   webhooks?: WebhookConfig[];
   contexts?: ContextConfig[];
   sharing?: SharingConfig;
+  federation?: FederationConfig;
+}
+
+export interface FederationConfig {
+  /** Peer Hub instances to federate with */
+  peers: PeerConfig[];
+}
+
+export interface PeerConfig {
+  /** Display name for this peer */
+  name: string;
+  /** Base URL of the peer Hub (e.g. http://192.168.1.5:9002) */
+  url: string;
+  /** API key for authentication with the peer */
+  apiKey?: string;
+  /** Whether this peer is active */
+  enabled?: boolean;
 }
 
 export interface SharingConfig {

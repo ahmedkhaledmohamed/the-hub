@@ -205,7 +205,7 @@ Add a `sharing` config section: `{ enabled: true, mode: "read-only" | "read-writ
 
 ---
 
-### Step 27 — Hub-to-Hub linking
+### ✅ Step 27 — Hub-to-Hub linking
 Add a `federation` config section: `{ peers: [{ name, url, apiKey }] }`. Create `/api/federation/search` that proxies search queries to peer Hubs and merges results. In Cmd+K, show results from linked Hubs with a "from: Ahmed's Hub" badge. Add a `/api/federation/artifact` endpoint that fetches and renders artifacts from peer Hubs. Network discovery via mDNS is a stretch goal.
 
 **Acceptance**: Searching in your Hub returns results from a linked peer Hub, clearly labeled with the source.

@@ -183,3 +183,46 @@ describe("vector math (semantic search)", () => {
   it("mismatched dims → 0", () => expect(cosineSim([1,2],[1,2,3])).toBe(0));
   it("similar vectors → high", () => expect(cosineSim([0.1,0.2,0.3],[0.12,0.22,0.28])).toBeGreaterThan(0.99));
 });
+
+// ── Federation tests ───────────────────────────────────────────────
+
+import {
+  getPeers,
+  hasPeers,
+  getPeerByName,
+  getFederationConfig,
+  federatedSearch,
+} from "@/lib/federation";
+
+describe("federation", () => {
+  describe("getPeers", () => {
+    it("returns empty when no federation config", () => {
+      expect(getPeers()).toEqual([]);
+    });
+  });
+
+  describe("hasPeers", () => {
+    it("returns false when no peers", () => {
+      expect(hasPeers()).toBe(false);
+    });
+  });
+
+  describe("getPeerByName", () => {
+    it("returns null for nonexistent peer", () => {
+      expect(getPeerByName("nonexistent")).toBeNull();
+    });
+  });
+
+  describe("getFederationConfig", () => {
+    it("returns null when not configured", () => {
+      expect(getFederationConfig()).toBeNull();
+    });
+  });
+
+  describe("federatedSearch", () => {
+    it("returns empty when no peers configured", async () => {
+      const results = await federatedSearch("test query");
+      expect(results).toEqual([]);
+    });
+  });
+});
