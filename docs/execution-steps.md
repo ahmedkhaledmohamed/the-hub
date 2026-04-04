@@ -175,7 +175,7 @@ Add optional API key authentication to all API routes. Keys are configured in `.
 
 ---
 
-### Step 23 — Webhook / event system
+### ✅ Step 23 — Webhook / event system
 Create `src/lib/events.ts` with an internal event bus. Events: `scan.complete`, `artifact.created`, `artifact.modified`, `artifact.deleted`, `hygiene.finding`, `agent.output`. Add `webhooks` config in `hub.config.ts`: array of `{ url, events, secret }`. On matching events, POST a JSON payload to the webhook URL with HMAC signature. Add a `/api/webhooks/test` endpoint for debugging.
 
 **Acceptance**: Configuring a webhook URL and modifying a file sends a POST with the change details to that URL.

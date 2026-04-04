@@ -171,3 +171,111 @@ describe("scanner", () => {
     });
   });
 });
+
+// ── Event bus / webhook tests ──────────────────────────────────────
+
+import {
+  emit,
+  on,
+  off,
+  getRecentEvents,
+  clearEventLog,
+  signPayload,
+  getListenerCount,
+  clearAllListeners,
+} from "@/lib/events";
+
+describe("event bus", () => {
+  afterEach(() => {
+    clearEventLog();
+    clearAllListeners();
+  });
+
+  describe("emit / on / off", () => {
+    it("emits events to listeners", async () => {
+      let received: unknown = null;
+      const handler = (e: unknown) => { received = e; };
+      on("scan.complete", handler);
+
+      await emit("scan.complete", { artifacts: 10 });
+      expect(received).not.toBeNull();
+      expect((received as { type: string }).type).toBe("scan.complete");
+
+      off("scan.complete", handler);
+    });
+
+    it("supports multiple listeners", async () => {
+      let count = 0;
+      const h1 = () => { count++; };
+      const h2 = () => { count++; };
+      on("scan.complete", h1);
+      on("scan.complete", h2);
+
+      await emit("scan.complete", {});
+      expect(count).toBe(2);
+    });
+
+    it("off removes specific handler", async () => {
+      let called = false;
+      const handler = () => { called = true; };
+      on("scan.complete", handler);
+      off("scan.complete", handler);
+
+      await emit("scan.complete", {});
+      expect(called).toBe(false);
+    });
+
+    it("getListenerCount tracks listeners", () => {
+      const handler = () => {};
+      expect(getListenerCount("scan.complete")).toBe(0);
+      on("scan.complete", handler);
+      expect(getListenerCount("scan.complete")).toBe(1);
+      off("scan.complete", handler);
+      expect(getListenerCount("scan.complete")).toBe(0);
+    });
+  });
+
+  describe("event log", () => {
+    it("stores recent events", async () => {
+      await emit("scan.complete", { test: true });
+      await emit("artifact.created", { path: "test.md" });
+
+      const events = getRecentEvents(10);
+      expect(events.length).toBe(2);
+      expect(events[0].type).toBe("artifact.created"); // Most recent first
+      expect(events[1].type).toBe("scan.complete");
+    });
+
+    it("clearEventLog empties the log", async () => {
+      await emit("scan.complete", {});
+      clearEventLog();
+      expect(getRecentEvents(10)).toEqual([]);
+    });
+
+    it("respects limit parameter", async () => {
+      await emit("scan.complete", {});
+      await emit("scan.complete", {});
+      await emit("scan.complete", {});
+      expect(getRecentEvents(2).length).toBe(2);
+    });
+  });
+
+  describe("signPayload", () => {
+    it("generates HMAC-SHA256 signature", () => {
+      const sig = signPayload('{"test":true}', "secret");
+      expect(sig).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    it("same payload + secret = same signature", () => {
+      const sig1 = signPayload("data", "key");
+      const sig2 = signPayload("data", "key");
+      expect(sig1).toBe(sig2);
+    });
+
+    it("different secrets produce different signatures", () => {
+      const sig1 = signPayload("data", "key1");
+      const sig2 = signPayload("data", "key2");
+      expect(sig1).not.toBe(sig2);
+    });
+  });
+});
