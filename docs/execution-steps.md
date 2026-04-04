@@ -103,7 +103,7 @@ Create `/api/ai/ask` endpoint. Pipeline: user question → hybrid search → top
 
 ---
 
-### Step 13 — Content generation
+### ✅ Step 13 — Content generation
 Create `/api/ai/generate` endpoint with template types: `status-update` (uses change feed data from the past week), `handoff-doc` (uses all artifacts in a specified group), `prd-outline` (uses selected research artifacts as context). Create a "Generate" button/modal in the UI that lets users pick a template, select source artifacts, and stream the generated output. Generated docs can be saved as new artifacts via the existing new-doc flow.
 
 **Acceptance**: Clicking "Generate status update" produces a draft that references actual changed documents from the past week.

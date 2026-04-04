@@ -253,3 +253,90 @@ describe("RAG pipeline", () => {
     expect(sources).toEqual([]);
   });
 });
+
+// ── Content generation tests ───────────────────────────────────────
+
+import { generate, getTemplates } from "@/lib/generator";
+
+describe("content generation", () => {
+  describe("getTemplates", () => {
+    it("returns all template types", () => {
+      const templates = getTemplates();
+      expect(templates.length).toBe(4);
+      expect(templates.map((t) => t.id)).toEqual(["status-update", "handoff-doc", "prd-outline", "custom"]);
+    });
+
+    it("templates have required fields", () => {
+      for (const t of getTemplates()) {
+        expect(t.label).toBeTruthy();
+        expect(t.description).toBeTruthy();
+        expect(typeof t.requiresGroup).toBe("boolean");
+        expect(typeof t.requiresPaths).toBe("boolean");
+      }
+    });
+
+    it("handoff-doc requires group, prd-outline requires paths", () => {
+      const templates = getTemplates();
+      const handoff = templates.find((t) => t.id === "handoff-doc");
+      const prd = templates.find((t) => t.id === "prd-outline");
+      expect(handoff!.requiresGroup).toBe(true);
+      expect(prd!.requiresPaths).toBe(true);
+    });
+  });
+
+  describe("generate", () => {
+    it("returns unavailable when AI not configured", async () => {
+      const origUrl = process.env.AI_GATEWAY_URL;
+      const origKey = process.env.AI_GATEWAY_KEY;
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+
+      const result = await generate({ template: "status-update" });
+      expect(result.content).toContain("AI not configured");
+      expect(result.model).toBe("none");
+
+      if (origUrl) process.env.AI_GATEWAY_URL = origUrl;
+      if (origKey) process.env.AI_GATEWAY_KEY = origKey;
+    });
+
+    it("throws for handoff-doc without groupId", async () => {
+      process.env.AI_GATEWAY_URL = "http://fake";
+      process.env.AI_GATEWAY_KEY = "fake";
+
+      await expect(generate({ template: "handoff-doc" })).rejects.toThrow("groupId required");
+
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+    });
+
+    it("throws for prd-outline without paths", async () => {
+      process.env.AI_GATEWAY_URL = "http://fake";
+      process.env.AI_GATEWAY_KEY = "fake";
+
+      await expect(generate({ template: "prd-outline" })).rejects.toThrow("artifactPaths required");
+
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+    });
+
+    it("throws for custom without prompt", async () => {
+      process.env.AI_GATEWAY_URL = "http://fake";
+      process.env.AI_GATEWAY_KEY = "fake";
+
+      await expect(generate({ template: "custom" })).rejects.toThrow("customPrompt required");
+
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+    });
+
+    it("throws for unknown template", async () => {
+      process.env.AI_GATEWAY_URL = "http://fake";
+      process.env.AI_GATEWAY_KEY = "fake";
+
+      await expect(generate({ template: "nonexistent" as any })).rejects.toThrow("Unknown template");
+
+      delete process.env.AI_GATEWAY_URL;
+      delete process.env.AI_GATEWAY_KEY;
+    });
+  });
+});
