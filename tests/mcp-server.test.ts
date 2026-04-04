@@ -176,4 +176,29 @@ describe("MCP server data layer", () => {
       expect(Array.isArray(repos)).toBe(true);
     });
   });
+
+  describe("MCP resources", () => {
+    it("getArtifactContent returns content for indexed artifacts", () => {
+      // Seed a resource-readable artifact
+      persistArtifacts([makeArtifact({
+        path: "mcp-res/doc.md",
+        title: "Resource Doc",
+      })], new Map([
+        ["mcp-res/doc.md", "# Resource Test\n\nThis doc is readable as an MCP resource."],
+      ]), { deleteStale: false });
+
+      const content = getArtifactContent("mcp-res/doc.md");
+      expect(content).toContain("Resource Test");
+      expect(content).toContain("MCP resource");
+    });
+
+    it("getArtifactContent returns null for missing path", () => {
+      expect(getArtifactContent("mcp-res/nonexistent.md")).toBeNull();
+    });
+
+    it("artifacts are listable for resource discovery", () => {
+      const count = getArtifactCount();
+      expect(count).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
