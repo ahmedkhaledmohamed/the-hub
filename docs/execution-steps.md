@@ -117,7 +117,7 @@ Add a `links` table in SQLite: `(source_path, target_path, link_type, created_at
 
 ---
 
-### Step 15 — Temporal intelligence
+### ✅ Step 15 — Temporal intelligence
 Add a `snapshots` table in SQLite that stores daily aggregate stats: total artifacts, per-group counts, staleness distribution. Record a snapshot on each scan (deduplicate by date). Create a `/api/trends` endpoint that returns time-series data. Add a "Trends" section to the briefing page: sparklines for total artifact count, stale percentage, and per-group growth/decay over the last 30/90 days. Add predictive alerts: "At current rate, Knowledge group will be 80% stale by [date]."
 
 **Acceptance**: The briefing page shows trend sparklines. A group with increasing staleness shows a warning badge.

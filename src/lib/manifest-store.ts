@@ -2,6 +2,7 @@ import type { Manifest } from "./types";
 import { loadConfig, getResolvedWorkspacePaths, invalidateConfigCache } from "./config";
 import { scan } from "./scanner";
 import { persistArtifacts } from "./db";
+import { recordSnapshot } from "./trends";
 import path from "path";
 
 let cachedManifest: Manifest | null = null;
@@ -38,6 +39,7 @@ export function regenerate(reason: string = "manual"): Manifest {
     // Persist to SQLite in background (don't block the response)
     try {
       persistArtifacts(cachedManifest.artifacts, result.contentMap);
+      recordSnapshot(cachedManifest);
       console.log(
         `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (persisted to SQLite)`,
       );

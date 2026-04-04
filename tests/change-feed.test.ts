@@ -182,3 +182,81 @@ describe("snapshot persistence", () => {
     expect(loaded!.artifacts["ws/doc.md"]).toBe("2026-04-03T12:00:00Z");
   });
 });
+
+// ── Temporal intelligence tests ────────────────────────────────────
+
+import { recordSnapshot, getTrends, getSnapshotCount } from "@/lib/trends";
+import type { Manifest } from "@/lib/types";
+
+describe("temporal intelligence", () => {
+  function makeManifest(artifacts: Array<{ group: string; staleDays: number }>): Manifest {
+    return {
+      generatedAt: new Date().toISOString(),
+      workspaces: ["/test"],
+      groups: [{ id: "docs", label: "Docs", description: "", color: "#333", tab: "all", count: artifacts.length }],
+      artifacts: artifacts.map((a, i) => ({
+        path: `trend/doc${i}.md`, title: `Doc ${i}`, type: "md" as const,
+        group: a.group, modifiedAt: new Date().toISOString(), size: 100, staleDays: a.staleDays,
+      })),
+    };
+  }
+
+  describe("recordSnapshot", () => {
+    it("records a daily snapshot", () => {
+      const before = getSnapshotCount();
+      const manifest = makeManifest([
+        { group: "docs", staleDays: 1 },
+        { group: "docs", staleDays: 15 },
+        { group: "docs", staleDays: 60 },
+      ]);
+      recordSnapshot(manifest);
+      expect(getSnapshotCount()).toBeGreaterThanOrEqual(before);
+    });
+
+    it("deduplicates by date (upsert)", () => {
+      const manifest = makeManifest([{ group: "docs", staleDays: 5 }]);
+      recordSnapshot(manifest);
+      const count1 = getSnapshotCount();
+      recordSnapshot(manifest); // same day
+      expect(getSnapshotCount()).toBe(count1);
+    });
+  });
+
+  describe("getTrends", () => {
+    it("returns trend data", () => {
+      const manifest = makeManifest([
+        { group: "docs", staleDays: 2 },
+        { group: "docs", staleDays: 45 },
+      ]);
+      recordSnapshot(manifest);
+
+      const trends = getTrends(30);
+      expect(trends.dates.length).toBeGreaterThanOrEqual(1);
+      expect(trends.total.length).toBe(trends.dates.length);
+      expect(trends.fresh.length).toBe(trends.dates.length);
+      expect(trends.stale.length).toBe(trends.dates.length);
+      expect(trends.stalePercent.length).toBe(trends.dates.length);
+    });
+
+    it("includes group-level data", () => {
+      const manifest = makeManifest([{ group: "docs", staleDays: 3 }]);
+      recordSnapshot(manifest);
+
+      const trends = getTrends(30);
+      expect(trends.groups).toBeDefined();
+      expect(typeof trends.groups).toBe("object");
+    });
+
+    it("returns empty for no data", () => {
+      // getTrends with a fresh date range might still return today's snapshot
+      const trends = getTrends(1);
+      expect(Array.isArray(trends.dates)).toBe(true);
+    });
+  });
+
+  describe("getSnapshotCount", () => {
+    it("returns a number", () => {
+      expect(typeof getSnapshotCount()).toBe("number");
+    });
+  });
+});

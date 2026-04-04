@@ -195,9 +195,10 @@ describe("knowledge graph", () => {
     });
 
     it("counts links", () => {
+      const uniqueId = Date.now().toString();
       const before = getLinkCount();
-      addLink("graph/cnt1.md", "graph/cnt2.md", "supersedes");
-      expect(getLinkCount()).toBeGreaterThanOrEqual(before + 1);
+      addLink(`graph/cnt-${uniqueId}.md`, `graph/cnt2-${uniqueId}.md`, "supersedes");
+      expect(getLinkCount()).toBe(before + 1);
     });
 
     it("ignores duplicate links", () => {
