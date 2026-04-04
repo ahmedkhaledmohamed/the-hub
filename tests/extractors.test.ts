@@ -293,6 +293,84 @@ describe("context manager", () => {
   });
 });
 
+// ── Onboarding tests ───────────────────────────────────────────────
+
+import {
+  estimateReadTime,
+  computeWordCount,
+  generateOnboardingPath,
+} from "@/lib/onboarding";
+import type { Artifact } from "@/lib/types";
+
+describe("onboarding path generation", () => {
+  describe("estimateReadTime", () => {
+    it("estimates 1 min for short text", () => {
+      expect(estimateReadTime(100)).toBe(1);
+    });
+
+    it("estimates 5 min for 1000 words", () => {
+      expect(estimateReadTime(1000)).toBe(5);
+    });
+
+    it("minimum is 1 minute", () => {
+      expect(estimateReadTime(0)).toBe(1);
+    });
+  });
+
+  describe("computeWordCount", () => {
+    it("counts words", () => {
+      expect(computeWordCount("hello world test")).toBe(3);
+    });
+
+    it("handles empty", () => {
+      expect(computeWordCount("")).toBe(0);
+    });
+  });
+
+  describe("generateOnboardingPath", () => {
+    const artifacts: Artifact[] = [
+      { path: "ob/strategy.md", title: "Strategy", type: "md", group: "strategy", modifiedAt: new Date().toISOString(), size: 2000, staleDays: 5 },
+      { path: "ob/readme.md", title: "README", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 500, staleDays: 2 },
+      { path: "ob/old.md", title: "Old Doc", type: "md", group: "other", modifiedAt: new Date().toISOString(), size: 1000, staleDays: 120 },
+    ];
+
+    it("returns an ordered list", () => {
+      const path = generateOnboardingPath(artifacts);
+      expect(path.items.length).toBeGreaterThanOrEqual(1);
+      expect(path.generatedAt).toBeTruthy();
+    });
+
+    it("prioritizes strategy/planning groups", () => {
+      const path = generateOnboardingPath(artifacts);
+      if (path.items.length >= 2) {
+        // Strategy should rank higher than other
+        const strategyIdx = path.items.findIndex((i) => i.group === "strategy");
+        const otherIdx = path.items.findIndex((i) => i.group === "other");
+        if (strategyIdx >= 0 && otherIdx >= 0) {
+          expect(strategyIdx).toBeLessThan(otherIdx);
+        }
+      }
+    });
+
+    it("respects maxItems", () => {
+      const path = generateOnboardingPath(artifacts, { maxItems: 1 });
+      expect(path.items.length).toBeLessThanOrEqual(1);
+    });
+
+    it("includes read time estimates", () => {
+      const path = generateOnboardingPath(artifacts);
+      for (const item of path.items) {
+        expect(item.estimatedReadTime).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it("calculates total read time", () => {
+      const path = generateOnboardingPath(artifacts);
+      expect(typeof path.totalReadTime).toBe("number");
+    });
+  });
+});
+
 // ── Source abstraction & Docker tests ──────────────────────────────
 
 import {
