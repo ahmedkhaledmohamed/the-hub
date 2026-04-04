@@ -168,7 +168,7 @@ Expand the MCP server from step 5 with additional tools: `ask_question` (RAG Q&A
 
 ---
 
-### Step 22 — API authentication
+### ✅ Step 22 — API authentication
 Add optional API key authentication to all API routes. Keys are configured in `.env.local` as `HUB_API_KEYS=key1,key2`. When enabled, requests without a valid `Authorization: Bearer <key>` header return 401. The web UI gets a session token on first load. The MCP server and CLI include their key automatically. This is a prerequisite for shared/cloud deployments.
 
 **Acceptance**: Setting `HUB_API_KEYS` in `.env.local` and restarting requires authentication for all API calls. The web UI still works seamlessly.

@@ -95,3 +95,133 @@ describe("CLI", () => {
     });
   });
 });
+
+// ── Auth tests ─────────────────────────────────────────────────────
+
+import {
+  isAuthEnabled,
+  getApiKeys,
+  validateApiKey,
+  extractBearerToken,
+  generateSessionToken,
+  validateSessionToken,
+  revokeSessionToken,
+  authenticateRequest,
+} from "@/lib/auth";
+
+describe("API authentication", () => {
+  const origKeys = process.env.HUB_API_KEYS;
+
+  afterEach(() => {
+    if (origKeys) process.env.HUB_API_KEYS = origKeys;
+    else delete process.env.HUB_API_KEYS;
+  });
+
+  describe("isAuthEnabled", () => {
+    it("returns false when HUB_API_KEYS not set", () => {
+      delete process.env.HUB_API_KEYS;
+      expect(isAuthEnabled()).toBe(false);
+    });
+
+    it("returns true when HUB_API_KEYS is set", () => {
+      process.env.HUB_API_KEYS = "key1,key2";
+      expect(isAuthEnabled()).toBe(true);
+    });
+  });
+
+  describe("getApiKeys", () => {
+    it("returns empty array when not set", () => {
+      delete process.env.HUB_API_KEYS;
+      expect(getApiKeys()).toEqual([]);
+    });
+
+    it("parses comma-separated keys", () => {
+      process.env.HUB_API_KEYS = "key1, key2, key3";
+      expect(getApiKeys()).toEqual(["key1", "key2", "key3"]);
+    });
+
+    it("filters empty strings", () => {
+      process.env.HUB_API_KEYS = "key1,,key2,";
+      expect(getApiKeys()).toEqual(["key1", "key2"]);
+    });
+  });
+
+  describe("validateApiKey", () => {
+    it("returns true when auth disabled", () => {
+      delete process.env.HUB_API_KEYS;
+      expect(validateApiKey("anything")).toBe(true);
+    });
+
+    it("validates correct key", () => {
+      process.env.HUB_API_KEYS = "valid-key-123";
+      expect(validateApiKey("valid-key-123")).toBe(true);
+    });
+
+    it("rejects invalid key", () => {
+      process.env.HUB_API_KEYS = "valid-key-123";
+      expect(validateApiKey("wrong-key")).toBe(false);
+    });
+  });
+
+  describe("extractBearerToken", () => {
+    it("extracts token from Bearer header", () => {
+      expect(extractBearerToken("Bearer my-token")).toBe("my-token");
+    });
+
+    it("returns null for missing header", () => {
+      expect(extractBearerToken(null)).toBeNull();
+    });
+
+    it("returns null for wrong format", () => {
+      expect(extractBearerToken("Basic abc123")).toBeNull();
+      expect(extractBearerToken("just-a-token")).toBeNull();
+    });
+  });
+
+  describe("session tokens", () => {
+    it("generates and validates session tokens", () => {
+      const token = generateSessionToken();
+      expect(validateSessionToken(token)).toBe(true);
+    });
+
+    it("rejects unknown tokens", () => {
+      expect(validateSessionToken("nonexistent-token")).toBe(false);
+    });
+
+    it("revokes tokens", () => {
+      const token = generateSessionToken();
+      revokeSessionToken(token);
+      expect(validateSessionToken(token)).toBe(false);
+    });
+  });
+
+  describe("authenticateRequest", () => {
+    it("allows all when auth disabled", () => {
+      delete process.env.HUB_API_KEYS;
+      expect(authenticateRequest(null).authenticated).toBe(true);
+    });
+
+    it("rejects missing header when auth enabled", () => {
+      process.env.HUB_API_KEYS = "secret-key";
+      const result = authenticateRequest(null);
+      expect(result.authenticated).toBe(false);
+      expect(result.reason).toContain("Missing");
+    });
+
+    it("accepts valid API key", () => {
+      process.env.HUB_API_KEYS = "secret-key";
+      expect(authenticateRequest("Bearer secret-key").authenticated).toBe(true);
+    });
+
+    it("accepts valid session token", () => {
+      process.env.HUB_API_KEYS = "secret-key";
+      const session = generateSessionToken();
+      expect(authenticateRequest(`Bearer ${session}`).authenticated).toBe(true);
+    });
+
+    it("rejects invalid token", () => {
+      process.env.HUB_API_KEYS = "secret-key";
+      expect(authenticateRequest("Bearer wrong").authenticated).toBe(false);
+    });
+  });
+});
