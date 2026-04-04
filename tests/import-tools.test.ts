@@ -332,3 +332,60 @@ describe("PWA", () => {
     });
   });
 });
+
+// ── Calendar integration tests ─────────────────────────────────────
+
+import {
+  parseICal,
+  filterTodayEvents,
+  isCalendarConfigured,
+  clearCalendarCache,
+} from "@/lib/calendar";
+
+describe("calendar integration", () => {
+  afterEach(() => { clearCalendarCache(); });
+
+  describe("parseICal", () => {
+    const ical = `BEGIN:VCALENDAR\nBEGIN:VEVENT\nDTSTART:20260404T140000Z\nDTEND:20260404T150000Z\nSUMMARY:Q2 Planning\nDESCRIPTION:Review roadmap\\nPriorities\nLOCATION:Room B\nUID:e1\nEND:VEVENT\nBEGIN:VEVENT\nDTSTART:20260404T160000Z\nSUMMARY:Standup\nUID:e2\nEND:VEVENT\nEND:VCALENDAR`;
+
+    it("parses events from iCal", () => {
+      expect(parseICal(ical).length).toBe(2);
+    });
+
+    it("extracts properties", () => {
+      const e = parseICal(ical).find((x) => x.title === "Q2 Planning");
+      expect(e!.start).toContain("2026-04-04");
+      expect(e!.location).toBe("Room B");
+    });
+
+    it("handles empty iCal", () => {
+      expect(parseICal("")).toEqual([]);
+    });
+  });
+
+  describe("filterTodayEvents", () => {
+    it("filters to today", () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const events = [
+        { id: "1", title: "Today", start: `${today}T10:00:00`, end: `${today}T11:00:00`, description: "", location: "", attendees: [], relatedArtifacts: [] },
+        { id: "2", title: "Future", start: "2099-01-01T10:00:00", end: "2099-01-01T11:00:00", description: "", location: "", attendees: [], relatedArtifacts: [] },
+      ];
+      expect(filterTodayEvents(events).length).toBe(1);
+    });
+  });
+
+  describe("isCalendarConfigured", () => {
+    it("false when not set", () => {
+      const orig = process.env.CALENDAR_URL;
+      delete process.env.CALENDAR_URL;
+      expect(isCalendarConfigured()).toBe(false);
+      if (orig) process.env.CALENDAR_URL = orig;
+    });
+
+    it("true when set", () => {
+      process.env.CALENDAR_URL = "https://example.com/cal.ics";
+      expect(isCalendarConfigured()).toBe(true);
+      delete process.env.CALENDAR_URL;
+    });
+  });
+});

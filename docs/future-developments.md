@@ -213,7 +213,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 | ✅ 7 | Background job queue for AI calls | High | Medium |
 | ✅ 8 | Annotations system (comments on artifacts) | High | Medium |
 | ✅ 9 | AI change feed triage (routine / attention / breaking) | High | Medium |
-| 10 | Calendar integration (read-only, meeting context) | Medium | Medium |
+| ✅ 10 | Calendar integration (read-only, meeting context) | Medium | Medium |
 | 11 | Plugin sandbox (VM isolation) | Medium | High |
 | 12 | Database migration system | Medium | Medium |
 
