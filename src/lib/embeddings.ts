@@ -207,19 +207,61 @@ export async function semanticSearch(query: string, limit = 10): Promise<Semanti
   const queryEmbedding = await generateEmbedding(query);
   if (!queryEmbedding) return [];
 
+  // Try vector index first (pre-computed norms, faster)
+  let vectorResults: Array<{ path: string; score: number }> | null = null;
+  try {
+    const { isIndexStale, buildIndex, searchIndex, getIndexSize } = require("./vector-index");
+
+    // Build/rebuild index if stale or empty
+    if (isIndexStale() || getIndexSize() === 0) {
+      const stored = getStoredEmbeddings();
+      if (stored.length > 0) {
+        buildIndex(stored);
+        try {
+          const { hubLog } = require("./logger");
+          hubLog("info", "search", "Vector index built", { vectors: stored.length });
+        } catch { /* non-critical */ }
+      }
+    }
+
+    if (getIndexSize() > 0) {
+      vectorResults = searchIndex(queryEmbedding, { topK: limit, minScore: 0.1 });
+    }
+  } catch { /* vector-index module may not be available */ }
+
+  // Enrich results with artifact metadata
+  const enrichResults = (results: Array<{ path: string; score: number }>): SemanticSearchResult[] => {
+    const db = getDb();
+    const getArtifact = db.prepare('SELECT title, type, "group", snippet FROM artifacts WHERE path = ?');
+    return results.slice(0, limit).map((s) => {
+      const artifact = getArtifact.get(s.path) as { title: string; type: string; group: string; snippet: string } | undefined;
+      return {
+        path: s.path,
+        title: artifact?.title || s.path,
+        type: artifact?.type || "unknown",
+        group: artifact?.group || "other",
+        snippet: artifact?.snippet || "",
+        score: Math.round(s.score * 1000) / 1000,
+        source: "semantic" as const,
+      };
+    });
+  };
+
+  // Use vector index results if available
+  if (vectorResults && vectorResults.length > 0) {
+    return enrichResults(vectorResults);
+  }
+
+  // Fallback: inline cosine similarity (original O(n) approach)
   const stored = getStoredEmbeddings();
   if (stored.length === 0) return [];
 
-  // Compute similarities
   const scored = stored.map((record) => ({
-    ...record,
+    path: record.path,
     score: cosineSimilarity(queryEmbedding, record.embedding),
   }));
-
-  // Sort by similarity descending
   scored.sort((a, b) => b.score - a.score);
 
-  // Deduplicate by path (take highest scoring chunk per path)
   const seen = new Set<string>();
   const unique = scored.filter((s) => {
     if (seen.has(s.path)) return false;
@@ -227,22 +269,7 @@ export async function semanticSearch(query: string, limit = 10): Promise<Semanti
     return true;
   });
 
-  // Enrich with artifact metadata from SQLite
-  const db = getDb();
-  const getArtifact = db.prepare('SELECT title, type, "group", snippet FROM artifacts WHERE path = ?');
-
-  return unique.slice(0, limit).map((s) => {
-    const artifact = getArtifact.get(s.path) as { title: string; type: string; group: string; snippet: string } | undefined;
-    return {
-      path: s.path,
-      title: artifact?.title || s.path,
-      type: artifact?.type || "unknown",
-      group: artifact?.group || "other",
-      snippet: artifact?.snippet || "",
-      score: Math.round(s.score * 1000) / 1000,
-      source: "semantic" as const,
-    };
-  });
+  return enrichResults(unique);
 }
 
 // ── Hybrid search (FTS + semantic) ─────────────────────────────────
