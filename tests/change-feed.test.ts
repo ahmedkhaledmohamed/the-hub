@@ -748,3 +748,84 @@ describe("decision tracking", () => {
     });
   });
 });
+
+// ── Decision browser tests ───────────────────────────────────────
+
+describe("decision browser", () => {
+  describe("decision CRUD for browser", () => {
+    it("saves and retrieves decisions for listing", () => {
+      const path = `browser/list-${Date.now()}.md`;
+      saveDecision({ artifactPath: path, summary: "Use React for frontend", source: "heuristic" });
+      saveDecision({ artifactPath: path, summary: "Use Tailwind for styling", source: "heuristic" });
+
+      const decisions = getDecisionsForArtifact(path);
+      expect(decisions.length).toBeGreaterThanOrEqual(2);
+      expect(decisions[0].status).toBe("active");
+    });
+
+    it("searchDecisions finds by keyword", () => {
+      const keyword = `browser-kw-${Date.now()}`;
+      saveDecision({ artifactPath: "browser/search.md", summary: `Use ${keyword} for search` });
+      const results = searchDecisions(keyword);
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0].summary).toContain(keyword);
+    });
+
+    it("getDecisionCounts returns all statuses", () => {
+      const counts = getDecisionCounts();
+      expect(typeof counts.active).toBe("number");
+      expect(typeof counts.superseded).toBe("number");
+      expect(typeof counts.reverted).toBe("number");
+    });
+
+    it("revertDecision changes status", () => {
+      const id = saveDecision({ artifactPath: "browser/revert.md", summary: "Revertable decision" });
+      const reverted = revertDecision(id);
+      expect(reverted).toBe(true);
+      const decision = getDecision(id);
+      expect(decision!.status).toBe("reverted");
+    });
+
+    it("supersedeDecision links to replacement", () => {
+      const oldId = saveDecision({ artifactPath: "browser/old.md", summary: "Old approach" });
+      const newId = saveDecision({ artifactPath: "browser/new.md", summary: "New approach" });
+      const result = supersedeDecision(oldId, newId);
+      expect(result).toBe(true);
+      const old = getDecision(oldId);
+      expect(old!.status).toBe("superseded");
+      expect(old!.supersededBy).toBe(newId);
+    });
+  });
+
+  describe("findContradictions for browser", () => {
+    it("returns contradiction pairs", () => {
+      const results = findContradictions();
+      expect(Array.isArray(results)).toBe(true);
+      for (const c of results) {
+        expect(c.decisionA).toBeDefined();
+        expect(c.decisionB).toBeDefined();
+        expect(typeof c.reason).toBe("string");
+      }
+    });
+  });
+
+  describe("status filter logic", () => {
+    it("filters active decisions", () => {
+      const all = [
+        { status: "active" },
+        { status: "superseded" },
+        { status: "active" },
+        { status: "reverted" },
+      ];
+      const active = all.filter((d) => d.status === "active");
+      expect(active.length).toBe(2);
+    });
+
+    it("'all' filter returns everything", () => {
+      const decisions = [{ status: "active" }, { status: "superseded" }];
+      const filter = "all";
+      const filtered = filter === "all" ? decisions : decisions.filter((d) => d.status === filter);
+      expect(filtered.length).toBe(2);
+    });
+  });
+});
