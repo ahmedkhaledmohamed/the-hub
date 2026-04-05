@@ -95,3 +95,79 @@ export async function GET() {
     total: integrations.length,
   });
 }
+
+/**
+ * POST /api/integrations
+ * { action: "test", integration: "slack" | "google-docs" | "notion" | "calendar" }
+ */
+export async function POST(req: NextRequest) {
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  if (body.action !== "test") {
+    return NextResponse.json({ error: "action must be test" }, { status: 400 });
+  }
+
+  const integration = body.integration as string;
+  const results: { success: boolean; message: string; latencyMs: number } = { success: false, message: "", latencyMs: 0 };
+  const start = Date.now();
+
+  try {
+    switch (integration) {
+      case "slack": {
+        const url = process.env.SLACK_WEBHOOK_URL;
+        if (!url) { results.message = "SLACK_WEBHOOK_URL not set"; break; }
+        // Test with a dry-run style HEAD/GET — don't actually post a message
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: "" }), // Empty text won't post but validates the webhook
+          signal: AbortSignal.timeout(5000),
+        });
+        // Slack returns 200 even for empty text, or specific error codes for bad URLs
+        results.success = res.status < 500;
+        results.message = results.success ? `Webhook reachable (HTTP ${res.status})` : `Webhook returned ${res.status}`;
+        break;
+      }
+      case "google-docs": {
+        const key = process.env.GOOGLE_DOCS_API_KEY;
+        const token = process.env.GOOGLE_DOCS_TOKEN;
+        if (!key && !token) { results.message = "No GOOGLE_DOCS_API_KEY or GOOGLE_DOCS_TOKEN set"; break; }
+        // Test by hitting the API endpoint
+        const url = `https://docs.googleapis.com/v1/documents/invalid-doc-id${key ? `?key=${key}` : ""}`;
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
+        // 404 = API reachable but doc doesn't exist (expected), 403 = auth issues
+        results.success = res.status === 404 || res.status === 200;
+        results.message = results.success ? "Google Docs API reachable" : `API returned ${res.status} — check credentials`;
+        break;
+      }
+      case "notion": {
+        const token = process.env.NOTION_TOKEN;
+        if (!token) { results.message = "NOTION_TOKEN not set"; break; }
+        const res = await fetch("https://api.notion.com/v1/users/me", {
+          headers: { Authorization: `Bearer ${token}`, "Notion-Version": "2022-06-28" },
+          signal: AbortSignal.timeout(5000),
+        });
+        results.success = res.ok;
+        results.message = results.success ? "Notion API connected" : `API returned ${res.status} — check token`;
+        break;
+      }
+      case "calendar": {
+        const url = process.env.CALENDAR_URL;
+        if (!url) { results.message = "CALENDAR_URL not set"; break; }
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        results.success = res.ok;
+        results.message = results.success ? "Calendar feed reachable" : `Feed returned ${res.status}`;
+        break;
+      }
+      default:
+        results.message = `Unknown integration: ${integration}`;
+    }
+  } catch (err) {
+    results.message = `Connection failed: ${(err as Error).message}`;
+  }
+
+  results.latencyMs = Date.now() - start;
+  return NextResponse.json(results);
+}
