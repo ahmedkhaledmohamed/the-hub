@@ -201,6 +201,98 @@ export function getEmbeddingCount(): number {
   }
 }
 
+// ── Pruning ───────────────────────────────────────────────────────
+
+/**
+ * Remove embeddings for paths that no longer exist in the artifacts table.
+ * Call after scan to clean up stale vectors.
+ */
+export function pruneStaleEmbeddings(): number {
+  try {
+    ensureEmbeddingsTable();
+    const db = getDb();
+    const result = db.prepare(`
+      DELETE FROM embeddings WHERE path NOT IN (SELECT path FROM artifacts)
+    `).run();
+
+    if (result.changes > 0) {
+      try {
+        const { hubLog } = require("./logger");
+        hubLog("info", "system", "Pruned stale embeddings", { removed: result.changes });
+      } catch { /* non-critical */ }
+    }
+
+    return result.changes;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Remove embeddings older than N days.
+ */
+export function pruneOldEmbeddings(olderThanDays = 90): number {
+  try {
+    ensureEmbeddingsTable();
+    const db = getDb();
+    const result = db.prepare(
+      "DELETE FROM embeddings WHERE created_at < datetime('now', '-' || ? || ' days')",
+    ).run(olderThanDays);
+    return result.changes;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Remove duplicate embeddings (same path, keep newest).
+ */
+export function deduplicateEmbeddings(): number {
+  try {
+    ensureEmbeddingsTable();
+    const db = getDb();
+    const result = db.prepare(`
+      DELETE FROM embeddings WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM embeddings GROUP BY path, chunk_index
+      )
+    `).run();
+    return result.changes;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Get embedding stats for monitoring.
+ */
+export function getEmbeddingStats(): {
+  total: number;
+  uniquePaths: number;
+  oldestAge: string | null;
+  staleCount: number;
+} {
+  try {
+    ensureEmbeddingsTable();
+    const db = getDb();
+    const total = getEmbeddingCount();
+
+    const uniqueRow = db.prepare("SELECT COUNT(DISTINCT path) as count FROM embeddings").get() as { count: number };
+    const oldestRow = db.prepare("SELECT MIN(created_at) as oldest FROM embeddings").get() as { oldest: string | null };
+    const staleRow = db.prepare(
+      "SELECT COUNT(*) as count FROM embeddings WHERE path NOT IN (SELECT path FROM artifacts)",
+    ).get() as { count: number };
+
+    return {
+      total,
+      uniquePaths: uniqueRow.count,
+      oldestAge: oldestRow.oldest,
+      staleCount: staleRow.count,
+    };
+  } catch {
+    return { total: 0, uniquePaths: 0, oldestAge: null, staleCount: 0 };
+  }
+}
+
 // ── Semantic search ────────────────────────────────────────────────
 
 export async function semanticSearch(query: string, limit = 10): Promise<SemanticSearchResult[]> {

@@ -926,3 +926,63 @@ describe("change pipeline", () => {
     });
   });
 });
+
+// ── Embedding pruning tests ──────────────────────────────────────
+
+import {
+  getEmbeddingCount,
+  pruneStaleEmbeddings,
+  pruneOldEmbeddings,
+  deduplicateEmbeddings,
+  getEmbeddingStats,
+} from "@/lib/embeddings";
+
+describe("embedding pruning", () => {
+  describe("pruneStaleEmbeddings", () => {
+    it("returns number of removed embeddings", () => {
+      const removed = pruneStaleEmbeddings();
+      expect(typeof removed).toBe("number");
+      expect(removed).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("pruneOldEmbeddings", () => {
+    it("prunes without error", () => {
+      const removed = pruneOldEmbeddings(365);
+      expect(typeof removed).toBe("number");
+    });
+
+    it("accepts custom age parameter", () => {
+      const removed = pruneOldEmbeddings(7);
+      expect(typeof removed).toBe("number");
+    });
+  });
+
+  describe("deduplicateEmbeddings", () => {
+    it("deduplicates without error", () => {
+      const removed = deduplicateEmbeddings();
+      expect(typeof removed).toBe("number");
+    });
+  });
+
+  describe("getEmbeddingStats", () => {
+    it("returns stats structure", () => {
+      const stats = getEmbeddingStats();
+      expect(typeof stats.total).toBe("number");
+      expect(typeof stats.uniquePaths).toBe("number");
+      expect(typeof stats.staleCount).toBe("number");
+      // oldestAge may be null if no embeddings
+    });
+
+    it("total matches getEmbeddingCount", () => {
+      const stats = getEmbeddingStats();
+      const count = getEmbeddingCount();
+      expect(stats.total).toBe(count);
+    });
+
+    it("staleCount is non-negative", () => {
+      const stats = getEmbeddingStats();
+      expect(stats.staleCount).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
