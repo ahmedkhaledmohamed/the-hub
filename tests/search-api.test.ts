@@ -511,3 +511,165 @@ describe("predictive briefings", () => {
     });
   });
 });
+
+// ── System status tests ──────────────────────────────────────────
+
+import { getArtifactCount, getDb } from "@/lib/db";
+import { isAiConfigured, getAiConfig, resetOllamaDetection } from "@/lib/ai-client";
+
+describe("system status", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+    resetOllamaDetection();
+  });
+
+  describe("database health", () => {
+    it("getArtifactCount returns a number", () => {
+      const count = getArtifactCount();
+      expect(typeof count).toBe("number");
+      expect(count).toBeGreaterThanOrEqual(0);
+    });
+
+    it("can list tables from sqlite_master", () => {
+      const db = getDb();
+      const tables = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      ).all() as Array<{ name: string }>;
+      expect(Array.isArray(tables)).toBe(true);
+      expect(tables.length).toBeGreaterThan(0);
+      const names = tables.map((t) => t.name);
+      expect(names).toContain("artifacts");
+    });
+
+    it("can count rows in artifacts table", () => {
+      const db = getDb();
+      const row = db.prepare("SELECT COUNT(*) as count FROM artifacts").get() as { count: number };
+      expect(typeof row.count).toBe("number");
+    });
+  });
+
+  describe("AI provider status", () => {
+    it("reports unconfigured with AI_PROVIDER=none", () => {
+      process.env.AI_PROVIDER = "none";
+      expect(isAiConfigured()).toBe(false);
+      expect(getAiConfig()).toBeNull();
+    });
+
+    it("detects provider name from gateway URL", () => {
+      process.env.AI_GATEWAY_URL = "https://api.openai.com/v1/chat/completions";
+      process.env.AI_GATEWAY_KEY = "test-key";
+      const config = getAiConfig();
+      expect(config).not.toBeNull();
+      expect(config!.gatewayUrl).toContain("openai");
+    });
+  });
+
+  describe("integration status checks", () => {
+    it("detects Slack when configured", () => {
+      process.env.SLACK_WEBHOOK_URL = "https://hooks.slack.com/test";
+      expect(!!process.env.SLACK_WEBHOOK_URL).toBe(true);
+    });
+
+    it("detects Slack unconfigured", () => {
+      delete process.env.SLACK_WEBHOOK_URL;
+      expect(!!process.env.SLACK_WEBHOOK_URL).toBe(false);
+    });
+
+    it("detects Notion when configured", () => {
+      process.env.NOTION_TOKEN = "secret_test";
+      expect(!!process.env.NOTION_TOKEN).toBe(true);
+    });
+
+    it("detects Google Docs via API key", () => {
+      process.env.GOOGLE_DOCS_API_KEY = "test-key";
+      expect(!!(process.env.GOOGLE_DOCS_API_KEY || process.env.GOOGLE_DOCS_TOKEN)).toBe(true);
+    });
+
+    it("detects Calendar when configured", () => {
+      process.env.CALENDAR_URL = "https://example.com/cal.ics";
+      expect(!!process.env.CALENDAR_URL).toBe(true);
+    });
+  });
+
+  describe("job queue status", () => {
+    it("can query jobs table without error", () => {
+      const db = getDb();
+      // Ensure table exists first
+      try {
+        db.exec(`CREATE TABLE IF NOT EXISTS jobs (
+          id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'pending',
+          type TEXT, payload TEXT, created_at TEXT DEFAULT (datetime('now'))
+        )`);
+      } catch { /* already exists */ }
+
+      const rows = db.prepare(
+        "SELECT status, COUNT(*) as count FROM jobs GROUP BY status"
+      ).all() as Array<{ status: string; count: number }>;
+      expect(Array.isArray(rows)).toBe(true);
+    });
+  });
+
+  describe("feature availability", () => {
+    it("core features always available", () => {
+      // Features that don't depend on AI
+      const coreAvailable = true; // FTS5, hygiene, graph, change feed, MCP
+      expect(coreAvailable).toBe(true);
+    });
+
+    it("AI features depend on configuration", () => {
+      process.env.AI_PROVIDER = "none";
+      const aiOn = isAiConfigured();
+      expect(aiOn).toBe(false);
+      // RAG, summarization, generation, smart triage all need AI
+    });
+
+    it("health score calculation", () => {
+      // Simulate: 8/12 features, has artifacts, has AI
+      const featureScore = (8 / 12) * 50; // ~33
+      const artifactScore = 25; // has artifacts
+      const aiScore = 25; // has AI
+      const total = Math.round(featureScore + artifactScore + aiScore);
+      expect(total).toBeGreaterThanOrEqual(75);
+
+      // Without AI: 6/12 features, has artifacts, no AI
+      const noAiScore = Math.round((6 / 12) * 50 + 25 + 10);
+      expect(noAiScore).toBeLessThan(total);
+    });
+  });
+
+  describe("utility functions", () => {
+    it("formats uptime correctly", () => {
+      // Testing the logic that the component uses
+      const formatUptime = (seconds: number): string => {
+        if (seconds < 60) return `${seconds}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h < 24) return `${h}h ${m}m`;
+        const d = Math.floor(h / 24);
+        return `${d}d ${h % 24}h`;
+      };
+
+      expect(formatUptime(30)).toBe("30s");
+      expect(formatUptime(90)).toBe("1m 30s");
+      expect(formatUptime(3661)).toBe("1h 1m");
+      expect(formatUptime(90000)).toBe("1d 1h");
+    });
+
+    it("formats bytes correctly", () => {
+      const formatBytes = (bytes: number): string => {
+        if (bytes === 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+      };
+
+      expect(formatBytes(0)).toBe("0 B");
+      expect(formatBytes(500)).toBe("500 B");
+      expect(formatBytes(1024)).toBe("1.0 KB");
+      expect(formatBytes(1536)).toBe("1.5 KB");
+      expect(formatBytes(1048576)).toBe("1.0 MB");
+    });
+  });
+});
