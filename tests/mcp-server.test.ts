@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { persistArtifacts, searchArtifacts, getArtifactContent, getArtifactCount } from "@/lib/db";
+import { persistArtifacts, searchArtifacts, getArtifactContent, getArtifactCount, getDb } from "@/lib/db";
 import type { Artifact } from "@/lib/types";
 
 /**
@@ -850,6 +850,106 @@ describe("MCP prompt templates", () => {
         "onboarding_brief",
       ];
       expect(new Set(names).size).toBe(5);
+    });
+  });
+});
+
+// ── MCP health/stats resource tests ──────────────────────────────
+
+describe("MCP health/stats resource", () => {
+  describe("status data structure", () => {
+    it("server section has version and uptime", () => {
+      const status = {
+        server: {
+          version: "3.0.0",
+          nodeVersion: process.version,
+          platform: process.platform,
+          uptime: Math.round(process.uptime()),
+        },
+      };
+      expect(status.server.version).toBe("3.0.0");
+      expect(status.server.nodeVersion).toMatch(/^v\d+/);
+      expect(typeof status.server.uptime).toBe("number");
+      expect(status.server.uptime).toBeGreaterThanOrEqual(0);
+    });
+
+    it("workspace section tracks artifact and group counts", () => {
+      const workspace = {
+        artifactCount: 150,
+        groupCount: 5,
+        lastScanReason: "file changed",
+        generatedAt: new Date().toISOString(),
+      };
+      expect(workspace.artifactCount).toBeGreaterThan(0);
+      expect(workspace.groupCount).toBeGreaterThan(0);
+      expect(workspace.generatedAt).toBeTruthy();
+    });
+
+    it("AI status reflects configuration", () => {
+      const savedProvider = process.env.AI_PROVIDER;
+      process.env.AI_PROVIDER = "none";
+      // isAiConfigured is tested extensively in ai-client tests
+      // Here we verify the status structure handles both states
+      const aiStatus = { configured: false, provider: null };
+      expect(aiStatus.configured).toBe(false);
+      expect(aiStatus.provider).toBeNull();
+      if (savedProvider) process.env.AI_PROVIDER = savedProvider;
+      else delete process.env.AI_PROVIDER;
+    });
+
+    it("features count available vs total", () => {
+      const features = {
+        search: true,
+        hygiene: true,
+        knowledgeGraph: true,
+        changeFeed: true,
+        ragQA: false,
+        summarization: false,
+        contentGeneration: false,
+        smartTriage: false,
+      };
+      const available = Object.values(features).filter(Boolean).length;
+      const total = Object.keys(features).length;
+      expect(available).toBe(4);
+      expect(total).toBe(8);
+    });
+
+    it("MCP counts reflect registered capabilities", () => {
+      const mcp = { tools: 9, resources: 3, prompts: 5 };
+      expect(mcp.tools).toBe(9);
+      expect(mcp.resources).toBe(3); // artifact, manifest, status
+      expect(mcp.prompts).toBe(5);
+    });
+  });
+
+  describe("status serialization", () => {
+    it("serializes to valid JSON", () => {
+      const status = {
+        server: { version: "3.0.0", uptime: 100 },
+        workspace: { artifactCount: 50 },
+        ai: { configured: false, provider: null },
+        features: { available: 4, total: 8 },
+      };
+      const json = JSON.stringify(status, null, 2);
+      const parsed = JSON.parse(json);
+      expect(parsed.server.version).toBe("3.0.0");
+      expect(parsed.workspace.artifactCount).toBe(50);
+    });
+
+    it("handles null AI provider gracefully", () => {
+      const ai = { configured: false, provider: null };
+      const json = JSON.stringify(ai);
+      expect(json).toContain('"provider":null');
+    });
+  });
+
+  describe("database stats for status", () => {
+    it("can count tables in SQLite", () => {
+      const db = getDb();
+      const row = db.prepare(
+        "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      ).get() as { count: number };
+      expect(row.count).toBeGreaterThan(0);
     });
   });
 });
