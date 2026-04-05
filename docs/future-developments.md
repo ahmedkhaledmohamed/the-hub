@@ -205,7 +205,7 @@ Ordered by strategic value. Each item is a PR-sized unit of work.
 |---|---|---|---|---|
 | ✅ 11 | Inline annotation rendering in preview | Quality | High | Medium |
 | ✅ 12 | Wire remaining 24 silent catches to error reporter | Quality | Medium | Low |
-| 13 | Data export/backup (SQLite snapshot download) | Quality | Medium | Low |
+| ✅ 13 | Data export/backup (SQLite snapshot download) | Quality | Medium | Low |
 | 14 | Embedding auto-generation on first scan | Quality | High | Medium |
 | 15 | Mobile-responsive briefing page | Quality | Medium | Medium |
 | 16 | Search result source indicators (FTS5 vs semantic) | Quality | Low | Low |
