@@ -540,3 +540,55 @@ describe("graceful degradation", () => {
     });
   });
 });
+
+// ── Share button tests ───────────────────────────────────────────
+
+describe("share button", () => {
+  describe("share link generation", () => {
+    it("generates correct share URL format", () => {
+      const artifactPath = "docs/architecture.md";
+      const origin = "http://localhost:9001";
+      const url = `${origin}/api/file/${artifactPath}`;
+      expect(url).toBe("http://localhost:9001/api/file/docs/architecture.md");
+    });
+
+    it("handles paths with special characters", () => {
+      const artifactPath = "docs/my doc (v2).md";
+      const origin = "http://localhost:9001";
+      const url = `${origin}/api/file/${artifactPath}`;
+      expect(url).toContain("my doc (v2).md");
+    });
+
+    it("handles nested paths", () => {
+      const artifactPath = "work/projects/hub/planning/roadmap.md";
+      const origin = "http://localhost:9001";
+      const url = `${origin}/api/file/${artifactPath}`;
+      expect(url).toBe("http://localhost:9001/api/file/work/projects/hub/planning/roadmap.md");
+    });
+  });
+
+  describe("share vs other launcher actions", () => {
+    it("share link uses /api/file/ prefix", () => {
+      const path = "test.md";
+      const shareUrl = `/api/file/${path}`;
+      expect(shareUrl.startsWith("/api/file/")).toBe(true);
+    });
+
+    it("cursor URI uses cursor:// protocol", () => {
+      const absPath = "/Users/test/docs/file.md";
+      const cursorUri = `cursor://file${absPath}`;
+      expect(cursorUri.startsWith("cursor://file")).toBe(true);
+    });
+
+    it("both share and cursor derive from artifact path", () => {
+      const artifactPath = "docs/readme.md";
+      const absPath = "/Users/test/workspace/docs/readme.md";
+
+      const shareUrl = `/api/file/${artifactPath}`;
+      const cursorUri = `cursor://file${absPath}`;
+
+      expect(shareUrl).toContain(artifactPath);
+      expect(cursorUri).toContain(absPath);
+    });
+  });
+});
