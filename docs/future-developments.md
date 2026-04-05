@@ -237,7 +237,7 @@ Ordered by impact x effort. Each item is a PR-sized unit of work.
 | ✅ 21 | Notion real-time sync | High | Very High |
 | ✅ 22 | Impact scoring (who needs to know?) | Very High | Very High |
 | ✅ 23 | Predictive briefings | High | High |
-| 24 | Multi-model AI support (Claude + GPT + Llama) | Medium | Medium |
+| ✅ 24 | Multi-model AI support (Claude + GPT + Llama) | Medium | Medium |
 | 25 | Enterprise SSO/SAML | Medium | High |
 
 ---
