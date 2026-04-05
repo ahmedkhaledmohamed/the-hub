@@ -248,7 +248,7 @@ Ordered by user impact. Each item is a PR-sized unit of work.
 | ✅ 3 | Structured logging (scan, queries, AI calls) | Observability | High | Low |
 | ✅ 4 | Error surfacing (replace silent catches) | Reliability | High | Medium |
 | ✅ 5 | AI call timeouts + circuit breakers | Reliability | Medium | Low |
-| 6 | Graceful degradation UI indicators | Onboarding | Medium | Low |
+| ✅ 6 | Graceful degradation UI indicators | Onboarding | Medium | Low |
 
 ### Phase 2: Surface What's Built (Wire APIs to UI)
 
