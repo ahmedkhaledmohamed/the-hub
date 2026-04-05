@@ -89,8 +89,36 @@ export function AnnotationPanel({ artifactPath }: AnnotationPanelProps) {
     await loadAnnotations();
   };
 
+  // Annotations with line numbers for inline display
+  const inlineAnnotations = annotations.filter((a) => a.lineStart !== null);
+  const generalAnnotations = annotations.filter((a) => a.lineStart === null);
+
   return (
     <div className="border-t border-border">
+      {/* Inline annotation indicators (line-positioned comments) */}
+      {!loading && inlineAnnotations.length > 0 && (
+        <div className="px-4 py-1.5 bg-blue-900/10 border-b border-border">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <MessageCircle size={10} className="text-blue-400 shrink-0" />
+            {inlineAnnotations.map((ann) => (
+              <button
+                key={ann.id}
+                onClick={() => { setExpanded(true); }}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400 text-[9px] hover:bg-blue-900/50 transition-colors"
+                title={`${ann.author}: ${ann.content.slice(0, 60)}`}
+              >
+                <span className="font-mono">L{ann.lineStart}{ann.lineEnd && ann.lineEnd !== ann.lineStart ? `-${ann.lineEnd}` : ""}</span>
+                <User size={8} />
+                <span className="truncate max-w-[80px]">{ann.author}</span>
+              </button>
+            ))}
+            <span className="text-[9px] text-text-muted ml-auto">
+              {inlineAnnotations.length} inline comment{inlineAnnotations.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Toggle header */}
       <button
         onClick={() => setExpanded(!expanded)}
