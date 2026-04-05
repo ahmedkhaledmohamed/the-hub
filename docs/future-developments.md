@@ -272,7 +272,7 @@ Ordered by user impact. Each item is a PR-sized unit of work.
 | ✅ 17 | Hygiene actions (archive, merge, batch) | Polish | Medium | Medium |
 | ✅ 18 | Wire vector-index.ts to hybrid search | Performance | High | Medium |
 | ✅ 19 | Async hygiene analysis via job queue | Performance | Medium | Medium |
-| 20 | Lazy content loading in preview | Performance | Medium | Low |
+| ✅ 20 | Lazy content loading in preview | Performance | Medium | Low |
 
 ### Phase 4: MCP Evolution (Protect the moat)
 

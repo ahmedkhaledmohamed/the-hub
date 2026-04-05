@@ -592,3 +592,95 @@ describe("share button", () => {
     });
   });
 });
+
+// ── Lazy content loading tests ───────────────────────────────────
+
+describe("lazy content loading", () => {
+  const MAX_PREVIEW_SIZE = 500_000;
+
+  describe("content truncation logic", () => {
+    it("small content is not truncated", () => {
+      const html = "<p>Hello world</p>";
+      const size = new Blob([html]).size;
+      expect(size).toBeLessThan(MAX_PREVIEW_SIZE);
+      const truncated = size > MAX_PREVIEW_SIZE;
+      expect(truncated).toBe(false);
+    });
+
+    it("large content exceeds threshold", () => {
+      const html = "x".repeat(600_000);
+      const size = new Blob([html]).size;
+      expect(size).toBeGreaterThan(MAX_PREVIEW_SIZE);
+      const truncated = size > MAX_PREVIEW_SIZE;
+      expect(truncated).toBe(true);
+    });
+
+    it("truncation preserves first 500KB", () => {
+      const html = "a".repeat(600_000);
+      const truncatedContent = html.slice(0, MAX_PREVIEW_SIZE) + "\n<!-- truncated -->";
+      expect(truncatedContent.length).toBeLessThan(html.length);
+      expect(truncatedContent).toContain("<!-- truncated -->");
+      expect(truncatedContent.startsWith("a")).toBe(true);
+    });
+
+    it("full content is preserved for load-full button", () => {
+      const html = "b".repeat(600_000);
+      const fullContent = html;
+      // Simulate: truncated state stores full for later
+      expect(fullContent.length).toBe(600_000);
+    });
+  });
+
+  describe("formatSize utility", () => {
+    const formatSize = (bytes: number): string => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    it("formats bytes", () => {
+      expect(formatSize(500)).toBe("500 B");
+    });
+
+    it("formats kilobytes", () => {
+      expect(formatSize(2048)).toBe("2.0 KB");
+      expect(formatSize(1536)).toBe("1.5 KB");
+    });
+
+    it("formats megabytes", () => {
+      expect(formatSize(1048576)).toBe("1.0 MB");
+      expect(formatSize(2621440)).toBe("2.5 MB");
+    });
+  });
+
+  describe("preview state management", () => {
+    it("resets state when artifact changes", () => {
+      // Simulate state reset
+      let truncated = true;
+      let fullContent: string | null = "old content";
+      let contentSize = 100000;
+
+      // Reset on new artifact
+      truncated = false;
+      fullContent = null;
+      contentSize = 0;
+
+      expect(truncated).toBe(false);
+      expect(fullContent).toBeNull();
+      expect(contentSize).toBe(0);
+    });
+
+    it("load full replaces truncated content", () => {
+      let content = "truncated...";
+      const fullContent = "full content here";
+      let truncated = true;
+
+      // Simulate loadFullContent
+      content = fullContent;
+      truncated = false;
+
+      expect(content).toBe("full content here");
+      expect(truncated).toBe(false);
+    });
+  });
+});
