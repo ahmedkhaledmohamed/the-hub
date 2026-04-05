@@ -921,3 +921,89 @@ describe("hygiene batch actions", () => {
     });
   });
 });
+
+// ── Pre-meeting briefing tests ───────────────────────────────────
+
+import { generateMeetingBriefing, formatDailyBriefings } from "@/lib/meeting-briefing";
+import type { MeetingBriefing, DailyBriefingReport } from "@/lib/meeting-briefing";
+
+describe("pre-meeting briefings", () => {
+  describe("generateMeetingBriefing", () => {
+    it("returns valid briefing structure", () => {
+      const briefing = generateMeetingBriefing("Sprint Planning", "2026-04-05T14:00:00Z");
+      expect(briefing.eventTitle).toBe("Sprint Planning");
+      expect(briefing.eventTime).toBe("2026-04-05T14:00:00Z");
+      expect(typeof briefing.minutesUntil).toBe("number");
+      expect(briefing.context).toBeDefined();
+      expect(Array.isArray(briefing.actionItems)).toBe(true);
+      expect(["high", "medium", "low"]).toContain(briefing.priority);
+      expect(typeof briefing.briefingText).toBe("string");
+      expect(briefing.generatedAt).toBeTruthy();
+    });
+
+    it("includes context packet with related docs", () => {
+      const briefing = generateMeetingBriefing("Architecture Review", "2026-04-05T14:00:00Z");
+      expect(briefing.context.eventTitle).toBe("Architecture Review");
+      expect(Array.isArray(briefing.context.relatedDocs)).toBe(true);
+      expect(Array.isArray(briefing.context.recentDecisions)).toBe(true);
+    });
+
+    it("generates action items from context", () => {
+      const briefing = generateMeetingBriefing("Technical Discussion", "2026-04-05T14:00:00Z");
+      expect(Array.isArray(briefing.actionItems)).toBe(true);
+      // Should always have at least a time-based action
+    });
+
+    it("respects changeDays option", () => {
+      const briefing = generateMeetingBriefing("Q3 Review", "2026-04-05T14:00:00Z", { changeDays: 14 });
+      expect(briefing).toBeDefined();
+    });
+
+    it("briefing text contains meeting title", () => {
+      const briefing = generateMeetingBriefing("Budget Review", "2026-04-05T14:00:00Z");
+      expect(briefing.briefingText).toContain("Budget Review");
+    });
+
+    it("computes minutes until meeting", () => {
+      const futureTime = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1hr from now
+      const briefing = generateMeetingBriefing("Test", futureTime);
+      expect(briefing.minutesUntil).toBeGreaterThan(50);
+      expect(briefing.minutesUntil).toBeLessThan(70);
+    });
+  });
+
+  describe("priority scoring", () => {
+    it("low priority for meetings with no signals", () => {
+      const briefing = generateMeetingBriefing("xyznonexist999 zzzmatch777", "2026-04-05T14:00:00Z");
+      expect(briefing.priority).toBe("low");
+    });
+  });
+
+  describe("formatDailyBriefings", () => {
+    it("formats empty report", () => {
+      const report: DailyBriefingReport = {
+        date: "2026-04-05",
+        meetings: [],
+        totalMeetings: 0,
+        highPriority: 0,
+        generatedAt: new Date().toISOString(),
+      };
+      const text = formatDailyBriefings(report);
+      expect(text).toContain("No meetings today");
+    });
+
+    it("formats report with meetings", () => {
+      const briefing = generateMeetingBriefing("Test Meeting", "2026-04-05T14:00:00Z");
+      const report: DailyBriefingReport = {
+        date: "2026-04-05",
+        meetings: [briefing],
+        totalMeetings: 1,
+        highPriority: 0,
+        generatedAt: new Date().toISOString(),
+      };
+      const text = formatDailyBriefings(report);
+      expect(text).toContain("Daily Meeting Briefings");
+      expect(text).toContain("Test Meeting");
+    });
+  });
+});
