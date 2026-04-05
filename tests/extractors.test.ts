@@ -684,3 +684,99 @@ describe("lazy content loading", () => {
     });
   });
 });
+
+// ── Smart change summary tests ───────────────────────────────────
+
+import { summarizeChange, summarizeFromDiff, formatSmartSummary } from "@/lib/smart-summary";
+import type { DiffLine } from "@/lib/smart-summary";
+
+describe("smart change summaries", () => {
+  describe("summarizeChange", () => {
+    it("detects heading changes", () => {
+      const result = summarizeChange("doc.md", "Architecture", ["## New Design"], ["## Old Design"]);
+      expect(result.changeType).toBe("structure");
+      expect(result.details.some((d) => d.includes("section") || d.includes("Section"))).toBe(true);
+    });
+
+    it("detects value/number changes", () => {
+      const result = summarizeChange("pricing.md", "Pricing", ["Enterprise: $60/user"], ["Enterprise: $80/user"]);
+      expect(result.details.some((d) => d.includes("$80") || d.includes("$60"))).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+    });
+
+    it("detects decision language", () => {
+      const result = summarizeChange("decisions.md", "Decisions", ["We decided to use PostgreSQL for the database."], []);
+      expect(result.changeType).toBe("decision");
+      expect(result.details.some((d) => d.toLowerCase().includes("decision"))).toBe(true);
+    });
+
+    it("detects new sections", () => {
+      const result = summarizeChange("doc.md", "Guide", ["## Deployment Guide", "Steps to deploy..."], []);
+      expect(result.details.some((d) => d.includes("Deployment Guide"))).toBe(true);
+    });
+
+    it("detects removed sections", () => {
+      const result = summarizeChange("doc.md", "Guide", [], ["## Deprecated Section"]);
+      expect(result.details.some((d) => d.includes("Removed"))).toBe(true);
+    });
+
+    it("detects config changes", () => {
+      const result = summarizeChange("config.md", "Config", ["timeout: 60s"], ["timeout: 30s"]);
+      expect(result.details.some((d) => d.includes("timeout") || d.includes("Config"))).toBe(true);
+    });
+
+    it("falls back to line count for unrecognized changes", () => {
+      const result = summarizeChange("misc.md", "Misc", ["random new content here"], ["some old stuff"]);
+      expect(result.summary).toContain("Misc");
+      expect(result.confidence).toBeLessThanOrEqual(0.5);
+    });
+
+    it("handles empty diff", () => {
+      const result = summarizeChange("empty.md", "Empty", [], []);
+      expect(result.summary).toContain("Empty");
+      expect(result.changeType).toBe("minor");
+    });
+  });
+
+  describe("summarizeFromDiff", () => {
+    it("extracts added/removed from diff lines", () => {
+      const diff: DiffLine[] = [
+        { type: "removed", content: "## Old Title" },
+        { type: "added", content: "## New Title" },
+        { type: "context", content: "Some unchanged content" },
+      ];
+      const result = summarizeFromDiff("test.md", "Test Doc", diff);
+      expect(result.path).toBe("test.md");
+      expect(result.title).toBe("Test Doc");
+    });
+  });
+
+  describe("formatSmartSummary", () => {
+    it("formats summary with details", () => {
+      const summary = {
+        path: "test.md",
+        title: "Test",
+        changeType: "content" as const,
+        summary: "Test updated — value changed",
+        details: ["Value changed: $80 → $60", "Another detail"],
+        confidence: 0.8,
+      };
+      const text = formatSmartSummary(summary);
+      expect(text).toContain("Test updated");
+      expect(text).toContain("Another detail");
+    });
+
+    it("formats summary without extra details", () => {
+      const summary = {
+        path: "test.md",
+        title: "Test",
+        changeType: "minor" as const,
+        summary: "Test was modified",
+        details: ["1 line added"],
+        confidence: 0.3,
+      };
+      const text = formatSmartSummary(summary);
+      expect(text).toContain("Test was modified");
+    });
+  });
+});
