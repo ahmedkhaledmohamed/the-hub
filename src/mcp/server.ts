@@ -418,6 +418,26 @@ async function main() {
     },
   );
 
+  // ── Tool: meeting_brief ────────────────────────────────────────
+
+  server.tool(
+    "meeting_brief",
+    "Generate a pre-meeting briefing with related docs, decisions, changes, conflicts, and action items. Use before any meeting to get prepared.",
+    {
+      topic: z.string().describe("Meeting title or topic (e.g., 'Sprint Planning', 'Architecture Review')"),
+      changeDays: z.number().optional().default(7).describe("Look back N days for changes (default 7)"),
+    },
+    async ({ topic, changeDays }) => {
+      try {
+        const { generateMeetingBriefing } = await import("../lib/meeting-briefing.js");
+        const briefing = generateMeetingBriefing(topic, new Date().toISOString(), { changeDays });
+        return { content: [{ type: "text" as const, text: briefing.briefingText }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Meeting brief failed: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Tool: detect_gaps ──────────────────────────────────────────
 
   server.tool(
@@ -744,7 +764,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 18,
+          tools: 19,
           resources: 3,
           prompts: 5,
         },
