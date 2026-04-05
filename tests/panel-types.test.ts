@@ -895,3 +895,97 @@ describe("agent session tracking", () => {
     });
   });
 });
+
+// ── Performance benchmark tests ──────────────────────────────────
+
+import {
+  benchmarkSearch,
+  benchmarkArtifactCount,
+  benchmarkTableListing,
+  runBenchmarkSuite,
+  formatBenchmarkReport,
+  THRESHOLDS,
+} from "@/lib/benchmarks";
+
+describe("performance benchmarks", () => {
+  describe("individual benchmarks", () => {
+    it("benchmarkSearch returns valid result", () => {
+      const result = benchmarkSearch("test", 3);
+      expect(result.name).toBe("search_latency");
+      expect(result.iterations).toBe(3);
+      expect(result.avgMs).toBeGreaterThanOrEqual(0);
+      expect(result.p95Ms).toBeGreaterThanOrEqual(0);
+      expect(result.minMs).toBeLessThanOrEqual(result.maxMs);
+      expect(result.timestamp).toBeTruthy();
+    });
+
+    it("benchmarkArtifactCount is fast", () => {
+      const result = benchmarkArtifactCount(5);
+      expect(result.name).toBe("artifact_count");
+      expect(result.p95Ms).toBeLessThan(THRESHOLDS.artifact_count || 100);
+    });
+
+    it("benchmarkTableListing completes", () => {
+      const result = benchmarkTableListing(3);
+      expect(result.name).toBe("table_listing");
+      expect(result.avgMs).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("benchmark suite", () => {
+    it("runs all benchmarks", () => {
+      const suite = runBenchmarkSuite();
+      expect(suite.results.length).toBeGreaterThanOrEqual(4);
+      expect(typeof suite.totalDurationMs).toBe("number");
+      expect(typeof suite.passedThresholds).toBe("boolean");
+      expect(Array.isArray(suite.failures)).toBe(true);
+      expect(suite.timestamp).toBeTruthy();
+    });
+
+    it("each result has required fields", () => {
+      const suite = runBenchmarkSuite();
+      for (const r of suite.results) {
+        expect(r.name).toBeTruthy();
+        expect(typeof r.durationMs).toBe("number");
+        expect(typeof r.avgMs).toBe("number");
+        expect(typeof r.p95Ms).toBe("number");
+        expect(typeof r.iterations).toBe("number");
+      }
+    });
+
+    it("search stays under threshold", () => {
+      const suite = runBenchmarkSuite();
+      const search = suite.results.find((r) => r.name === "search_latency");
+      expect(search).toBeDefined();
+      expect(search!.p95Ms).toBeLessThan(THRESHOLDS.search_latency);
+    });
+  });
+
+  describe("formatBenchmarkReport", () => {
+    it("produces readable text", () => {
+      const suite = runBenchmarkSuite();
+      const text = formatBenchmarkReport(suite);
+      expect(text).toContain("Performance Benchmark Report");
+      expect(text).toContain("search_latency");
+      expect(text).toContain("artifact_count");
+    });
+
+    it("shows PASS when thresholds met", () => {
+      const suite = runBenchmarkSuite();
+      if (suite.passedThresholds) {
+        const text = formatBenchmarkReport(suite);
+        expect(text).toContain("PASS");
+      }
+    });
+  });
+
+  describe("thresholds", () => {
+    it("has threshold for search_latency", () => {
+      expect(THRESHOLDS.search_latency).toBeGreaterThan(0);
+    });
+
+    it("has threshold for artifact_count", () => {
+      expect(THRESHOLDS.artifact_count).toBeGreaterThan(0);
+    });
+  });
+});
