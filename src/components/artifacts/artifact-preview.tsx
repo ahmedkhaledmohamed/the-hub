@@ -6,6 +6,7 @@ import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { LauncherActions } from "./launcher-actions";
 import { ReviewPanel } from "./review-panel";
+import { AnnotationPanel } from "./annotation-panel";
 
 interface ArtifactPreviewProps {
   artifact: Artifact | null;
@@ -153,6 +154,7 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
               />
             )}
           </div>
+          {artifact && <AnnotationPanel artifactPath={artifact.path} />}
           {artifact && <ReviewPanel artifactPath={artifact.path} />}
         </div>
       </div>
