@@ -353,7 +353,7 @@ describe("predictive briefings", () => {
   describe("matchEventsToArtifacts", () => {
     it("returns empty for events with no matching artifacts", () => {
       const result = matchEventsToArtifacts([
-        { title: "xyznonexistent999 meeting", startTime: "2026-04-05T14:00:00Z" },
+        { title: "xyzqwk999 zzznomatch777", startTime: "2026-04-05T14:00:00Z" },
       ]);
       expect(result).toEqual([]);
     });
