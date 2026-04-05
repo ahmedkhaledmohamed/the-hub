@@ -213,19 +213,32 @@ export async function complete(options: AiCompletionOptions): Promise<AiCompleti
   }
 
   try {
-    const res = await fetch(config.gatewayUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: options.maxTokens || 1024,
-        temperature: options.temperature ?? 0.3,
-        messages: options.messages,
-      }),
-    });
+    // Use circuit breaker with timeout for AI calls
+    let cbModule: typeof import("./circuit-breaker") | null = null;
+    try { cbModule = require("./circuit-breaker"); } catch { /* circuit breaker not critical */ }
+
+    const cb = cbModule?.getCircuitBreaker("ai-completion", { timeoutMs: parseInt(process.env.HUB_AI_TIMEOUT_MS || "15000", 10) });
+
+    const doFetch = async (signal?: AbortSignal) => {
+      return fetch(config!.gatewayUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config!.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: config!.model,
+          max_tokens: options.maxTokens || 1024,
+          temperature: options.temperature ?? 0.3,
+          messages: options.messages,
+        }),
+        signal,
+      });
+    };
+
+    const res = cb
+      ? await cb.execute((signal) => doFetch(signal))
+      : await doFetch();
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
@@ -267,19 +280,26 @@ export async function complete(options: AiCompletionOptions): Promise<AiCompleti
 
     return result;
   } catch (err) {
-    console.error("[ai-client] Request error:", err);
+    const errMsg = (err as Error).message || String(err);
+    const errName = (err as Error).name || "";
+    console.error("[ai-client] Request error:", errMsg);
     try {
       const { hubLog } = require("./logger");
-      hubLog("error", "ai", "AI request failed", {
-        model: config.model,
-        error: (err as Error).message,
-      });
+      hubLog("error", "ai", "AI request failed", { model: config.model, error: errMsg });
     } catch { /* logger not critical */ }
-    return {
-      content: "**AI error** — Could not connect to the AI gateway. Check that the server is running.",
-      cached: false,
-      model: config.model,
-    };
+    try {
+      const { reportError } = require("./error-reporter");
+      reportError("ai", err, { model: config.model });
+    } catch { /* non-critical */ }
+
+    // Circuit breaker specific messages
+    if (errName === "CircuitOpenError") {
+      return { content: `**AI temporarily unavailable** — too many consecutive failures. ${errMsg}`, cached: false, model: config.model };
+    }
+    if (errName === "TimeoutError") {
+      return { content: `**AI timeout** — request took too long. ${errMsg}`, cached: false, model: config.model };
+    }
+    return { content: "**AI error** — Could not connect to the AI gateway. Check that the server is running.", cached: false, model: config.model };
   }
 }
 
