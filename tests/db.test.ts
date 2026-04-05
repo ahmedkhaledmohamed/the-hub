@@ -792,6 +792,152 @@ describe("annotation layer", () => {
   });
 });
 
+// ── Notification system tests ────────────────────────────────────
+
+import {
+  notify,
+  notifyReviewUpdate,
+  notifyAnnotation,
+  notifyChange,
+  getNotifications,
+  getUnreadCount,
+  markRead,
+  markAllRead,
+  pruneNotifications,
+} from "@/lib/notifications";
+
+describe("notification system", () => {
+  describe("notify", () => {
+    it("creates a notification", () => {
+      const id = notify({
+        recipient: "alice",
+        type: "review",
+        title: "Review approved",
+        message: "Bob approved your review",
+        artifactPath: "docs/auth.md",
+      });
+      expect(id).toBeGreaterThan(0);
+    });
+
+    it("retrieves notifications for recipient", () => {
+      const recipient = `notif-get-${Date.now()}`;
+      notify({ recipient, type: "review", title: "Test notification" });
+      notify({ recipient, type: "annotation", title: "Another notification" });
+
+      const notifs = getNotifications(recipient);
+      expect(notifs.length).toBeGreaterThanOrEqual(2);
+      for (const n of notifs) {
+        expect(n.recipient).toBe(recipient);
+        expect(n.read).toBe(false);
+      }
+    });
+  });
+
+  describe("notifyReviewUpdate", () => {
+    it("creates review notification for requester", () => {
+      const recipient = `review-notif-${Date.now()}`;
+      const id = notifyReviewUpdate({
+        requestedBy: recipient,
+        reviewer: "bob",
+        status: "approved",
+        artifactPath: "docs/pricing.md",
+        responseMessage: "Looks good!",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      const notifs = getNotifications(recipient);
+      const found = notifs.find((n) => n.id === id);
+      expect(found).toBeDefined();
+      expect(found!.type).toBe("review");
+      expect(found!.message).toContain("bob");
+      expect(found!.message).toContain("approved");
+      expect(found!.message).toContain("Looks good!");
+    });
+  });
+
+  describe("notifyAnnotation", () => {
+    it("creates annotation notification", () => {
+      const recipient = `ann-notif-${Date.now()}`;
+      const id = notifyAnnotation({
+        recipient,
+        author: "charlie",
+        artifactPath: "docs/roadmap.md",
+        content: "This section needs updating with Q3 data.",
+      });
+      expect(id).toBeGreaterThan(0);
+      const notifs = getNotifications(recipient);
+      expect(notifs.some((n) => n.type === "annotation")).toBe(true);
+    });
+  });
+
+  describe("notifyChange", () => {
+    it("creates change notification", () => {
+      const recipient = `change-notif-${Date.now()}`;
+      const id = notifyChange({
+        recipient,
+        artifactPath: "docs/api.md",
+        changeSummary: "API endpoint for /users changed from REST to GraphQL.",
+      });
+      expect(id).toBeGreaterThan(0);
+    });
+  });
+
+  describe("read/unread", () => {
+    it("getUnreadCount returns count", () => {
+      const recipient = `unread-${Date.now()}`;
+      notify({ recipient, type: "system", title: "Unread 1" });
+      notify({ recipient, type: "system", title: "Unread 2" });
+      expect(getUnreadCount(recipient)).toBeGreaterThanOrEqual(2);
+    });
+
+    it("markRead marks a notification", () => {
+      const recipient = `mark-${Date.now()}`;
+      const id = notify({ recipient, type: "system", title: "To read" });
+      expect(markRead(id)).toBe(true);
+
+      const notifs = getNotifications(recipient, { unreadOnly: true });
+      expect(notifs.find((n) => n.id === id)).toBeUndefined();
+    });
+
+    it("markAllRead marks all for recipient", () => {
+      const recipient = `markall-${Date.now()}`;
+      notify({ recipient, type: "system", title: "A" });
+      notify({ recipient, type: "system", title: "B" });
+      const marked = markAllRead(recipient);
+      expect(marked).toBeGreaterThanOrEqual(2);
+      expect(getUnreadCount(recipient)).toBe(0);
+    });
+  });
+
+  describe("filtering", () => {
+    it("filters by type", () => {
+      const recipient = `filter-${Date.now()}`;
+      notify({ recipient, type: "review", title: "R" });
+      notify({ recipient, type: "annotation", title: "A" });
+
+      const reviews = getNotifications(recipient, { type: "review" });
+      for (const n of reviews) expect(n.type).toBe("review");
+    });
+
+    it("filters unread only", () => {
+      const recipient = `unread-filter-${Date.now()}`;
+      const id = notify({ recipient, type: "system", title: "Read this" });
+      notify({ recipient, type: "system", title: "Keep unread" });
+      markRead(id);
+
+      const unread = getNotifications(recipient, { unreadOnly: true });
+      for (const n of unread) expect(n.read).toBe(false);
+    });
+  });
+
+  describe("pruneNotifications", () => {
+    it("prunes without error", () => {
+      const pruned = pruneNotifications(365);
+      expect(typeof pruned).toBe("number");
+    });
+  });
+});
+
 // ── Vector index wired to hybrid search tests ────────────────────
 
 import {
