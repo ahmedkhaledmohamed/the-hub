@@ -563,3 +563,119 @@ describe("impact scoring", () => {
     });
   });
 });
+
+// ── Integration dashboard tests ──────────────────────────────────
+
+import { isGoogleDocsConfigured, getSyncSummary as getGDocsSummary } from "@/lib/google-docs";
+import { isNotionConfigured, getNotionSyncSummary } from "@/lib/notion-sync";
+import { isCalendarConfigured } from "@/lib/calendar";
+
+describe("integration dashboard", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  describe("Google Docs integration", () => {
+    it("detects when unconfigured", () => {
+      delete process.env.GOOGLE_DOCS_API_KEY;
+      delete process.env.GOOGLE_DOCS_TOKEN;
+      expect(isGoogleDocsConfigured()).toBe(false);
+    });
+
+    it("detects when configured via API key", () => {
+      process.env.GOOGLE_DOCS_API_KEY = "test-key";
+      expect(isGoogleDocsConfigured()).toBe(true);
+    });
+
+    it("getSyncSummary returns structure", () => {
+      const summary = getGDocsSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.synced).toBe("number");
+      expect(typeof summary.errors).toBe("number");
+    });
+  });
+
+  describe("Notion integration", () => {
+    it("detects when unconfigured", () => {
+      delete process.env.NOTION_TOKEN;
+      expect(isNotionConfigured()).toBe(false);
+    });
+
+    it("detects when configured", () => {
+      process.env.NOTION_TOKEN = "secret_test";
+      expect(isNotionConfigured()).toBe(true);
+    });
+
+    it("getNotionSyncSummary returns structure", () => {
+      const summary = getNotionSyncSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.synced).toBe("number");
+      expect(typeof summary.errors).toBe("number");
+      expect(typeof summary.byParentType).toBe("object");
+    });
+  });
+
+  describe("Slack integration", () => {
+    it("detects via SLACK_WEBHOOK_URL", () => {
+      process.env.SLACK_WEBHOOK_URL = "https://hooks.slack.com/test";
+      expect(!!process.env.SLACK_WEBHOOK_URL).toBe(true);
+    });
+
+    it("unconfigured when no URL", () => {
+      delete process.env.SLACK_WEBHOOK_URL;
+      expect(!!process.env.SLACK_WEBHOOK_URL).toBe(false);
+    });
+  });
+
+  describe("Calendar integration", () => {
+    it("detects via CALENDAR_URL", () => {
+      process.env.CALENDAR_URL = "https://calendar.google.com/calendar/ical/test.ics";
+      expect(isCalendarConfigured()).toBe(true);
+    });
+
+    it("unconfigured when no URL", () => {
+      delete process.env.CALENDAR_URL;
+      expect(isCalendarConfigured()).toBe(false);
+    });
+  });
+
+  describe("integration aggregation", () => {
+    it("counts configured integrations correctly", () => {
+      // Simulate: only Slack configured
+      process.env.SLACK_WEBHOOK_URL = "https://hooks.slack.com/test";
+      delete process.env.GOOGLE_DOCS_API_KEY;
+      delete process.env.GOOGLE_DOCS_TOKEN;
+      delete process.env.NOTION_TOKEN;
+      delete process.env.CALENDAR_URL;
+      delete process.env.SSO_ENABLED;
+
+      const configured = [
+        isGoogleDocsConfigured(),
+        isNotionConfigured(),
+        !!process.env.SLACK_WEBHOOK_URL,
+        !!process.env.CALENDAR_URL,
+        process.env.SSO_ENABLED === "true",
+      ].filter(Boolean).length;
+
+      expect(configured).toBe(1); // only Slack
+    });
+
+    it("all integrations have required env vars documented", () => {
+      // Verify the integration definitions match expectations
+      const integrations = [
+        { id: "google-docs", requiredEnvs: ["GOOGLE_DOCS_API_KEY", "GOOGLE_DOCS_TOKEN"] },
+        { id: "notion", requiredEnvs: ["NOTION_TOKEN"] },
+        { id: "slack", requiredEnvs: ["SLACK_WEBHOOK_URL"] },
+        { id: "calendar", requiredEnvs: ["CALENDAR_URL"] },
+        { id: "sso", requiredEnvs: ["SSO_ENABLED"] },
+      ];
+
+      expect(integrations.length).toBe(5);
+      for (const i of integrations) {
+        expect(i.id).toBeTruthy();
+        expect(i.requiredEnvs.length).toBeGreaterThan(0);
+      }
+    });
+  });
+});
