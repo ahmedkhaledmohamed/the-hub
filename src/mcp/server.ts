@@ -378,6 +378,26 @@ async function main() {
     },
   );
 
+  // ── Tool: compile_context ───────────────────────────────────────
+
+  server.tool(
+    "compile_context",
+    "Compile a context packet for a meeting or topic. Gathers related docs, recent decisions, changes, and conflicts into a ready-to-use briefing.",
+    {
+      topic: z.string().describe("Meeting title or topic (e.g., 'Architecture Review', 'Q3 Planning')"),
+      changeDays: z.number().optional().default(7).describe("Look back N days for recent changes (default 7)"),
+    },
+    async ({ topic, changeDays }) => {
+      try {
+        const { compileContext, formatContextPacket } = await import("../lib/context-compiler.js");
+        const packet = compileContext(topic, new Date().toISOString(), { changeDays });
+        return { content: [{ type: "text" as const, text: formatContextPacket(packet) }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Context compilation failed: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Tool: get_impact ───────────────────────────────────────────
 
   server.tool(
@@ -685,7 +705,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 15,
+          tools: 16,
           resources: 3,
           prompts: 5,
         },

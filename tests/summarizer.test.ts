@@ -826,3 +826,104 @@ describe("connection tester", () => {
     });
   });
 });
+
+// ── Auto-context compilation tests ───────────────────────────────
+
+import { compileContext, formatContextPacket } from "@/lib/context-compiler";
+import type { ContextPacket } from "@/lib/context-compiler";
+
+describe("auto-context compilation", () => {
+  describe("compileContext", () => {
+    it("returns valid context packet structure", () => {
+      const packet = compileContext("Architecture Review", "2026-04-05T14:00:00Z");
+      expect(packet.eventTitle).toBe("Architecture Review");
+      expect(packet.eventTime).toBe("2026-04-05T14:00:00Z");
+      expect(Array.isArray(packet.relatedDocs)).toBe(true);
+      expect(Array.isArray(packet.recentDecisions)).toBe(true);
+      expect(Array.isArray(packet.recentChanges)).toBe(true);
+      expect(Array.isArray(packet.conflicts)).toBe(true);
+      expect(typeof packet.summary).toBe("string");
+      expect(packet.generatedAt).toBeTruthy();
+    });
+
+    it("extracts keywords from event title", () => {
+      // "Architecture Review" → keywords: "architecture" (review is stop word)
+      const packet = compileContext("Architecture Review", "2026-04-05T14:00:00Z");
+      // Should search for "architecture" and find any matching docs
+      expect(packet.summary).toContain("Architecture Review");
+    });
+
+    it("handles short/generic event titles", () => {
+      const packet = compileContext("1:1 Meeting", "2026-04-05T10:00:00Z");
+      // "1:1" and "Meeting" are short/stop words — should still return valid packet
+      expect(packet.eventTitle).toBe("1:1 Meeting");
+      expect(typeof packet.summary).toBe("string");
+    });
+
+    it("respects changeDays option", () => {
+      const packet = compileContext("Sprint Planning", "2026-04-05T14:00:00Z", { changeDays: 3 });
+      expect(packet).toBeDefined();
+    });
+
+    it("respects maxDocs option", () => {
+      const packet = compileContext("All Docs Review", "2026-04-05T14:00:00Z", { maxDocs: 2 });
+      expect(packet.relatedDocs.length).toBeLessThanOrEqual(2);
+    });
+
+    it("deduplicates related docs", () => {
+      const packet = compileContext("API Architecture Design", "2026-04-05T14:00:00Z");
+      const paths = packet.relatedDocs.map((d) => d.path);
+      expect(paths.length).toBe(new Set(paths).size);
+    });
+  });
+
+  describe("formatContextPacket", () => {
+    it("formats packet with all sections", () => {
+      const packet: ContextPacket = {
+        eventTitle: "Sprint Review",
+        eventTime: "2026-04-05T14:00:00Z",
+        relatedDocs: [{ path: "docs/roadmap.md", title: "Roadmap", snippet: "Q3 goals", relevance: "matches sprint" }],
+        recentDecisions: [{ summary: "Use React", artifactPath: "docs/decisions.md", status: "active", actor: "alice" }],
+        recentChanges: [{ path: "docs/api.md", title: "API Guide", staleDays: 1 }],
+        conflicts: [{ description: "REST vs GraphQL conflict" }],
+        summary: "For Sprint Review: 1 doc, 1 decision, 1 change, 1 conflict.",
+        generatedAt: new Date().toISOString(),
+      };
+
+      const text = formatContextPacket(packet);
+      expect(text).toContain("Sprint Review");
+      expect(text).toContain("Roadmap");
+      expect(text).toContain("Use React");
+      expect(text).toContain("API Guide");
+      expect(text).toContain("REST vs GraphQL");
+    });
+
+    it("handles empty packet", () => {
+      const packet: ContextPacket = {
+        eventTitle: "Unknown Meeting",
+        eventTime: "2026-04-05T10:00:00Z",
+        relatedDocs: [],
+        recentDecisions: [],
+        recentChanges: [],
+        conflicts: [],
+        summary: "No context found.",
+        generatedAt: new Date().toISOString(),
+      };
+
+      const text = formatContextPacket(packet);
+      expect(text).toContain("Unknown Meeting");
+      expect(text).toContain("No specific context found");
+    });
+
+    it("shows modification time for recent changes", () => {
+      const packet: ContextPacket = {
+        eventTitle: "Test", eventTime: "", generatedAt: "",
+        relatedDocs: [], recentDecisions: [],
+        recentChanges: [{ path: "test.md", title: "Test", staleDays: 0 }],
+        conflicts: [], summary: "",
+      };
+      const text = formatContextPacket(packet);
+      expect(text).toContain("today");
+    });
+  });
+});
