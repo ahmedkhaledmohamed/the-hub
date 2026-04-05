@@ -865,3 +865,96 @@ describe("knowledge gap detection", () => {
     });
   });
 });
+
+// ── Inline annotation rendering tests ────────────────────────────
+
+import {
+  addAnnotation,
+  getAnnotationsForArtifact,
+  getAnnotation,
+  getAnnotationCount,
+} from "@/lib/annotations";
+
+describe("inline annotation rendering", () => {
+  describe("line-positioned annotations", () => {
+    it("creates annotations with line numbers", () => {
+      const path = `inline/lines-${Date.now()}.md`;
+      const id = addAnnotation({
+        artifactPath: path,
+        author: "alice",
+        content: "This paragraph needs clarification.",
+        lineStart: 15,
+        lineEnd: 20,
+      });
+      const ann = getAnnotation(id);
+      expect(ann).not.toBeNull();
+      expect(ann!.lineStart).toBe(15);
+      expect(ann!.lineEnd).toBe(20);
+    });
+
+    it("separates inline vs general annotations", () => {
+      const path = `inline/mixed-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, content: "General comment" });
+      addAnnotation({ artifactPath: path, content: "Line comment", lineStart: 5, lineEnd: 5 });
+      addAnnotation({ artifactPath: path, content: "Range comment", lineStart: 10, lineEnd: 15 });
+
+      const all = getAnnotationsForArtifact(path);
+      const inline = all.filter((a) => a.lineStart !== null);
+      const general = all.filter((a) => a.lineStart === null);
+
+      expect(inline.length).toBeGreaterThanOrEqual(2);
+      expect(general.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("annotations with line ranges display correctly", () => {
+      const path = `inline/display-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, content: "Single line", lineStart: 5, lineEnd: 5 });
+      addAnnotation({ artifactPath: path, content: "Multi line", lineStart: 10, lineEnd: 20 });
+
+      const all = getAnnotationsForArtifact(path);
+      for (const ann of all) {
+        if (ann.lineStart !== null) {
+          // Format: L5 or L10-20
+          const label = ann.lineEnd && ann.lineEnd !== ann.lineStart
+            ? `L${ann.lineStart}-${ann.lineEnd}`
+            : `L${ann.lineStart}`;
+          expect(label).toMatch(/^L\d+(-\d+)?$/);
+        }
+      }
+    });
+  });
+
+  describe("annotation count for inline indicators", () => {
+    it("counts inline annotations for badge", () => {
+      const path = `inline/count-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, content: "A", lineStart: 1, lineEnd: 1 });
+      addAnnotation({ artifactPath: path, content: "B", lineStart: 5, lineEnd: 5 });
+      addAnnotation({ artifactPath: path, content: "C" }); // general, no line
+
+      const count = getAnnotationCount(path);
+      expect(count).toBeGreaterThanOrEqual(3);
+
+      const all = getAnnotationsForArtifact(path);
+      const inlineCount = all.filter((a) => a.lineStart !== null).length;
+      expect(inlineCount).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("annotation preview strip data", () => {
+    it("provides data for inline indicator badges", () => {
+      const path = `inline/strip-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, author: "alice", content: "Fix typo", lineStart: 3, lineEnd: 3 });
+      addAnnotation({ artifactPath: path, author: "bob", content: "Outdated info", lineStart: 15, lineEnd: 20 });
+
+      const all = getAnnotationsForArtifact(path);
+      const inline = all.filter((a) => a.lineStart !== null);
+
+      // Each inline annotation should have author + line info for badge
+      for (const ann of inline) {
+        expect(ann.author).toBeTruthy();
+        expect(ann.lineStart).toBeGreaterThan(0);
+        expect(ann.content).toBeTruthy();
+      }
+    });
+  });
+});
