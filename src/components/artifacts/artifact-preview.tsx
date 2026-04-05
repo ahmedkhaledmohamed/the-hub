@@ -5,6 +5,7 @@ import { X, ExternalLink, Loader2 } from "lucide-react";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { LauncherActions } from "./launcher-actions";
+import { ReviewPanel } from "./review-panel";
 
 interface ArtifactPreviewProps {
   artifact: Artifact | null;
@@ -137,19 +138,22 @@ export function ArtifactPreview({ artifact, onClose }: ArtifactPreviewProps) {
             <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 size={20} className="animate-spin text-text-dim" />
-            </div>
-          ) : (
-            <iframe
-              srcDoc={content}
-              className="w-full h-full border-0"
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-              title={artifact?.title || "Preview"}
-            />
-          )}
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 size={20} className="animate-spin text-text-dim" />
+              </div>
+            ) : (
+              <iframe
+                srcDoc={content}
+                className="w-full h-full border-0"
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                title={artifact?.title || "Preview"}
+              />
+            )}
+          </div>
+          {artifact && <ReviewPanel artifactPath={artifact.path} />}
         </div>
       </div>
     </>
