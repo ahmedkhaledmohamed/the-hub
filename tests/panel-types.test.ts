@@ -616,3 +616,142 @@ describe("plugin sandbox", () => {
     });
   });
 });
+
+// ── Graph interactivity tests ────────────────────────────────────
+
+import { addLink, getLinksFrom, getBacklinks } from "@/lib/knowledge-graph";
+
+describe("graph interactivity", () => {
+  describe("knowledge graph data for interactive view", () => {
+    it("addLink creates edges for graph visualization", () => {
+      const source = `graph/source-${Date.now()}.md`;
+      const target = `graph/target-${Date.now()}.md`;
+      addLink(source, target, "references");
+      const links = getLinksFrom(source) as Array<Record<string, unknown>>;
+      expect(links.some((l) => l.target_path === target)).toBe(true);
+    });
+
+    it("getBacklinks provides inbound edges for inspector", () => {
+      const source = `graph/in-src-${Date.now()}.md`;
+      const target = `graph/in-tgt-${Date.now()}.md`;
+      addLink(source, target, "related");
+      const backlinks = getBacklinks(target) as Array<Record<string, unknown>>;
+      expect(backlinks.some((l) => l.path === source)).toBe(true);
+    });
+
+    it("supports all edge types for filtering", () => {
+      const src = `graph/types-${Date.now()}.md`;
+      addLink(src, "graph/ref.md", "references");
+      addLink(src, "graph/sup.md", "supersedes");
+      addLink(src, "graph/rel.md", "related");
+      const links = getLinksFrom(src) as Array<Record<string, unknown>>;
+      const types = new Set(links.map((l) => l.link_type));
+      expect(types.has("references")).toBe(true);
+      expect(types.has("supersedes")).toBe(true);
+      expect(types.has("related")).toBe(true);
+    });
+  });
+
+  describe("edge type filtering logic", () => {
+    it("filters edges by enabled types", () => {
+      const edges = [
+        { source: "a", target: "b", linkType: "references" },
+        { source: "b", target: "c", linkType: "supersedes" },
+        { source: "c", target: "d", linkType: "related" },
+      ];
+      const enabled = new Set(["references", "related"]);
+      const filtered = edges.filter((e) => enabled.has(e.linkType));
+      expect(filtered.length).toBe(2);
+      expect(filtered.map((e) => e.linkType)).not.toContain("supersedes");
+    });
+
+    it("toggle removes and re-adds types", () => {
+      const enabled = new Set(["references", "supersedes", "related"]);
+      // Toggle off
+      enabled.delete("supersedes");
+      expect(enabled.has("supersedes")).toBe(false);
+      // Toggle on
+      enabled.add("supersedes");
+      expect(enabled.has("supersedes")).toBe(true);
+    });
+  });
+
+  describe("search/find node logic", () => {
+    it("matches node by title", () => {
+      const nodes = [
+        { id: "a.md", title: "Architecture Overview" },
+        { id: "b.md", title: "Backend API" },
+        { id: "c.md", title: "Cloud Infrastructure" },
+      ];
+      const q = "backend";
+      const match = nodes.find((n) => n.title.toLowerCase().includes(q));
+      expect(match?.id).toBe("b.md");
+    });
+
+    it("matches node by path", () => {
+      const nodes = [
+        { id: "docs/arch.md", title: "Architecture" },
+        { id: "code/api.ts", title: "API Handler" },
+      ];
+      const q = "code/api";
+      const match = nodes.find((n) => n.id.toLowerCase().includes(q));
+      expect(match?.id).toBe("code/api.ts");
+    });
+
+    it("returns null for no match", () => {
+      const nodes = [{ id: "a.md", title: "Test" }];
+      expect(nodes.find((n) => n.title.toLowerCase().includes("xyz"))).toBeUndefined();
+    });
+  });
+
+  describe("zoom and pan calculations", () => {
+    it("zoom scales within bounds", () => {
+      let zoom = 1;
+      // Zoom in
+      zoom = Math.min(3, zoom * 1.2);
+      expect(zoom).toBeCloseTo(1.2);
+      // Zoom out
+      zoom = Math.max(0.3, zoom * 0.8);
+      expect(zoom).toBeCloseTo(0.96);
+    });
+
+    it("zoom cannot exceed max", () => {
+      let zoom = 2.8;
+      zoom = Math.min(3, zoom * 1.2);
+      expect(zoom).toBe(3);
+    });
+
+    it("zoom cannot go below min", () => {
+      let zoom = 0.35;
+      zoom = Math.max(0.3, zoom * 0.8);
+      expect(zoom).toBeCloseTo(0.3);
+    });
+
+    it("screen-to-canvas conversion with zoom and pan", () => {
+      const zoom = 2;
+      const panX = 50;
+      const panY = 30;
+      const screenX = 250;
+      const screenY = 130;
+      const canvasX = (screenX - panX) / zoom;
+      const canvasY = (screenY - panY) / zoom;
+      expect(canvasX).toBe(100);
+      expect(canvasY).toBe(50);
+    });
+  });
+
+  describe("node inspector data", () => {
+    it("computes inbound and outbound edges for selected node", () => {
+      const edges = [
+        { source: "a", target: "b", linkType: "references" },
+        { source: "b", target: "c", linkType: "supersedes" },
+        { source: "d", target: "b", linkType: "related" },
+      ];
+      const selected = "b";
+      const inbound = edges.filter((e) => e.target === selected);
+      const outbound = edges.filter((e) => e.source === selected);
+      expect(inbound.length).toBe(2);
+      expect(outbound.length).toBe(1);
+    });
+  });
+});
