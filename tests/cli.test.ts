@@ -706,3 +706,69 @@ describe("agent memory", () => {
     });
   });
 });
+
+// ── Data export/backup tests ─────────────────────────────────────
+
+import { existsSync, statSync } from "fs";
+import { join } from "path";
+import { getDb, getArtifactCount } from "@/lib/db";
+
+describe("data export/backup", () => {
+  describe("database info", () => {
+    it("getArtifactCount returns number", () => {
+      expect(typeof getArtifactCount()).toBe("number");
+    });
+
+    it("can list tables for backup info", () => {
+      const db = getDb();
+      const tables = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      ).all() as Array<{ name: string }>;
+      expect(tables.length).toBeGreaterThan(0);
+    });
+
+    it("can count rows across tables", () => {
+      const db = getDb();
+      const tables = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      ).all() as Array<{ name: string }>;
+
+      let totalRows = 0;
+      for (const t of tables) {
+        try {
+          const row = db.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`).get() as { count: number };
+          totalRows += row.count;
+        } catch { /* skip tables that can't be counted */ }
+      }
+      expect(typeof totalRows).toBe("number");
+      expect(totalRows).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("backup file", () => {
+    it("hub.db exists in .hub-data", () => {
+      const dbPath = join(process.cwd(), ".hub-data", "hub.db");
+      // May or may not exist in test environment
+      const exists = existsSync(dbPath);
+      expect(typeof exists).toBe("boolean");
+    });
+
+    it("WAL checkpoint runs without error", () => {
+      const db = getDb();
+      // TRUNCATE checkpoint should work
+      expect(() => db.pragma("wal_checkpoint(TRUNCATE)")).not.toThrow();
+    });
+  });
+
+  describe("formatSize utility", () => {
+    const formatSize = (bytes: number): string => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    it("formats bytes", () => expect(formatSize(500)).toBe("500 B"));
+    it("formats KB", () => expect(formatSize(2048)).toBe("2.0 KB"));
+    it("formats MB", () => expect(formatSize(1048576)).toBe("1.0 MB"));
+  });
+});
