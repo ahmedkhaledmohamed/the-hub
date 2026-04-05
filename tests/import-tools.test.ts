@@ -531,3 +531,206 @@ describe("google docs sync", () => {
     });
   });
 });
+
+// ── Notion sync tests ────────────────────────────────────────────
+
+import {
+  parsePageId,
+  blocksToMarkdown,
+  isNotionConfigured,
+  linkPage,
+  unlinkPage,
+  getLinkedPage,
+  getLinkedPageByPath,
+  getAllLinkedPages,
+  getLinkedPagesByParent,
+  getNotionSyncSummary,
+} from "@/lib/notion-sync";
+import type { NotionBlock } from "@/lib/notion-sync";
+
+describe("notion sync", () => {
+  describe("parsePageId", () => {
+    it("extracts ID from a Notion URL", () => {
+      const url = "https://www.notion.so/workspace/My-Page-abc123def456abc123def456abc123de";
+      expect(parsePageId(url)).toBe("abc123def456abc123def456abc123de");
+    });
+
+    it("extracts ID from short Notion URL", () => {
+      const url = "https://notion.so/abc123def456abc123def456abc123de";
+      expect(parsePageId(url)).toBe("abc123def456abc123def456abc123de");
+    });
+
+    it("normalizes UUID format (removes dashes)", () => {
+      expect(parsePageId("abc123de-f456-abc1-23de-f456abc123de")).toBe("abc123def456abc123def456abc123de");
+    });
+
+    it("returns 32-char hex as-is", () => {
+      expect(parsePageId("abc123def456abc123def456abc123de")).toBe("abc123def456abc123def456abc123de");
+    });
+
+    it("returns non-matching input as-is", () => {
+      expect(parsePageId("my-page")).toBe("my-page");
+    });
+  });
+
+  describe("blocksToMarkdown", () => {
+    it("converts headings", () => {
+      const blocks: NotionBlock[] = [
+        { type: "heading_1", text: "Title" },
+        { type: "heading_2", text: "Subtitle" },
+        { type: "heading_3", text: "Section" },
+      ];
+      const md = blocksToMarkdown(blocks);
+      expect(md).toContain("# Title");
+      expect(md).toContain("## Subtitle");
+      expect(md).toContain("### Section");
+    });
+
+    it("converts paragraphs", () => {
+      const blocks: NotionBlock[] = [
+        { type: "paragraph", text: "Hello world" },
+        { type: "paragraph", text: "Second paragraph" },
+      ];
+      const md = blocksToMarkdown(blocks);
+      expect(md).toContain("Hello world");
+      expect(md).toContain("Second paragraph");
+    });
+
+    it("converts list items", () => {
+      const blocks: NotionBlock[] = [
+        { type: "bulleted_list_item", text: "Bullet one" },
+        { type: "numbered_list_item", text: "Number one" },
+        { type: "to_do", text: "Task done", checked: true },
+        { type: "to_do", text: "Task pending", checked: false },
+      ];
+      const md = blocksToMarkdown(blocks);
+      expect(md).toContain("- Bullet one");
+      expect(md).toContain("1. Number one");
+      expect(md).toContain("- [x] Task done");
+      expect(md).toContain("- [ ] Task pending");
+    });
+
+    it("converts code blocks", () => {
+      const blocks: NotionBlock[] = [
+        { type: "code", text: "const x = 1;", language: "typescript" },
+      ];
+      const md = blocksToMarkdown(blocks);
+      expect(md).toContain("```typescript");
+      expect(md).toContain("const x = 1;");
+      expect(md).toContain("```");
+    });
+
+    it("converts quotes and callouts", () => {
+      const blocks: NotionBlock[] = [
+        { type: "quote", text: "A wise saying" },
+        { type: "callout", text: "Important info" },
+      ];
+      const md = blocksToMarkdown(blocks);
+      expect(md).toContain("> A wise saying");
+      expect(md).toContain("> **Note:** Important info");
+    });
+
+    it("converts dividers", () => {
+      const blocks: NotionBlock[] = [{ type: "divider" }];
+      expect(blocksToMarkdown(blocks)).toContain("---");
+    });
+
+    it("converts images", () => {
+      const blocks: NotionBlock[] = [
+        { type: "image", url: "https://example.com/img.png", caption: "My image" },
+      ];
+      const md = blocksToMarkdown(blocks);
+      expect(md).toContain("![My image](https://example.com/img.png)");
+    });
+
+    it("handles empty blocks array", () => {
+      expect(blocksToMarkdown([])).toBe("");
+    });
+  });
+
+  describe("isNotionConfigured", () => {
+    const saved = { ...process.env };
+    afterEach(() => {
+      process.env = { ...saved };
+    });
+
+    it("false when no token", () => {
+      delete process.env.NOTION_TOKEN;
+      expect(isNotionConfigured()).toBe(false);
+    });
+
+    it("true with token", () => {
+      process.env.NOTION_TOKEN = "secret_test";
+      expect(isNotionConfigured()).toBe(true);
+    });
+  });
+
+  describe("link management", () => {
+    it("links and retrieves a page", () => {
+      const pageId = `notion-${Date.now()}`;
+      const id = linkPage({ pageId, artifactPath: "notion/test.md", title: "Test Page" });
+      expect(id).toBeGreaterThan(0);
+
+      const link = getLinkedPage(pageId);
+      expect(link).not.toBeNull();
+      expect(link!.artifactPath).toBe("notion/test.md");
+      expect(link!.title).toBe("Test Page");
+      expect(link!.parentType).toBe("page");
+      expect(link!.remoteUrl).toContain(pageId);
+    });
+
+    it("upserts on duplicate pageId", () => {
+      const pageId = `notion-upsert-${Date.now()}`;
+      linkPage({ pageId, artifactPath: "notion/v1.md", title: "V1" });
+      linkPage({ pageId, artifactPath: "notion/v2.md", title: "V2" });
+
+      const link = getLinkedPage(pageId);
+      expect(link!.artifactPath).toBe("notion/v2.md");
+      expect(link!.title).toBe("V2");
+    });
+
+    it("retrieves by artifact path", () => {
+      const pageId = `notion-path-${Date.now()}`;
+      const path = `notion/by-path-${Date.now()}.md`;
+      linkPage({ pageId, artifactPath: path });
+
+      const link = getLinkedPageByPath(path);
+      expect(link).not.toBeNull();
+      expect(link!.pageId).toBe(pageId);
+    });
+
+    it("queries by parent", () => {
+      const parentId = `parent-${Date.now()}`;
+      linkPage({ pageId: `child-a-${Date.now()}`, artifactPath: "notion/a.md", parentType: "database", parentId });
+      linkPage({ pageId: `child-b-${Date.now()}`, artifactPath: "notion/b.md", parentType: "database", parentId });
+
+      const children = getLinkedPagesByParent(parentId);
+      expect(children.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("unlinks a page", () => {
+      const pageId = `notion-unlink-${Date.now()}`;
+      linkPage({ pageId, artifactPath: "notion/unlink.md" });
+      expect(unlinkPage(pageId)).toBe(true);
+      expect(getLinkedPage(pageId)).toBeNull();
+    });
+
+    it("unlink returns false for non-existent", () => {
+      expect(unlinkPage("nonexistent-page")).toBe(false);
+    });
+
+    it("getAllLinkedPages returns array", () => {
+      expect(Array.isArray(getAllLinkedPages())).toBe(true);
+    });
+  });
+
+  describe("getNotionSyncSummary", () => {
+    it("returns summary structure", () => {
+      const summary = getNotionSyncSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.synced).toBe("number");
+      expect(typeof summary.errors).toBe("number");
+      expect(typeof summary.byParentType).toBe("object");
+    });
+  });
+});
