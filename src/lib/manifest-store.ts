@@ -99,6 +99,9 @@ export function regenerate(reason: string = "manual"): Manifest {
       try {
         const { autoGenerateIfNeeded } = require("./embedding-generator");
         autoGenerateIfNeeded().catch(() => { /* non-blocking */ });
+        // Prune stale embeddings for removed artifacts
+        const { pruneStaleEmbeddings } = require("./embeddings");
+        pruneStaleEmbeddings();
       } catch { /* non-critical */ }
 
       if (changedCount > 0) {

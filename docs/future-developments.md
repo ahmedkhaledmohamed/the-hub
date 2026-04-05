@@ -215,7 +215,7 @@ Ordered by strategic value. Each item is a PR-sized unit of work.
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
 | ✅ 17 | Streaming manifest for 10K+ artifacts | Scale | High | Medium |
-| 18 | Embedding pruning on scan | Scale | Medium | Low |
+| ✅ 18 | Embedding pruning on scan | Scale | Medium | Low |
 | 19 | Performance benchmark suite in CI | Scale | Medium | Medium |
 | 20 | Query plan audit + index optimization | Scale | Medium | Low |
 
