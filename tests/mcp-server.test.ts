@@ -278,3 +278,312 @@ describe("review requests", () => {
     });
   });
 });
+
+// ── Enterprise SSO/SAML tests ────────────────────────────────────
+
+import {
+  getSSOConfig,
+  isSSOEnabled,
+  isSSOConfigValid,
+  generateAuthRequest,
+  buildAuthRequestXML,
+  encodeAuthRequest,
+  buildSSORedirectUrl,
+  extractAssertionFields,
+  parseAssertion,
+  isAssertionValid,
+  mapRole,
+  createSSOSession,
+  validateSSOSession,
+  revokeSSOSession,
+  revokeUserSessions,
+  getActiveSessions,
+  cleanupExpiredSessions,
+  generateSPMetadata,
+} from "@/lib/sso";
+import type { SAMLAssertion } from "@/lib/sso";
+
+describe("enterprise SSO/SAML", () => {
+  const savedEnv = { ...process.env };
+
+  function setSSOEnv(): void {
+    process.env.SSO_ENABLED = "true";
+    process.env.SSO_ENTITY_ID = "https://hub.example.com";
+    process.env.SSO_ACS_URL = "https://hub.example.com/api/sso/callback";
+    process.env.SSO_IDP_SSO_URL = "https://idp.example.com/saml/sso";
+    process.env.SSO_IDP_ISSUER = "https://idp.example.com";
+    process.env.SSO_ADMIN_GROUPS = "hub-admins,platform-team";
+  }
+
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  describe("configuration", () => {
+    it("disabled by default", () => {
+      delete process.env.SSO_ENABLED;
+      expect(isSSOEnabled()).toBe(false);
+    });
+
+    it("enabled when SSO_ENABLED=true", () => {
+      process.env.SSO_ENABLED = "true";
+      expect(isSSOEnabled()).toBe(true);
+    });
+
+    it("reports missing config fields", () => {
+      process.env.SSO_ENABLED = "true";
+      delete process.env.SSO_ENTITY_ID;
+      delete process.env.SSO_ACS_URL;
+      const result = isSSOConfigValid();
+      expect(result.valid).toBe(false);
+      expect(result.missing).toContain("SSO_ENTITY_ID");
+      expect(result.missing).toContain("SSO_ACS_URL");
+    });
+
+    it("valid when all required fields set", () => {
+      setSSOEnv();
+      expect(isSSOConfigValid().valid).toBe(true);
+    });
+
+    it("parses admin groups", () => {
+      setSSOEnv();
+      const config = getSSOConfig();
+      expect(config.adminGroups).toEqual(["hub-admins", "platform-team"]);
+    });
+
+    it("defaults session TTL to 8 hours", () => {
+      expect(getSSOConfig().sessionTtlSeconds).toBe(28800);
+    });
+  });
+
+  describe("AuthnRequest generation", () => {
+    it("generates request with correct fields", () => {
+      setSSOEnv();
+      const request = generateAuthRequest();
+      expect(request.id).toMatch(/^_[a-f0-9]{32}$/);
+      expect(request.destination).toBe("https://idp.example.com/saml/sso");
+      expect(request.assertionConsumerServiceURL).toBe("https://hub.example.com/api/sso/callback");
+      expect(request.issuer).toBe("https://hub.example.com");
+    });
+
+    it("builds valid XML", () => {
+      setSSOEnv();
+      const request = generateAuthRequest();
+      const xml = buildAuthRequestXML(request);
+      expect(xml).toContain("samlp:AuthnRequest");
+      expect(xml).toContain(request.id);
+      expect(xml).toContain("hub.example.com");
+      expect(xml).toContain("emailAddress");
+    });
+
+    it("encodes to base64", () => {
+      const xml = "<test>hello</test>";
+      const encoded = encodeAuthRequest(xml);
+      expect(Buffer.from(encoded, "base64").toString()).toBe(xml);
+    });
+
+    it("builds full redirect URL", () => {
+      setSSOEnv();
+      const url = buildSSORedirectUrl("/dashboard");
+      expect(url).toContain("https://idp.example.com/saml/sso?SAMLRequest=");
+      expect(url).toContain("RelayState=%2Fdashboard");
+    });
+  });
+
+  describe("assertion parsing", () => {
+    const sampleXML = `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
+      <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
+        <saml:Issuer>https://idp.example.com</saml:Issuer>
+        <saml:Subject>
+          <saml:NameID>alice@example.com</saml:NameID>
+        </saml:Subject>
+        <saml:Conditions NotBefore="2026-01-01T00:00:00Z" NotOnOrAfter="2099-12-31T23:59:59Z">
+          <saml:AudienceRestriction>
+            <saml:Audience>https://hub.example.com</saml:Audience>
+          </saml:AudienceRestriction>
+        </saml:Conditions>
+        <saml:AuthnStatement SessionIndex="session-123"/>
+        <saml:AttributeStatement>
+          <saml:Attribute Name="email">
+            <saml:AttributeValue>alice@example.com</saml:AttributeValue>
+          </saml:Attribute>
+          <saml:Attribute Name="displayName">
+            <saml:AttributeValue>Alice Smith</saml:AttributeValue>
+          </saml:Attribute>
+          <saml:Attribute Name="groups">
+            <saml:AttributeValue>hub-admins</saml:AttributeValue>
+            <saml:AttributeValue>engineering</saml:AttributeValue>
+          </saml:Attribute>
+        </saml:AttributeStatement>
+      </saml:Assertion>
+    </samlp:Response>`;
+
+    it("extracts fields from SAML XML", () => {
+      const assertion = extractAssertionFields(sampleXML);
+      expect(assertion).not.toBeNull();
+      expect(assertion!.nameId).toBe("alice@example.com");
+      expect(assertion!.email).toBe("alice@example.com");
+      expect(assertion!.displayName).toBe("Alice Smith");
+      expect(assertion!.issuer).toBe("https://idp.example.com");
+      expect(assertion!.audience).toBe("https://hub.example.com");
+      expect(assertion!.sessionIndex).toBe("session-123");
+    });
+
+    it("extracts groups", () => {
+      const assertion = extractAssertionFields(sampleXML);
+      expect(assertion!.groups).toContain("hub-admins");
+      expect(assertion!.groups).toContain("engineering");
+    });
+
+    it("parses base64-encoded response", () => {
+      const encoded = Buffer.from(sampleXML).toString("base64");
+      const assertion = parseAssertion(encoded);
+      expect(assertion).not.toBeNull();
+      expect(assertion!.nameId).toBe("alice@example.com");
+    });
+
+    it("returns null for invalid XML", () => {
+      expect(extractAssertionFields("<invalid>no nameid</invalid>")).toBeNull();
+    });
+
+    it("returns null for invalid base64", () => {
+      expect(parseAssertion("!!!invalid-base64!!!")).toBeNull();
+    });
+  });
+
+  describe("assertion validation", () => {
+    it("accepts valid assertion", () => {
+      const assertion: SAMLAssertion = {
+        nameId: "user@example.com", email: "user@example.com", displayName: "User",
+        groups: [], attributes: {}, issuer: "https://idp.example.com",
+        audience: "https://hub.example.com", notBefore: "2020-01-01T00:00:00Z",
+        notOnOrAfter: "2099-12-31T23:59:59Z", sessionIndex: "s1",
+      };
+      setSSOEnv();
+      expect(isAssertionValid(assertion).valid).toBe(true);
+    });
+
+    it("rejects expired assertion", () => {
+      const assertion: SAMLAssertion = {
+        nameId: "user@example.com", email: "user@example.com", displayName: "User",
+        groups: [], attributes: {}, issuer: "",
+        audience: "", notBefore: "2020-01-01T00:00:00Z",
+        notOnOrAfter: "2020-01-02T00:00:00Z", sessionIndex: "s1",
+      };
+      const result = isAssertionValid(assertion);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("expired");
+    });
+
+    it("rejects wrong issuer", () => {
+      setSSOEnv();
+      const assertion: SAMLAssertion = {
+        nameId: "user@example.com", email: "user@example.com", displayName: "User",
+        groups: [], attributes: {}, issuer: "https://wrong-idp.com",
+        audience: "", notBefore: "", notOnOrAfter: "", sessionIndex: "",
+      };
+      const result = isAssertionValid(assertion);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("Issuer mismatch");
+    });
+  });
+
+  describe("role mapping", () => {
+    it("maps admin group to admin role", () => {
+      setSSOEnv();
+      const assertion: SAMLAssertion = {
+        nameId: "admin@example.com", email: "admin@example.com", displayName: "Admin",
+        groups: ["hub-admins", "engineering"], attributes: {},
+        issuer: "", audience: "", notBefore: "", notOnOrAfter: "", sessionIndex: "",
+      };
+      expect(mapRole(assertion)).toBe("admin");
+    });
+
+    it("maps role attribute", () => {
+      process.env.SSO_ADMIN_GROUPS = "";
+      const assertion: SAMLAssertion = {
+        nameId: "user@example.com", email: "user@example.com", displayName: "User",
+        groups: [], attributes: { role: "read-only" },
+        issuer: "", audience: "", notBefore: "", notOnOrAfter: "", sessionIndex: "",
+      };
+      expect(mapRole(assertion)).toBe("read-only");
+    });
+
+    it("defaults to read-write", () => {
+      process.env.SSO_ADMIN_GROUPS = "";
+      const assertion: SAMLAssertion = {
+        nameId: "user@example.com", email: "user@example.com", displayName: "User",
+        groups: ["engineering"], attributes: {},
+        issuer: "", audience: "", notBefore: "", notOnOrAfter: "", sessionIndex: "",
+      };
+      expect(mapRole(assertion)).toBe("read-write");
+    });
+  });
+
+  describe("session management", () => {
+    it("creates and validates a session", () => {
+      const assertion: SAMLAssertion = {
+        nameId: "alice@example.com", email: "alice@example.com", displayName: "Alice",
+        groups: ["engineering"], attributes: {},
+        issuer: "idp", audience: "sp", notBefore: "", notOnOrAfter: "", sessionIndex: "s1",
+      };
+      const session = createSSOSession(assertion);
+      expect(session.token).toBeTruthy();
+      expect(session.email).toBe("alice@example.com");
+      expect(session.displayName).toBe("Alice");
+
+      const validated = validateSSOSession(session.token);
+      expect(validated).not.toBeNull();
+      expect(validated!.email).toBe("alice@example.com");
+    });
+
+    it("returns null for invalid token", () => {
+      expect(validateSSOSession("nonexistent-token")).toBeNull();
+    });
+
+    it("revokes a session", () => {
+      const assertion: SAMLAssertion = {
+        nameId: "bob@example.com", email: "bob@example.com", displayName: "Bob",
+        groups: [], attributes: {},
+        issuer: "", audience: "", notBefore: "", notOnOrAfter: "", sessionIndex: "",
+      };
+      const session = createSSOSession(assertion);
+      expect(revokeSSOSession(session.token)).toBe(true);
+      expect(validateSSOSession(session.token)).toBeNull();
+    });
+
+    it("revokes all sessions for a user", () => {
+      const email = `sso-bulk-${Date.now()}@example.com`;
+      const assertion: SAMLAssertion = {
+        nameId: email, email, displayName: "Bulk",
+        groups: [], attributes: {},
+        issuer: "", audience: "", notBefore: "", notOnOrAfter: "", sessionIndex: "",
+      };
+      createSSOSession(assertion);
+      createSSOSession(assertion);
+      const revoked = revokeUserSessions(email);
+      expect(revoked).toBeGreaterThanOrEqual(2);
+    });
+
+    it("getActiveSessions returns array", () => {
+      const sessions = getActiveSessions();
+      expect(Array.isArray(sessions)).toBe(true);
+    });
+
+    it("cleanupExpiredSessions runs without error", () => {
+      const removed = cleanupExpiredSessions();
+      expect(typeof removed).toBe("number");
+    });
+  });
+
+  describe("SP metadata", () => {
+    it("generates valid SP metadata XML", () => {
+      setSSOEnv();
+      const xml = generateSPMetadata();
+      expect(xml).toContain("EntityDescriptor");
+      expect(xml).toContain("https://hub.example.com");
+      expect(xml).toContain("AssertionConsumerService");
+      expect(xml).toContain("emailAddress");
+    });
+  });
+});
