@@ -9,6 +9,7 @@ import { usePinnedArtifacts } from "@/hooks/use-pinned-artifacts";
 import { useRecentArtifacts } from "@/hooks/use-recent-artifacts";
 import { ChangeFeed } from "./change-feed";
 import { PredictiveInsights } from "./predictive-insights";
+import { IntelligenceSummary } from "./intelligence-summary";
 
 interface MorningBriefingProps {
   artifacts: Artifact[];
@@ -75,6 +76,9 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
           Last scan {relativeTime(generatedAt)}
         </span>
       </div>
+
+      {/* Intelligence summary — pending reviews, active decisions, errors */}
+      <IntelligenceSummary />
 
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">

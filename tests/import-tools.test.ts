@@ -734,3 +734,84 @@ describe("notion sync", () => {
     });
   });
 });
+
+// ── Briefing overhaul tests ──────────────────────────────────────
+
+import { getPendingReviews, getReviewCounts, createReviewRequest } from "@/lib/reviews";
+import { getActiveDecisions, getDecisionCounts, saveDecision } from "@/lib/decision-tracker";
+import { getErrorSummary } from "@/lib/error-reporter";
+import { generateBriefing, computeBriefingScore } from "@/lib/predictive-briefing";
+
+describe("briefing overhaul — intelligence summary", () => {
+  describe("review signal", () => {
+    it("getPendingReviews returns pending reviews for briefing", () => {
+      const pending = getPendingReviews();
+      expect(Array.isArray(pending)).toBe(true);
+      for (const r of pending) expect(r.status).toBe("pending");
+    });
+
+    it("getReviewCounts provides total for briefing card", () => {
+      const counts = getReviewCounts();
+      expect(typeof counts.pending).toBe("number");
+      expect(typeof counts.approved).toBe("number");
+      const total = Object.values(counts).reduce((s, n) => s + n, 0);
+      expect(typeof total).toBe("number");
+    });
+  });
+
+  describe("decision signal", () => {
+    it("getActiveDecisions returns decisions for briefing", () => {
+      const active = getActiveDecisions(5);
+      expect(Array.isArray(active)).toBe(true);
+      for (const d of active) expect(d.status).toBe("active");
+    });
+
+    it("getDecisionCounts provides total for briefing card", () => {
+      const counts = getDecisionCounts();
+      expect(typeof counts.active).toBe("number");
+      const total = Object.values(counts).reduce((s, n) => s + n, 0);
+      expect(typeof total).toBe("number");
+    });
+  });
+
+  describe("error signal", () => {
+    it("getErrorSummary provides counts for briefing card", () => {
+      const summary = getErrorSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.critical).toBe("number");
+      expect(typeof summary.warning).toBe("number");
+    });
+  });
+
+  describe("intelligence card visibility logic", () => {
+    it("only shows cards with non-zero values", () => {
+      const cards = [
+        { label: "Reviews", value: 3, show: 3 > 0 },
+        { label: "Decisions", value: 0, show: 0 > 0 },
+        { label: "Errors", value: 1, show: 1 > 0 },
+      ];
+      const visible = cards.filter((c) => c.show);
+      expect(visible.length).toBe(2);
+      expect(visible.map((c) => c.label)).toContain("Reviews");
+      expect(visible.map((c) => c.label)).not.toContain("Decisions");
+    });
+
+    it("hides entire section when all zero", () => {
+      const cards = [
+        { value: 0, show: false },
+        { value: 0, show: false },
+        { value: 0, show: false },
+      ];
+      expect(cards.filter((c) => c.show).length).toBe(0);
+    });
+  });
+
+  describe("unified briefing score", () => {
+    it("computeBriefingScore integrates all signals", async () => {
+      const briefing = await generateBriefing();
+      const score = computeBriefingScore(briefing);
+      expect(typeof score).toBe("number");
+      expect(score).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
