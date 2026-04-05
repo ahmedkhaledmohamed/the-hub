@@ -2,8 +2,10 @@
 
 import type { Artifact } from "@/lib/types";
 import { relativeTime, cn, stalenessInfo } from "@/lib/utils";
-import { Star } from "lucide-react";
+import { Star, TrendingUp } from "lucide-react";
 import { LauncherActions } from "./launcher-actions";
+import type { ImpactLevel } from "@/hooks/use-impact-scores";
+import { getLevelConfig } from "@/hooks/use-impact-scores";
 
 const typeStyles: Record<string, string> = {
   html: "bg-accent/20 text-accent",
@@ -22,6 +24,7 @@ interface ArtifactCardProps {
   onToggleSelect?: (path: string) => void;
   selectionMode?: boolean;
   summary?: string;
+  impactLevel?: ImpactLevel;
 }
 
 export function ArtifactCard({
@@ -34,6 +37,7 @@ export function ArtifactCard({
   onToggleSelect,
   selectionMode,
   summary,
+  impactLevel,
 }: ArtifactCardProps) {
   const previewable = artifact.type === "md" || artifact.type === "html";
   const staleness = stalenessInfo(artifact.staleDays);
@@ -87,6 +91,18 @@ export function ArtifactCard({
       <span className="text-[12px] font-medium truncate flex-1">
         {artifact.title}
       </span>
+      {impactLevel && impactLevel !== "none" && (() => {
+        const config = getLevelConfig(impactLevel);
+        return (
+          <span
+            className={cn("flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0", config.color, config.bg)}
+            title={`Impact: ${config.label} — stakeholders depend on this doc`}
+          >
+            <TrendingUp className="w-2.5 h-2.5" />
+            {config.label}
+          </span>
+        );
+      })()}
       {onTogglePin && (
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTogglePin(artifact.path); }}

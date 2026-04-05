@@ -679,3 +679,71 @@ describe("integration dashboard", () => {
     });
   });
 });
+
+// ── Impact scoring badges tests ──────────────────────────────────
+
+import { scoreToLevel as impactScoreToLevel, getLevelConfig } from "@/hooks/use-impact-scores";
+import { computeImpactScore, computeBatchImpactScores, saveImpactScore } from "@/lib/impact-scoring";
+
+describe("impact scoring badges", () => {
+  describe("scoreToLevel mapping", () => {
+    it("maps 80+ to critical", () => {
+      expect(impactScoreToLevel(80)).toBe("critical");
+      expect(impactScoreToLevel(100)).toBe("critical");
+    });
+
+    it("maps 60-79 to high", () => {
+      expect(impactScoreToLevel(60)).toBe("high");
+      expect(impactScoreToLevel(79)).toBe("high");
+    });
+
+    it("maps 35-59 to medium", () => {
+      expect(impactScoreToLevel(35)).toBe("medium");
+      expect(impactScoreToLevel(59)).toBe("medium");
+    });
+
+    it("maps 10-34 to low", () => {
+      expect(impactScoreToLevel(10)).toBe("low");
+      expect(impactScoreToLevel(34)).toBe("low");
+    });
+
+    it("maps 0-9 to none", () => {
+      expect(impactScoreToLevel(0)).toBe("none");
+      expect(impactScoreToLevel(9)).toBe("none");
+    });
+  });
+
+  describe("batch computation for card grid", () => {
+    it("computes scores for multiple paths", () => {
+      const scores = computeBatchImpactScores(["badges/a.md", "badges/b.md", "badges/c.md"]);
+      expect(scores.length).toBe(3);
+      for (const s of scores) {
+        expect(typeof s.score).toBe("number");
+        expect(typeof s.level).toBe("string");
+        expect(s.score).toBeGreaterThanOrEqual(0);
+        expect(s.score).toBeLessThanOrEqual(100);
+      }
+    });
+
+    it("handles empty paths array", () => {
+      expect(computeBatchImpactScores([])).toEqual([]);
+    });
+  });
+
+  describe("level config for badges", () => {
+    it("all non-none levels have label and colors", () => {
+      const levels = ["critical", "high", "medium", "low"] as const;
+      for (const level of levels) {
+        const config = getLevelConfig(level);
+        expect(config.label).toBeTruthy();
+        expect(config.color).toBeTruthy();
+        expect(config.bg).toBeTruthy();
+      }
+    });
+
+    it("none level has empty strings", () => {
+      const config = getLevelConfig("none");
+      expect(config.label).toBe("");
+    });
+  });
+});
