@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
   type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck, Sparkles, Share2, Settings,
-  Activity, Wrench, Link2,
+  Activity, Wrench, Link2, GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
@@ -91,6 +91,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false },
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
           { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
+          { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
           { href: "/integrations", label: "Integrations", Icon: Link2, needsAI: false },
           { href: "/status", label: "Status", Icon: Activity, needsAI: false },
           { href: "/setup", label: "Setup", Icon: Wrench, needsAI: false },
