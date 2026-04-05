@@ -140,7 +140,8 @@ export async function fetchDocContent(docId: string): Promise<{ content: string;
     } catch { /* use docId as fallback title */ }
 
     return { content, title };
-  } catch {
+  } catch (err) {
+    try { const { reportError } = require("./error-reporter"); reportError("integration", err, { integration: "google-docs", docId }); } catch { /* non-critical */ }
     return null;
   }
 }

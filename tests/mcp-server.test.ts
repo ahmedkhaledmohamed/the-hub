@@ -587,3 +587,146 @@ describe("enterprise SSO/SAML", () => {
     });
   });
 });
+
+// ── Error surfacing tests ────────────────────────────────────────
+
+import {
+  reportError,
+  swallow,
+  getActiveErrors,
+  getErrorCounts,
+  getErrorSummary,
+  resolveError,
+  resolveErrorsByCategory,
+  pruneErrors,
+} from "@/lib/error-reporter";
+
+describe("error surfacing", () => {
+  describe("reportError", () => {
+    it("stores an error in the database", () => {
+      const msg = `test-error-${Date.now()}`;
+      reportError("system", new Error(msg), { testKey: "testVal" });
+
+      const errors = getActiveErrors({ category: "system" });
+      const found = errors.find((e) => e.message === msg);
+      expect(found).toBeDefined();
+      expect(found!.category).toBe("system");
+      expect(found!.severity).toBe("warning");
+      expect(found!.context.testKey).toBe("testVal");
+      expect(found!.occurrences).toBe(1);
+      expect(found!.resolved).toBe(false);
+    });
+
+    it("stores stack traces from Error objects", () => {
+      const msg = `stack-test-${Date.now()}`;
+      reportError("ai", new Error(msg));
+      const errors = getActiveErrors({ category: "ai" });
+      const found = errors.find((e) => e.message === msg);
+      expect(found).toBeDefined();
+      expect(found!.stack).toContain("Error:");
+    });
+
+    it("handles string errors", () => {
+      const msg = `string-error-${Date.now()}`;
+      reportError("config", msg);
+      const errors = getActiveErrors({ category: "config" });
+      const found = errors.find((e) => e.message === msg);
+      expect(found).toBeDefined();
+      expect(found!.stack).toBeNull();
+    });
+
+    it("deduplicates repeated errors", () => {
+      const msg = `dedup-${Date.now()}`;
+      reportError("system", new Error(msg));
+      reportError("system", new Error(msg));
+      reportError("system", new Error(msg));
+
+      const errors = getActiveErrors({ category: "system" });
+      const found = errors.filter((e) => e.message === msg);
+      expect(found.length).toBe(1);
+      expect(found[0].occurrences).toBe(3);
+    });
+
+    it("supports all categories", () => {
+      const categories = ["scan", "search", "ai", "api", "integration", "plugin", "system", "config"] as const;
+      for (const cat of categories) {
+        reportError(cat, `cat-test-${cat}-${Date.now()}`);
+      }
+      const counts = getErrorCounts();
+      expect(typeof counts).toBe("object");
+    });
+  });
+
+  describe("swallow", () => {
+    it("returns result on success", () => {
+      const result = swallow("system", () => 42);
+      expect(result).toBe(42);
+    });
+
+    it("returns undefined and reports on failure", () => {
+      const msg = `swallow-${Date.now()}`;
+      const result = swallow("system", () => { throw new Error(msg); });
+      expect(result).toBeUndefined();
+
+      const errors = getActiveErrors({ category: "system" });
+      expect(errors.some((e) => e.message === msg)).toBe(true);
+    });
+  });
+
+  describe("getActiveErrors", () => {
+    it("filters by category", () => {
+      const errors = getActiveErrors({ category: "scan" });
+      for (const e of errors) expect(e.category).toBe("scan");
+    });
+
+    it("filters by severity", () => {
+      reportError("system", "severity-test", {}, "critical");
+      const errors = getActiveErrors({ severity: "critical" });
+      for (const e of errors) expect(e.severity).toBe("critical");
+    });
+  });
+
+  describe("getErrorSummary", () => {
+    it("returns counts by severity", () => {
+      const summary = getErrorSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.critical).toBe("number");
+      expect(typeof summary.warning).toBe("number");
+      expect(typeof summary.info).toBe("number");
+    });
+  });
+
+  describe("resolveError", () => {
+    it("marks an error as resolved", () => {
+      const msg = `resolve-${Date.now()}`;
+      reportError("system", new Error(msg));
+      const errors = getActiveErrors({ category: "system" });
+      const err = errors.find((e) => e.message === msg);
+      expect(err).toBeDefined();
+
+      const resolved = resolveError(err!.id);
+      expect(resolved).toBe(true);
+
+      // Should no longer appear in active errors
+      const after = getActiveErrors({ category: "system" });
+      expect(after.find((e) => e.message === msg)).toBeUndefined();
+    });
+  });
+
+  describe("resolveErrorsByCategory", () => {
+    it("resolves all errors in a category", () => {
+      const cat = "plugin" as const;
+      reportError(cat, `batch-${Date.now()}-a`);
+      reportError(cat, `batch-${Date.now()}-b`);
+      const count = resolveErrorsByCategory(cat);
+      expect(count).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("pruneErrors", () => {
+    it("prunes old resolved errors", () => {
+      const removed = pruneErrors(30);
+      expect(typeof removed).toBe("number");
+    });
+  });
+});
