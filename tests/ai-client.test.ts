@@ -671,3 +671,174 @@ describe("multi-model AI", () => {
     });
   });
 });
+
+// ── Circuit breaker tests ────────────────────────────────────────
+
+import {
+  CircuitBreaker,
+  CircuitOpenError,
+  TimeoutError,
+  getCircuitBreaker,
+  getAllCircuitBreakerStatus,
+  resetAllCircuitBreakers,
+} from "@/lib/circuit-breaker";
+
+describe("circuit breaker", () => {
+  afterEach(() => {
+    resetAllCircuitBreakers();
+  });
+
+  describe("CircuitBreaker", () => {
+    it("starts in closed state", () => {
+      const cb = new CircuitBreaker({ name: "test-closed" });
+      expect(cb.getStatus().state).toBe("closed");
+      expect(cb.getStatus().consecutiveFailures).toBe(0);
+    });
+
+    it("passes through successful calls", async () => {
+      const cb = new CircuitBreaker({ name: "test-success" });
+      const result = await cb.execute(async () => 42);
+      expect(result).toBe(42);
+      expect(cb.getStatus().totalSuccesses).toBe(1);
+      expect(cb.getStatus().consecutiveFailures).toBe(0);
+    });
+
+    it("tracks consecutive failures", async () => {
+      const cb = new CircuitBreaker({ name: "test-failures", failureThreshold: 5 });
+      for (let i = 0; i < 2; i++) {
+        await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow("fail");
+      }
+      expect(cb.getStatus().consecutiveFailures).toBe(2);
+      expect(cb.getStatus().state).toBe("closed"); // not yet at threshold
+    });
+
+    it("opens after failure threshold", async () => {
+      const cb = new CircuitBreaker({ name: "test-open", failureThreshold: 3 });
+      for (let i = 0; i < 3; i++) {
+        await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      }
+      expect(cb.getStatus().state).toBe("open");
+      expect(cb.getStatus().openedAt).not.toBeNull();
+    });
+
+    it("rejects immediately when open", async () => {
+      const cb = new CircuitBreaker({ name: "test-reject", failureThreshold: 1, cooldownMs: 60000 });
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      expect(cb.getStatus().state).toBe("open");
+
+      // Next call should throw CircuitOpenError without executing the function
+      await expect(cb.execute(async () => 42)).rejects.toThrow(CircuitOpenError);
+    });
+
+    it("transitions to half_open after cooldown", async () => {
+      const cb = new CircuitBreaker({ name: "test-halfopen", failureThreshold: 1, cooldownMs: 1 }); // 1ms cooldown
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      expect(cb.getStatus().state).toBe("open");
+
+      // Wait for cooldown
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Next call should succeed and move to closed
+      const result = await cb.execute(async () => "recovered");
+      expect(result).toBe("recovered");
+      expect(cb.getStatus().state).toBe("closed");
+    });
+
+    it("returns to open if half_open test fails", async () => {
+      const cb = new CircuitBreaker({ name: "test-halfopen-fail", failureThreshold: 1, cooldownMs: 1 });
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+
+      await new Promise((r) => setTimeout(r, 10));
+
+      // half_open test request also fails
+      await expect(cb.execute(async () => { throw new Error("still broken"); })).rejects.toThrow();
+      expect(cb.getStatus().state).toBe("open");
+    });
+
+    it("resets consecutive failures on success", async () => {
+      const cb = new CircuitBreaker({ name: "test-reset", failureThreshold: 5 });
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      expect(cb.getStatus().consecutiveFailures).toBe(2);
+
+      await cb.execute(async () => "ok");
+      expect(cb.getStatus().consecutiveFailures).toBe(0);
+    });
+
+    it("manual reset clears state", async () => {
+      const cb = new CircuitBreaker({ name: "test-manual-reset", failureThreshold: 1, cooldownMs: 60000 });
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      expect(cb.getStatus().state).toBe("open");
+
+      cb.reset();
+      expect(cb.getStatus().state).toBe("closed");
+      expect(cb.getStatus().consecutiveFailures).toBe(0);
+    });
+
+    it("throws TimeoutError on abort", async () => {
+      const cb = new CircuitBreaker({ name: "test-timeout", timeoutMs: 10 });
+      await expect(cb.execute(async (signal) => {
+        // Simulate slow operation — wait until aborted
+        return new Promise((resolve, reject) => {
+          const check = setInterval(() => {
+            if (signal.aborted) { clearInterval(check); reject(new DOMException("aborted", "AbortError")); }
+          }, 1);
+        });
+      })).rejects.toThrow(TimeoutError);
+    });
+
+    it("reports timeout in ms", async () => {
+      const cb = new CircuitBreaker({ name: "test-timeout-ms", timeoutMs: 50 });
+      try {
+        await cb.execute(async (signal) => {
+          return new Promise((_, reject) => {
+            const check = setInterval(() => {
+              if (signal.aborted) { clearInterval(check); reject(new DOMException("aborted", "AbortError")); }
+            }, 1);
+          });
+        });
+      } catch (err) {
+        expect(err).toBeInstanceOf(TimeoutError);
+        expect((err as TimeoutError).timeoutMs).toBe(50);
+      }
+    });
+  });
+
+  describe("getCircuitBreaker (singleton)", () => {
+    it("returns the same instance for the same name", () => {
+      const a = getCircuitBreaker("singleton-test");
+      const b = getCircuitBreaker("singleton-test");
+      expect(a).toBe(b);
+    });
+
+    it("returns different instances for different names", () => {
+      const a = getCircuitBreaker("name-a");
+      const b = getCircuitBreaker("name-b");
+      expect(a).not.toBe(b);
+    });
+  });
+
+  describe("getAllCircuitBreakerStatus", () => {
+    it("returns status for all breakers", () => {
+      getCircuitBreaker("status-a");
+      getCircuitBreaker("status-b");
+      const all = getAllCircuitBreakerStatus();
+      expect(all.length).toBeGreaterThanOrEqual(2);
+      for (const s of all) {
+        expect(s.name).toBeTruthy();
+        expect(["closed", "open", "half_open"]).toContain(s.state);
+      }
+    });
+  });
+
+  describe("resetAllCircuitBreakers", () => {
+    it("resets all to closed", async () => {
+      const cb = getCircuitBreaker("reset-all-test", { failureThreshold: 1, cooldownMs: 60000 });
+      await expect(cb.execute(async () => { throw new Error("fail"); })).rejects.toThrow();
+      expect(cb.getStatus().state).toBe("open");
+
+      resetAllCircuitBreakers();
+      expect(cb.getStatus().state).toBe("closed");
+    });
+  });
+});
