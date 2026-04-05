@@ -259,7 +259,7 @@ Ordered by user impact. Each item is a PR-sized unit of work.
 | ✅ 9 | Review request panel on artifact preview | Surface | Medium | Medium |
 | ✅ 10 | Impact scoring badges on artifact cards | Surface | Medium | Low |
 | ✅ 11 | Predictive briefing merged into briefing page | Surface | High | Medium |
-| 12 | Share button on artifact cards | Surface | Medium | Low |
+| ✅ 12 | Share button on artifact cards | Surface | Medium | Low |
 | 13 | Annotation layer on artifact preview | Surface | High | High |
 
 ### Phase 3: Core Quality (Make it excellent)
