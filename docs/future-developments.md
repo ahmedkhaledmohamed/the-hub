@@ -278,7 +278,7 @@ Ordered by user impact. Each item is a PR-sized unit of work.
 
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
-| 21 | MCP prompt templates | MCP | Very High | Medium |
+| ✅ 21 | MCP prompt templates | MCP | Very High | Medium |
 | 22 | MCP change subscriptions (SSE) | MCP | High | High |
 | 23 | MCP health/stats resource | MCP | Medium | Low |
 | 24 | MCP tool refinement (snippets, decisions, impact) | MCP | Medium | Medium |

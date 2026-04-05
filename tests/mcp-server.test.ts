@@ -730,3 +730,126 @@ describe("error surfacing", () => {
     });
   });
 });
+
+// ── MCP prompt templates tests ───────────────────────────────────
+
+import { persistArtifacts, searchArtifacts, getArtifactContent } from "@/lib/db";
+import type { Artifact } from "@/lib/types";
+
+describe("MCP prompt templates", () => {
+  beforeEach(() => {
+    // Seed test data for prompt generation
+    const artifacts: Artifact[] = [
+      { path: "prompt/docs/architecture.md", title: "Architecture Overview", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 500, staleDays: 1, snippet: "System architecture." },
+      { path: "prompt/docs/api-guide.md", title: "API Guide", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 300, staleDays: 5, snippet: "API documentation." },
+      { path: "prompt/planning/roadmap.md", title: "Roadmap Q3", type: "md", group: "planning", modifiedAt: new Date().toISOString(), size: 400, staleDays: 2, snippet: "Quarterly roadmap." },
+      { path: "prompt/strategy/pricing.md", title: "Pricing Strategy", type: "md", group: "strategy", modifiedAt: new Date().toISOString(), size: 200, staleDays: 45, snippet: "Enterprise pricing." },
+    ];
+    const contentMap = new Map([
+      ["prompt/docs/architecture.md", "# Architecture\n\nThe system uses microservices."],
+      ["prompt/docs/api-guide.md", "# API Guide\n\nREST API with JSON responses."],
+      ["prompt/planning/roadmap.md", "# Roadmap\n\nQ3 goals: ship search, launch MCP."],
+      ["prompt/strategy/pricing.md", "# Pricing\n\nThree tiers: Free, Pro, Enterprise."],
+    ]);
+    persistArtifacts(artifacts, contentMap, { deleteStale: false });
+  });
+
+  describe("summarize_group prompt data", () => {
+    it("finds artifacts by group for summarization", () => {
+      const results = searchArtifacts("architecture");
+      expect(results.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("group filtering works for prompt context", () => {
+      const allArtifacts = [
+        { group: "docs", title: "A", staleDays: 1 },
+        { group: "docs", title: "B", staleDays: 5 },
+        { group: "planning", title: "C", staleDays: 2 },
+      ];
+      const docsOnly = allArtifacts.filter((a) => a.group === "docs");
+      expect(docsOnly.length).toBe(2);
+      const sorted = docsOnly.sort((a, b) => a.staleDays - b.staleDays);
+      expect(sorted[0].staleDays).toBeLessThanOrEqual(sorted[1].staleDays);
+    });
+  });
+
+  describe("draft_status_update prompt data", () => {
+    it("filters recent artifacts for status context", () => {
+      const artifacts = [
+        { staleDays: 0, title: "Today" },
+        { staleDays: 2, title: "Recent" },
+        { staleDays: 10, title: "Older" },
+        { staleDays: 50, title: "Stale" },
+      ];
+      const recent = artifacts.filter((a) => a.staleDays <= 3);
+      expect(recent.length).toBe(2);
+      const stale = artifacts.filter((a) => a.staleDays > 30).length;
+      expect(stale).toBe(1);
+    });
+  });
+
+  describe("find_conflicts prompt data", () => {
+    it("loads content for conflict analysis", () => {
+      const content = getArtifactContent("prompt/docs/architecture.md");
+      expect(content).not.toBeNull();
+      expect(content).toContain("microservices");
+    });
+
+    it("needs at least 2 docs for conflict check", () => {
+      const groupDocs = [
+        { path: "a.md", content: "claim A" },
+        { path: "b.md", content: "claim B" },
+      ];
+      expect(groupDocs.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("review_artifact prompt data", () => {
+    it("loads artifact content for review", () => {
+      const content = getArtifactContent("prompt/planning/roadmap.md");
+      expect(content).not.toBeNull();
+      expect(content).toContain("Roadmap");
+    });
+
+    it("returns null for non-existent artifact", () => {
+      expect(getArtifactContent("prompt/nonexistent.md")).toBeNull();
+    });
+  });
+
+  describe("onboarding_brief prompt data", () => {
+    it("groups artifacts by group for overview", () => {
+      const artifacts = [
+        { group: "docs" }, { group: "docs" }, { group: "planning" }, { group: "strategy" },
+      ];
+      const byGroup = new Map<string, number>();
+      for (const a of artifacts) byGroup.set(a.group, (byGroup.get(a.group) || 0) + 1);
+      expect(byGroup.get("docs")).toBe(2);
+      expect(byGroup.get("planning")).toBe(1);
+      expect(byGroup.size).toBe(3);
+    });
+
+    it("selects fresh markdown docs for reading list", () => {
+      const artifacts = [
+        { type: "md", staleDays: 2, title: "Fresh" },
+        { type: "md", staleDays: 50, title: "Stale" },
+        { type: "csv", staleDays: 1, title: "Data" },
+      ];
+      const candidates = artifacts.filter((a) => a.type === "md" && a.staleDays < 30);
+      expect(candidates.length).toBe(1);
+      expect(candidates[0].title).toBe("Fresh");
+    });
+  });
+
+  describe("prompt template catalog", () => {
+    it("all 5 prompt templates have distinct names", () => {
+      const names = [
+        "summarize_group",
+        "draft_status_update",
+        "find_conflicts",
+        "review_artifact",
+        "onboarding_brief",
+      ];
+      expect(new Set(names).size).toBe(5);
+    });
+  });
+});

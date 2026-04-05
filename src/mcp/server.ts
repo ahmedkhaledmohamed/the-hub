@@ -364,6 +364,191 @@ async function main() {
     },
   );
 
+  // ── Prompt: summarize_group ──────────────────────────────────────
+
+  server.prompt(
+    "summarize_group",
+    "Summarize recent changes and key documents in a workspace group.",
+    {
+      group: z.string().describe("Group ID to summarize (e.g., 'docs', 'planning', 'strategy')"),
+    },
+    async ({ group }) => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+      const groupArtifacts = manifest.artifacts
+        .filter((a) => a.group === group)
+        .sort((a, b) => a.staleDays - b.staleDays)
+        .slice(0, 15);
+
+      if (groupArtifacts.length === 0) {
+        return {
+          messages: [{ role: "user" as const, content: { type: "text" as const, text: `No artifacts found in group "${group}".` } }],
+        };
+      }
+
+      const listing = groupArtifacts
+        .map((a) => `- ${a.title} (${a.path}) — ${a.staleDays}d old, ${a.type}`)
+        .join("\n");
+
+      return {
+        messages: [{
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `Summarize the "${group}" group in my workspace. Here are the ${groupArtifacts.length} most recent artifacts:\n\n${listing}\n\nProvide a brief overview of what this group contains, highlight the most recently modified documents, and note any that appear stale (30+ days old).`,
+          },
+        }],
+      };
+    },
+  );
+
+  // ── Prompt: draft_status_update ─────────────────────────────────
+
+  server.prompt(
+    "draft_status_update",
+    "Draft a status update based on recent workspace activity.",
+    {},
+    async () => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+
+      const recent = manifest.artifacts
+        .filter((a) => a.staleDays <= 3)
+        .sort((a, b) => a.staleDays - b.staleDays)
+        .slice(0, 20);
+
+      const stale = manifest.artifacts
+        .filter((a) => a.staleDays > 30)
+        .length;
+
+      const listing = recent
+        .map((a) => `- ${a.title} (${a.group}) — modified ${a.staleDays === 0 ? "today" : `${a.staleDays}d ago`}`)
+        .join("\n");
+
+      return {
+        messages: [{
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `Draft a concise status update based on my recent workspace activity.\n\nRecently modified (last 3 days):\n${listing || "No recent changes."}\n\nWorkspace stats: ${manifest.artifacts.length} total artifacts, ${stale} stale (30+ days).\n\nWrite a 3-5 sentence status update summarizing what I've been working on, based on the recently modified documents. Be specific about topics, not file names.`,
+          },
+        }],
+      };
+    },
+  );
+
+  // ── Prompt: find_conflicts ──────────────────────────────────────
+
+  server.prompt(
+    "find_conflicts",
+    "Analyze a group of documents for conflicting or contradictory information.",
+    {
+      group: z.string().describe("Group ID to check for conflicts"),
+    },
+    async ({ group }) => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+      const db = await getDb();
+
+      const groupArtifacts = manifest.artifacts
+        .filter((a) => a.group === group)
+        .slice(0, 10);
+
+      const contents: string[] = [];
+      for (const a of groupArtifacts) {
+        const content = db.getArtifactContent(a.path);
+        if (content) {
+          contents.push(`## ${a.title} (${a.path})\n${content.slice(0, 2000)}`);
+        }
+      }
+
+      if (contents.length < 2) {
+        return {
+          messages: [{ role: "user" as const, content: { type: "text" as const, text: `Need at least 2 documents in group "${group}" to check for conflicts. Found ${contents.length}.` } }],
+        };
+      }
+
+      return {
+        messages: [{
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `Review these ${contents.length} documents from the "${group}" group and identify any contradictions, conflicting information, or inconsistencies between them.\n\n${contents.join("\n\n---\n\n")}\n\nFor each conflict found, specify which documents contradict each other and what the specific disagreement is.`,
+          },
+        }],
+      };
+    },
+  );
+
+  // ── Prompt: review_artifact ─────────────────────────────────────
+
+  server.prompt(
+    "review_artifact",
+    "Review a specific artifact for quality, completeness, and freshness.",
+    {
+      path: z.string().describe("Artifact path to review"),
+    },
+    async ({ path }) => {
+      const db = await getDb();
+      const content = db.getArtifactContent(path);
+
+      if (!content) {
+        return {
+          messages: [{ role: "user" as const, content: { type: "text" as const, text: `Artifact not found: ${path}` } }],
+        };
+      }
+
+      return {
+        messages: [{
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `Review this document for quality and completeness:\n\n**Path:** ${path}\n\n${content.slice(0, 5000)}\n\nProvide feedback on:\n1. Is the content up-to-date?\n2. Are there any gaps or missing sections?\n3. Is the structure clear and well-organized?\n4. Any factual issues or outdated information?\n5. Suggested improvements.`,
+          },
+        }],
+      };
+    },
+  );
+
+  // ── Prompt: onboarding_brief ────────────────────────────────────
+
+  server.prompt(
+    "onboarding_brief",
+    "Generate a reading guide for someone new to this workspace.",
+    {},
+    async () => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+
+      const byGroup = new Map<string, number>();
+      for (const a of manifest.artifacts) {
+        byGroup.set(a.group, (byGroup.get(a.group) || 0) + 1);
+      }
+
+      const groupSummary = Array.from(byGroup.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([group, count]) => `- **${group}**: ${count} artifact(s)`)
+        .join("\n");
+
+      const keyDocs = manifest.artifacts
+        .filter((a) => a.type === "md" && a.staleDays < 30)
+        .sort((a, b) => a.staleDays - b.staleDays)
+        .slice(0, 10)
+        .map((a) => `- ${a.title} (${a.group}) — ${a.path}`)
+        .join("\n");
+
+      return {
+        messages: [{
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `I'm new to this workspace. Create a reading guide for me.\n\nWorkspace contains ${manifest.artifacts.length} artifacts across ${byGroup.size} groups:\n${groupSummary}\n\nMost recently updated documents:\n${keyDocs}\n\nSuggest a reading order (5-8 documents) that would help me understand the key context. Prioritize foundational/overview docs first, then more specific ones.`,
+          },
+        }],
+      };
+    },
+  );
+
   // ── Start server ────────────────────────────────────────────────
 
   const transport = new StdioServerTransport();
