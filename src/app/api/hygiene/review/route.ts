@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
       const full = resolveFullPath(p);
       const text = readFileSync(full, "utf8");
       return { path: p, content: text.slice(0, 8000) };
-    } catch {
+    } catch (err) {
+      try { const { reportError } = require("@/lib/error-reporter"); reportError("api", err, { operation: "hygiene-review-read", path: p }); } catch { /* non-critical */ }
       return { path: p, content: "(could not read file)" };
     }
   });

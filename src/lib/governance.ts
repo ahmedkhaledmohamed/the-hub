@@ -49,7 +49,8 @@ export function getGovernanceConfig(): GovernanceConfig | null {
   try {
     const config = loadConfig();
     return config.governance || null;
-  } catch {
+  } catch (err) {
+    try { const { reportError } = require("./error-reporter"); reportError("config", err, { operation: "governance-config" }); } catch { /* non-critical */ }
     return null;
   }
 }

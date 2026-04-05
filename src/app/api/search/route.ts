@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const allResults = await hybridSearch(q, fetchLimit);
     const paged = allResults.slice(offset, offset + limit);
     const hasMore = allResults.length > offset + limit;
-    try { trackSearch(q, allResults.length); } catch {}
+    try { trackSearch(q, allResults.length); } catch (err) { try { const { reportError } = require("@/lib/error-reporter"); reportError("search", err, { query: q }); } catch { /* non-critical */ } }
 
     return NextResponse.json({
       query: q,
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const allResults = searchArtifacts(q, fetchLimit);
   const paged = allResults.slice(offset, offset + limit);
   const hasMore = allResults.length > offset + limit;
-  try { trackSearch(q, allResults.length); } catch {}
+  try { trackSearch(q, allResults.length); } catch (err) { try { const { reportError } = require("@/lib/error-reporter"); reportError("search", err, { query: q }); } catch { /* non-critical */ } }
 
   return NextResponse.json({
     query: q,
