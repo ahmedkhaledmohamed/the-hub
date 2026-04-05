@@ -431,3 +431,243 @@ describe("content generation", () => {
     });
   });
 });
+
+// ── Multi-model AI tests ─────────────────────────────────────────
+
+import {
+  getProviderConfig,
+  getConfiguredProviders,
+  getDefaultProvider,
+  getProviderSummary,
+  formatAnthropicRequest,
+  formatOpenAIRequest,
+  parseAnthropicResponse,
+  parseOpenAIResponse,
+  listModels,
+  KNOWN_MODELS,
+} from "@/lib/multi-model";
+import type { ProviderName } from "@/lib/multi-model";
+
+describe("multi-model AI", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  describe("getProviderConfig", () => {
+    it("returns null for anthropic without key", () => {
+      delete process.env.ANTHROPIC_API_KEY;
+      expect(getProviderConfig("anthropic")).toBeNull();
+    });
+
+    it("returns config for anthropic with key", () => {
+      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+      const config = getProviderConfig("anthropic");
+      expect(config).not.toBeNull();
+      expect(config!.name).toBe("anthropic");
+      expect(config!.apiUrl).toContain("anthropic.com");
+      expect(config!.defaultModel).toContain("claude");
+    });
+
+    it("returns null for openai without key", () => {
+      delete process.env.OPENAI_API_KEY;
+      expect(getProviderConfig("openai")).toBeNull();
+    });
+
+    it("returns config for openai with key", () => {
+      process.env.OPENAI_API_KEY = "sk-test";
+      const config = getProviderConfig("openai");
+      expect(config).not.toBeNull();
+      expect(config!.name).toBe("openai");
+      expect(config!.apiUrl).toContain("openai.com");
+    });
+
+    it("always returns config for ollama", () => {
+      const config = getProviderConfig("ollama");
+      expect(config).not.toBeNull();
+      expect(config!.name).toBe("ollama");
+      expect(config!.defaultModel).toBe("llama3");
+    });
+
+    it("respects custom OLLAMA_URL", () => {
+      process.env.OLLAMA_URL = "http://myserver:11434";
+      const config = getProviderConfig("ollama");
+      expect(config!.apiUrl).toContain("myserver:11434");
+    });
+
+    it("returns null for unknown provider", () => {
+      expect(getProviderConfig("unknown" as ProviderName)).toBeNull();
+    });
+  });
+
+  describe("getConfiguredProviders", () => {
+    it("includes ollama by default", () => {
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      const providers = getConfiguredProviders();
+      expect(providers.some((p) => p.name === "ollama")).toBe(true);
+    });
+
+    it("includes all configured providers", () => {
+      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+      process.env.OPENAI_API_KEY = "sk-test";
+      const providers = getConfiguredProviders();
+      expect(providers.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe("getDefaultProvider", () => {
+    it("respects AI_DEFAULT_PROVIDER env", () => {
+      process.env.AI_DEFAULT_PROVIDER = "ollama";
+      expect(getDefaultProvider()).toBe("ollama");
+    });
+
+    it("prefers anthropic when configured", () => {
+      delete process.env.AI_DEFAULT_PROVIDER;
+      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+      delete process.env.OPENAI_API_KEY;
+      expect(getDefaultProvider()).toBe("anthropic");
+    });
+
+    it("falls back to openai", () => {
+      delete process.env.AI_DEFAULT_PROVIDER;
+      delete process.env.ANTHROPIC_API_KEY;
+      process.env.OPENAI_API_KEY = "sk-test";
+      expect(getDefaultProvider()).toBe("openai");
+    });
+
+    it("falls back to ollama", () => {
+      delete process.env.AI_DEFAULT_PROVIDER;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      expect(getDefaultProvider()).toBe("ollama");
+    });
+  });
+
+  describe("formatAnthropicRequest", () => {
+    it("separates system message", () => {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      const messages = [
+        { role: "system" as const, content: "You are helpful." },
+        { role: "user" as const, content: "Hello" },
+      ];
+      const req = formatAnthropicRequest(messages, "claude-sonnet-4-5", 1024, 0.3);
+      expect(req.body.system).toBe("You are helpful.");
+      expect(req.body.messages).toEqual([{ role: "user", content: "Hello" }]);
+      expect(req.headers["anthropic-version"]).toBe("2023-06-01");
+    });
+
+    it("works without system message", () => {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      const messages = [{ role: "user" as const, content: "Hello" }];
+      const req = formatAnthropicRequest(messages, "claude-sonnet-4-5", 512, 0.5);
+      expect(req.body.system).toBeUndefined();
+      expect(req.body.max_tokens).toBe(512);
+      expect(req.body.temperature).toBe(0.5);
+    });
+  });
+
+  describe("formatOpenAIRequest", () => {
+    it("formats messages for OpenAI API", () => {
+      const messages = [
+        { role: "system" as const, content: "Be concise." },
+        { role: "user" as const, content: "Hi" },
+      ];
+      const req = formatOpenAIRequest(messages, "gpt-4o", 1024, 0.3, "https://api.openai.com/v1/chat/completions", "sk-test");
+      expect(req.body.model).toBe("gpt-4o");
+      expect(req.body.messages).toHaveLength(2);
+      expect(req.headers.Authorization).toBe("Bearer sk-test");
+    });
+  });
+
+  describe("parseAnthropicResponse", () => {
+    it("extracts text from content blocks", () => {
+      const data = {
+        content: [{ type: "text", text: "Hello world" }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      };
+      const result = parseAnthropicResponse(data);
+      expect(result.content).toBe("Hello world");
+      expect(result.tokensUsed).toBe(15);
+    });
+
+    it("concatenates multiple text blocks", () => {
+      const data = {
+        content: [
+          { type: "text", text: "Part 1" },
+          { type: "text", text: " Part 2" },
+        ],
+      };
+      expect(parseAnthropicResponse(data).content).toBe("Part 1 Part 2");
+    });
+
+    it("handles empty response", () => {
+      expect(parseAnthropicResponse({}).content).toBe("");
+    });
+  });
+
+  describe("parseOpenAIResponse", () => {
+    it("extracts content from choices", () => {
+      const data = {
+        choices: [{ message: { content: "Hello" } }],
+        usage: { total_tokens: 20 },
+      };
+      const result = parseOpenAIResponse(data);
+      expect(result.content).toBe("Hello");
+      expect(result.tokensUsed).toBe(20);
+    });
+
+    it("handles empty response", () => {
+      expect(parseOpenAIResponse({}).content).toBe("");
+    });
+  });
+
+  describe("KNOWN_MODELS", () => {
+    it("includes models for all providers", () => {
+      const providers = new Set(KNOWN_MODELS.map((m) => m.provider));
+      expect(providers.has("anthropic")).toBe(true);
+      expect(providers.has("openai")).toBe(true);
+      expect(providers.has("ollama")).toBe(true);
+    });
+
+    it("all models have required fields", () => {
+      for (const model of KNOWN_MODELS) {
+        expect(model.id).toBeTruthy();
+        expect(model.displayName).toBeTruthy();
+        expect(model.contextWindow).toBeGreaterThan(0);
+        expect(typeof model.supportsStreaming).toBe("boolean");
+      }
+    });
+  });
+
+  describe("listModels", () => {
+    it("returns known models for anthropic", async () => {
+      const models = await listModels("anthropic");
+      expect(models.length).toBeGreaterThan(0);
+      for (const m of models) expect(m.provider).toBe("anthropic");
+    });
+
+    it("returns known models for openai", async () => {
+      const models = await listModels("openai");
+      expect(models.length).toBeGreaterThan(0);
+      for (const m of models) expect(m.provider).toBe("openai");
+    });
+  });
+
+  describe("getProviderSummary", () => {
+    it("returns summary for all providers", () => {
+      const summary = getProviderSummary();
+      expect(summary.length).toBe(3);
+      const names = summary.map((s) => s.name);
+      expect(names).toContain("anthropic");
+      expect(names).toContain("openai");
+      expect(names).toContain("ollama");
+    });
+
+    it("marks exactly one as default", () => {
+      const summary = getProviderSummary();
+      const defaults = summary.filter((s) => s.isDefault);
+      expect(defaults.length).toBe(1);
+    });
+  });
+});
