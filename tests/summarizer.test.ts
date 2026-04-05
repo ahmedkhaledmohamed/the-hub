@@ -378,3 +378,188 @@ describe("knowledge decay detection", () => {
     });
   });
 });
+
+// ── Impact scoring tests ─────────────────────────────────────────
+
+import {
+  scoreToLevel,
+  computeImpactScore,
+  computeBatchImpactScores,
+  saveImpactScore,
+  getLatestImpactScore,
+  getImpactHistory,
+  getImpactSummary,
+  collectAccessSignals,
+  collectAnnotationSignals,
+  collectReviewSignals,
+  collectBacklinkSignals,
+} from "@/lib/impact-scoring";
+import type { ImpactScore, ImpactSignals } from "@/lib/impact-scoring";
+
+describe("impact scoring", () => {
+  describe("scoreToLevel", () => {
+    it("returns critical for 80+", () => {
+      expect(scoreToLevel(80)).toBe("critical");
+      expect(scoreToLevel(100)).toBe("critical");
+    });
+
+    it("returns high for 60-79", () => {
+      expect(scoreToLevel(60)).toBe("high");
+      expect(scoreToLevel(79)).toBe("high");
+    });
+
+    it("returns medium for 35-59", () => {
+      expect(scoreToLevel(35)).toBe("medium");
+      expect(scoreToLevel(59)).toBe("medium");
+    });
+
+    it("returns low for 10-34", () => {
+      expect(scoreToLevel(10)).toBe("low");
+      expect(scoreToLevel(34)).toBe("low");
+    });
+
+    it("returns none for 0-9", () => {
+      expect(scoreToLevel(0)).toBe("none");
+      expect(scoreToLevel(9)).toBe("none");
+    });
+  });
+
+  describe("signal collection", () => {
+    it("collectAccessSignals returns structure for unknown path", () => {
+      const result = collectAccessSignals("nonexistent/path.md");
+      expect(typeof result.count).toBe("number");
+      expect(Array.isArray(result.uniqueUsers)).toBe(true);
+    });
+
+    it("collectAnnotationSignals returns structure for unknown path", () => {
+      const result = collectAnnotationSignals("nonexistent/path.md");
+      expect(result.count).toBe(0);
+      expect(result.authors).toEqual([]);
+    });
+
+    it("collectReviewSignals returns structure for unknown path", () => {
+      const result = collectReviewSignals("nonexistent/path.md");
+      expect(result.count).toBe(0);
+      expect(result.reviewers).toEqual([]);
+      expect(result.requesters).toEqual([]);
+    });
+
+    it("collectBacklinkSignals returns structure for unknown path", () => {
+      const result = collectBacklinkSignals("nonexistent/path.md");
+      expect(result.backlinkCount).toBe(0);
+      expect(result.dependentPaths).toEqual([]);
+    });
+  });
+
+  describe("computeImpactScore", () => {
+    it("returns valid score structure", () => {
+      const score = computeImpactScore("impact/test-doc.md");
+      expect(typeof score.score).toBe("number");
+      expect(score.score).toBeGreaterThanOrEqual(0);
+      expect(score.score).toBeLessThanOrEqual(100);
+      expect(["critical", "high", "medium", "low", "none"]).toContain(score.level);
+      expect(score.artifactPath).toBe("impact/test-doc.md");
+      expect(typeof score.signals).toBe("object");
+      expect(Array.isArray(score.stakeholders)).toBe(true);
+      expect(Array.isArray(score.downstreamPaths)).toBe(true);
+    });
+
+    it("signals have all required fields", () => {
+      const score = computeImpactScore("impact/signals.md");
+      const s = score.signals;
+      expect(typeof s.accessCount).toBe("number");
+      expect(typeof s.uniqueAccessors).toBe("number");
+      expect(typeof s.annotationCount).toBe("number");
+      expect(typeof s.reviewCount).toBe("number");
+      expect(typeof s.backlinkCount).toBe("number");
+      expect(typeof s.dependentCount).toBe("number");
+    });
+
+    it("returns none/0 for artifact with no activity", () => {
+      const score = computeImpactScore("impact/no-activity-ever.md");
+      expect(score.score).toBe(0);
+      expect(score.level).toBe("none");
+      expect(score.stakeholders).toEqual([]);
+    });
+  });
+
+  describe("computeBatchImpactScores", () => {
+    it("returns scores for multiple paths", () => {
+      const scores = computeBatchImpactScores(["a.md", "b.md", "c.md"]);
+      expect(scores.length).toBe(3);
+      for (const s of scores) {
+        expect(typeof s.score).toBe("number");
+        expect(typeof s.level).toBe("string");
+      }
+    });
+
+    it("handles empty array", () => {
+      expect(computeBatchImpactScores([])).toEqual([]);
+    });
+  });
+
+  describe("persistence", () => {
+    it("saves and retrieves an impact score", () => {
+      const score: ImpactScore = {
+        artifactPath: `impact/persist-${Date.now()}.md`,
+        title: "Test Doc",
+        score: 75,
+        level: "high",
+        signals: {
+          accessCount: 10,
+          uniqueAccessors: 3,
+          annotationCount: 2,
+          reviewCount: 1,
+          backlinkCount: 4,
+          dependentCount: 2,
+        },
+        stakeholders: [{ name: "alice", reason: "reviewed", relevance: 0.8 }],
+        downstreamPaths: ["dep/a.md"],
+      };
+
+      const id = saveImpactScore(score);
+      expect(id).toBeGreaterThan(0);
+
+      const retrieved = getLatestImpactScore(score.artifactPath);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.score).toBe(75);
+      expect(retrieved!.level).toBe("high");
+      expect(retrieved!.stakeholders.length).toBe(1);
+      expect(retrieved!.stakeholders[0].name).toBe("alice");
+      expect(retrieved!.downstreamPaths).toEqual(["dep/a.md"]);
+    });
+
+    it("returns null for unsaved path", () => {
+      expect(getLatestImpactScore("nonexistent/never-saved.md")).toBeNull();
+    });
+
+    it("getImpactHistory returns scored entries", () => {
+      const path = `impact/history-${Date.now()}.md`;
+      const mkScore = (s: number, l: string): ImpactScore => ({
+        artifactPath: path, title: path, score: s, level: l as "high" | "medium",
+        signals: { accessCount: 0, uniqueAccessors: 0, annotationCount: 0, reviewCount: 0, backlinkCount: 0, dependentCount: 0 },
+        stakeholders: [], downstreamPaths: [],
+      });
+      saveImpactScore(mkScore(40, "medium"));
+      saveImpactScore(mkScore(65, "high"));
+
+      const history = getImpactHistory(path);
+      expect(history.length).toBeGreaterThanOrEqual(2);
+      const scores = history.map((h) => h.score);
+      expect(scores).toContain(40);
+      expect(scores).toContain(65);
+    });
+  });
+
+  describe("getImpactSummary", () => {
+    it("returns summary structure", () => {
+      const summary = getImpactSummary();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.byLevel.critical).toBe("number");
+      expect(typeof summary.byLevel.high).toBe("number");
+      expect(typeof summary.byLevel.medium).toBe("number");
+      expect(typeof summary.byLevel.low).toBe("number");
+      expect(typeof summary.byLevel.none).toBe("number");
+    });
+  });
+});
