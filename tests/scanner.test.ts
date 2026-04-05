@@ -862,3 +862,116 @@ describe("change subscriptions (SSE)", () => {
     });
   });
 });
+
+// ── Weekly digest tests ──────────────────────────────────────────
+
+import { generateWeeklyDigest, formatDigestText, formatDigestSlack } from "@/lib/weekly-digest";
+import type { WeeklyDigest } from "@/lib/weekly-digest";
+
+describe("weekly digest", () => {
+  describe("generateWeeklyDigest", () => {
+    it("returns valid digest structure", () => {
+      const digest = generateWeeklyDigest(7);
+      expect(digest.period.start).toBeTruthy();
+      expect(digest.period.end).toBeTruthy();
+      expect(typeof digest.changes.modified).toBe("number");
+      expect(typeof digest.decisions.new).toBe("number");
+      expect(typeof digest.stale.count).toBe("number");
+      expect(typeof digest.stats.totalArtifacts).toBe("number");
+      expect(typeof digest.stats.searchCount).toBe("number");
+      expect(typeof digest.stats.agentQueries).toBe("number");
+      expect(digest.generatedAt).toBeTruthy();
+    });
+
+    it("respects custom days parameter", () => {
+      const digest = generateWeeklyDigest(14);
+      const start = new Date(digest.period.start);
+      const end = new Date(digest.period.end);
+      const daysDiff = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+      expect(daysDiff).toBeCloseTo(14, 0);
+    });
+
+    it("changes section has topChanged array", () => {
+      const digest = generateWeeklyDigest(7);
+      expect(Array.isArray(digest.changes.topChanged)).toBe(true);
+      for (const c of digest.changes.topChanged) {
+        expect(c.path).toBeTruthy();
+        expect(c.title).toBeTruthy();
+      }
+    });
+
+    it("decisions section has recent array", () => {
+      const digest = generateWeeklyDigest(7);
+      expect(Array.isArray(digest.decisions.recent)).toBe(true);
+    });
+
+    it("stale section has critical array", () => {
+      const digest = generateWeeklyDigest(7);
+      expect(Array.isArray(digest.stale.critical)).toBe(true);
+    });
+  });
+
+  describe("formatDigestText", () => {
+    it("formats digest as readable text", () => {
+      const digest = generateWeeklyDigest(7);
+      const text = formatDigestText(digest);
+      expect(text).toContain("Weekly Digest");
+      expect(text).toContain("Changes:");
+      expect(text).toContain("artifacts");
+    });
+
+    it("includes decisions when present", () => {
+      const digest: WeeklyDigest = {
+        period: { start: "2026-04-01", end: "2026-04-07" },
+        changes: { added: 0, modified: 3, deleted: 0, topChanged: [] },
+        decisions: { new: 2, superseded: 1, reverted: 0, recent: [{ summary: "Use TypeScript", artifactPath: "docs/d.md" }] },
+        stale: { count: 0, critical: [] },
+        gaps: { count: 0, topics: [] },
+        stats: { totalArtifacts: 100, searchCount: 50, agentQueries: 10 },
+        generatedAt: new Date().toISOString(),
+      };
+      const text = formatDigestText(digest);
+      expect(text).toContain("Decisions: 2 new");
+      expect(text).toContain("Use TypeScript");
+    });
+
+    it("includes knowledge gaps when present", () => {
+      const digest: WeeklyDigest = {
+        period: { start: "2026-04-01", end: "2026-04-07" },
+        changes: { added: 0, modified: 0, deleted: 0, topChanged: [] },
+        decisions: { new: 0, superseded: 0, reverted: 0, recent: [] },
+        stale: { count: 0, critical: [] },
+        gaps: { count: 2, topics: ["deployment", "monitoring"] },
+        stats: { totalArtifacts: 50, searchCount: 20, agentQueries: 5 },
+        generatedAt: new Date().toISOString(),
+      };
+      const text = formatDigestText(digest);
+      expect(text).toContain("Knowledge gaps");
+      expect(text).toContain("deployment");
+    });
+  });
+
+  describe("formatDigestSlack", () => {
+    it("returns text and blocks", () => {
+      const digest = generateWeeklyDigest(7);
+      const slack = formatDigestSlack(digest);
+      expect(typeof slack.text).toBe("string");
+      expect(Array.isArray(slack.blocks)).toBe(true);
+      expect(slack.blocks.length).toBeGreaterThanOrEqual(3); // header + changes + footer
+    });
+
+    it("includes header block", () => {
+      const digest = generateWeeklyDigest(7);
+      const slack = formatDigestSlack(digest);
+      const header = slack.blocks.find((b) => b.type === "header");
+      expect(header).toBeDefined();
+    });
+
+    it("includes context footer", () => {
+      const digest = generateWeeklyDigest(7);
+      const slack = formatDigestSlack(digest);
+      const footer = slack.blocks.find((b) => b.type === "context");
+      expect(footer).toBeDefined();
+    });
+  });
+});
