@@ -1007,3 +1007,56 @@ describe("pre-meeting briefings", () => {
     });
   });
 });
+
+// ── Embedding auto-generation tests ──────────────────────────────
+
+import { shouldAutoGenerate, getGenerationStatus } from "@/lib/embedding-generator";
+import { getEmbeddingCount } from "@/lib/embeddings";
+import { resetOllamaDetection } from "@/lib/ai-client";
+
+describe("embedding auto-generation", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+    resetOllamaDetection();
+  });
+
+  describe("shouldAutoGenerate", () => {
+    it("returns false when AI_PROVIDER=none", () => {
+      process.env.AI_PROVIDER = "none";
+      expect(shouldAutoGenerate()).toBe(false);
+    });
+
+    it("returns false when embeddings already exist", () => {
+      // If embeddings table has data, no need to auto-generate
+      const count = getEmbeddingCount();
+      if (count > 0) {
+        expect(shouldAutoGenerate()).toBe(false);
+      }
+    });
+  });
+
+  describe("getGenerationStatus", () => {
+    it("returns valid status structure", () => {
+      const status = getGenerationStatus();
+      expect(typeof status.running).toBe("boolean");
+      expect(typeof status.embeddingCount).toBe("number");
+      expect(typeof status.aiConfigured).toBe("boolean");
+      // lastResult may be null
+    });
+
+    it("reflects AI configuration", () => {
+      process.env.AI_PROVIDER = "none";
+      const status = getGenerationStatus();
+      expect(status.aiConfigured).toBe(false);
+    });
+  });
+
+  describe("getEmbeddingCount", () => {
+    it("returns a number", () => {
+      const count = getEmbeddingCount();
+      expect(typeof count).toBe("number");
+      expect(count).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
