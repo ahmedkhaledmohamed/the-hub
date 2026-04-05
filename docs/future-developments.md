@@ -1,341 +1,370 @@
-# Future Developments
+# Future Developments — v3: Depth Over Breadth
 
-The Hub v2 is complete. All 30 execution steps are shipped — 36 API endpoints, 32 library modules, 9 pages, 9 MCP tools, 321 tests, plugin system, federation, Docker, PWA, governance. This document looks forward: what comes next, and why.
+The Hub v2 shipped everything on its roadmap. 55 execution steps, 54 lib modules, 53 API routes, 624 tests, 9 MCP tools. Every checkbox is checked. This document is about what that actually means — and what comes next.
 
 ---
 
-## What's Built
+## What's Built (Accurate Inventory)
 
-| Phase | Steps | What shipped |
+| Category | Count | Examples |
 |---|---|---|
-| **Foundation** | 1–8 | SQLite + FTS5 search, 30+ file types, MCP server, CLI, import tools, content diffs, 10 panel types |
-| **Intelligence** | 9–17 | AI client (Ollama + cloud), summarization, semantic search, RAG Q&A, content generation, knowledge graph, temporal trends, personalization |
-| **Platform** | 18–23 | Plugin system + marketplace, GitHub plugin, agentic workflows, webhooks, API auth, MCP v2 (9 tools) |
-| **Network** | 24–30 | PWA, multi-workspace contexts, shared instances, Hub-to-Hub federation, Docker, governance + audit, settings page |
-
-**Stats**: 36 API endpoints, 32 lib modules, 9 pages, 9 MCP tools, 2 plugins, 321 tests, Dockerfile + docker-compose.
+| **Lib modules** | 54 | scanner, db, ai-client, knowledge-graph, hygiene-analyzer, embeddings, rag, sso, multi-model, impact-scoring |
+| **API routes** | 53 | manifest, search, ask, generate, hygiene, graph, decisions, reviews, google-docs, notion, slack, sso, impact |
+| **Frontend pages** | 9 | briefing, ask, graph, hygiene, repos, settings, admin, [tab] browser |
+| **React components** | 37 | artifact grid, preview, command palette, briefing, framework catalog |
+| **MCP tools** | 9 | search, read_artifact, ask_question, generate_content, get_hygiene, get_trends, list_groups, get_manifest, list_repos |
+| **MCP resources** | 2 | artifact template (hub://artifact/{path}), manifest (hub://manifest) |
+| **Test suites** | 11 | 624 test cases across ai-client, change-feed, cli, db, extractors, import-tools, mcp-server, panel-types, scanner, search-api, summarizer |
+| **Database tables** | 15+ | artifacts, search_index (FTS5), artifact_links, artifact_opens, annotations, decisions, review_requests, sso_sessions, and more |
 
 ---
 
-## Honest Assessment
+## Honest Assessment: The Tier System
 
-### What works well
+Not everything that's "shipped" is actually usable. Here's the reality:
 
-- **Core scanning + search** — FTS5 is fast, hybrid search with embeddings works, 30+ file types indexed
-- **RAG Q&A** — end-to-end pipeline with source citations is the most used AI feature
-- **MCP server** — 9 tools covering all major capabilities. This is the moat.
-- **Knowledge graph** — wiki-links, backlinks, graph visualization — unique differentiator
-- **Agentic workflows** — stale doc reminders and weekly summaries run autonomously
-- **Config-driven everything** — one file controls the entire workspace
+### Tier 1 — Works End-to-End (User-Facing)
+Features with backend + UI + tests. A user can discover and use these without reading docs.
 
-### What's limited
-
-| Area | Limitation | Impact |
+| Feature | Quality | Notes |
 |---|---|---|
-| **Search at scale** | No pagination, O(n) embedding similarity, full rescan every time | Breaks at 10K+ artifacts |
-| **AI quality** | Basic prompts, no evaluation framework, no multi-turn context | Answers are decent, not great |
-| **Plugin ecosystem** | 2 plugins, no community, no marketplace UI, no sandboxing | Platform vision unrealized |
-| **Mobile** | Minimal PWA, no push notifications, layout not optimized | Can't use on the go |
-| **Collaboration** | Role-based sharing but no comments, annotations, or real-time | Solo tool, not team tool |
-| **Security** | No rate limiting, no input validation, embed XSS risk | Not production-safe for public deployment |
-| **Observability** | No metrics, no structured logging, no alerts | Hard to debug issues |
-| **Documentation** | No API docs, no plugin dev guide, no deployment guide | Barrier to adoption |
+| Workspace scanning + indexing | 9/10 | FTS5, 30+ file types, incremental scan, file watcher |
+| Full-text search | 9/10 | Fast, supports phrases, filters by group |
+| Artifact browsing (tab pages) | 8/10 | Grid layout, preview panel, launcher actions |
+| Morning briefing | 7/10 | Change feed, stale detection, pinned artifacts |
+| RAG Q&A (/ask) | 7/10 | Source citations, conversation-style — requires AI config |
+| Document hygiene | 8/10 | Duplicates, stale, similar titles, template overlap detection |
+| Knowledge graph | 6/10 | Wiki-links, backlinks, force visualization — minimal interactivity |
+| Git repo discovery | 8/10 | Finds repos, detects CLAUDE.md and cursor rules |
+| Settings / preferences | 6/10 | Skip directories, theme — limited scope |
+| MCP server | 9/10 | 9 tools + 2 resources, fully functional for Claude Code/Cursor |
+| Command palette (Cmd+K) | 8/10 | Fast artifact search, keyboard navigation |
 
-### What's missing entirely
+### Tier 2 — Backend Built, No UI
+API endpoints exist and work. Tests pass. But no user can discover or use these from the web interface.
 
-- No incremental scanning (full rescan on every change)
-- No background job queue (AI calls block the request)
-- No database migrations (schema changes require manual intervention)
-- No OpenAPI spec
-- No comments/annotations on artifacts
-- No calendar/meeting integration
-- No real-time collaboration
-- No native Slack integration
-- No task management linked to artifacts
+| Feature | Backend | Missing |
+|---|---|---|
+| Google Docs sync | API: link, pull, sync-all | No UI to initiate linking |
+| Notion sync | API: link, pull, sync-all, database query | No UI to initiate linking |
+| Slack integration | Webhook posting, slash commands | No UI to configure channels |
+| Decision tracking | Heuristic + AI extraction, contradiction detection | No decision browser UI |
+| Review requests | CRUD, status transitions, per-artifact queries | No review panel UI |
+| Impact scoring | Multi-signal scoring, stakeholder identification | Not surfaced in any page |
+| Predictive briefing | Access patterns + calendar + changes | Not integrated into briefing page |
+| Annotations | Comments on artifacts with threading | No annotation UI on previews |
+| Sharing / public links | Link generation with expiry | No share button on artifacts |
+| Plugin marketplace | Plugin registry, install API | No install UI |
+| Agent scheduler | Background job scheduling | No scheduler UI |
+| Federation | Hub-to-Hub search, peer linking | No peer browser UI |
+
+### Tier 3 — Infrastructure Only
+Schema exists. Thin API endpoint. No real usage.
+
+| Feature | What Exists | Reality |
+|---|---|---|
+| SSO/SAML | Full SAML 2.0 SP implementation | No enterprise users; requires env var config |
+| Calendar UI | iCal parsing, event extraction | Parsing works; no calendar component |
+| Multi-model routing | Claude/GPT/Llama provider registry | Infrastructure; no model picker UI |
+| Semantic search | Embeddings table, vector-index module | Not wired to actual search flow |
+| Content generation | Templates (status update, PRD, handoff) | Works via API/MCP; no UI template picker |
+
+### Without AI: What's Left?
+
+When `AI_PROVIDER=none` (no API key, no Ollama):
+
+- **Works fully**: Scanning, FTS search, browsing, hygiene (heuristic), change feed, knowledge graph, repos, settings
+- **Degrades to heuristic**: Triage (file size/type-based), decision extraction (regex), conflict detection (claim overlap)
+- **Non-functional**: Summaries, content generation, RAG Q&A, predictive briefing narrative, semantic search
+
+**~60% of the app works without AI. But the 40% that doesn't is the 40% that makes it intelligent.**
 
 ---
 
-## Next Evolution: 8 Dimensions
+## The Strategic Question
 
-### 1. From File Indexer to Work Intelligence
+The Hub v2 prioritized breadth. The result: 54 modules, many at 60-70% completion. The v3 question is:
 
-The Hub indexes files. The next version should understand **work**.
+> Should we add more features, or make existing ones actually work?
+
+**Answer: Depth over breadth.** v3 should not add a single new capability. It should make the 54 modules already built into a cohesive, polished, observable product.
+
+---
+
+## v3 Evolution: 6 Pillars
+
+### Pillar 1: Surface What's Hidden
+
+20+ features have working backends but no UI. The highest-leverage work is wiring them in.
 
 ```mermaid
 flowchart LR
-    Files[Files on Disk] --> Current[Current Hub]
-    Current --> Search[Search + Browse]
+    subgraph Today["Today: API Only"]
+        Decisions[Decision API]
+        Reviews[Review API]
+        Impact[Impact API]
+        Sharing[Sharing API]
+        Integrations[Integration APIs]
+    end
 
-    Files --> Next[Next Hub]
-    Meetings[Calendar] --> Next
-    Decisions[Decision Log] --> Next
-    Dependencies[Team Dependencies] --> Next
-    Next --> Intelligence[Work Intelligence]
-    Intelligence --> Predict[Predictive Briefings]
-    Intelligence --> Impact[Impact Scoring]
-    Intelligence --> Onboard[Onboarding Paths]
+    subgraph v3["v3: User-Facing"]
+        DecisionUI[Decision Browser]
+        ReviewUI[Review Panel]
+        ImpactUI[Impact Dashboard]
+        ShareUI[Share Button]
+        IntegrationUI[Integration Hub]
+    end
+
+    Decisions --> DecisionUI
+    Reviews --> ReviewUI
+    Impact --> ImpactUI
+    Sharing --> ShareUI
+    Integrations --> IntegrationUI
 ```
 
-**Features**:
-- **Meeting context** — Calendar API integration. Auto-link artifacts to upcoming meetings. Briefing shows "For your 2pm: read these 3 docs."
-- **Decision tracking** — AI extracts decisions from docs ("We decided to use PostgreSQL"). Track who decided, when, and link to the doc. Surface when a decision is contradicted by a newer doc.
-- **Impact scoring** — when a doc changes, who needs to know? Based on who accessed it, who authored related docs, and which teams reference it.
-- **Dependency mapping** — which projects depend on which docs? When a foundational doc changes, flag downstream impacts.
-- **Work patterns** — when are docs most accessed? Pre-cache briefings for Monday mornings. Suggest review cadence based on access frequency decay.
+**What to build:**
+- **Integration dashboard** — Single page showing Google Docs, Notion, Slack, Calendar connection status. "Connect" buttons, "Test connection", last sync time.
+- **Decision browser** — Browse extracted decisions, filter by status (active/superseded/reverted), see contradictions, link to source docs.
+- **Review panel** — Create review requests from artifact preview. Show pending reviews on briefing. Track status.
+- **Impact indicator** — Badge on artifact cards showing impact level. "3 people depend on this doc" tooltip.
+- **Predictive briefing merge** — Integrate predictive briefing items into the existing morning briefing page instead of being a separate API.
+- **Share button** — One-click "Copy public link" on artifact cards. Expiry picker.
+- **Annotation layer** — Inline comments on artifact preview. Thread replies.
 
-### 2. Proactive AI (Act, Don't Just Answer)
+### Pillar 2: Setup & First-Run Experience
 
-Current AI is reactive. Next: AI that takes initiative.
+The #1 barrier to adoption. Today: copy config file, edit paths, set env vars, hope it works.
 
-**Features**:
-- **Auto-triage change feed** — AI categorizes every change: "routine update" / "needs your attention" / "breaking change" / "new topic". The briefing becomes AI-narrated.
-- **Draft responses** — stale doc flagged? AI doesn't just remind you — it drafts the update with tracked changes and asks for your review.
-- **Conflict detection** — two docs in the same group contradict each other? AI identifies the specific conflicts and suggests resolution.
-- **Predictive briefing** — "Based on your pattern, you'll want to review the Q3 Roadmap before your planning meeting. Here's a 2-sentence summary of what changed since you last read it."
-- **Auto-classify compliance** — AI reads new docs and suggests PII/confidential/public tags based on content analysis.
-- **Smart notifications** — instead of "doc changed", tell me "The pricing doc was updated — the Enterprise tier now includes SSO. This affects your proposal."
-
-### 3. MCP as Infrastructure (Double Down on the Moat)
-
-MCP is the most defensible differentiator. Every other feature is replicable. The Hub as the knowledge backend for ALL AI tools is not.
+**What to build:**
+- **Setup wizard** — `/setup` page that walks through: workspace paths → scan preview → AI connection test → first scan result → done.
+- **System health page** — `/status` showing: which features are configured, which aren't, what's degraded. "Your Hub is 70% configured. Enable AI for summaries and Q&A."
+- **Connection testers** — "Test AI connection" button that sends a hello prompt. "Test Slack webhook" that posts a test message.
+- **Graceful degradation indicators** — When AI is off, show "AI-powered" badges as disabled with "Configure AI to enable" tooltips. Don't hide the features — show what's possible.
 
 ```mermaid
 flowchart TD
-    Hub[(The Hub)] --> Resources[MCP Resources]
-    Hub --> Tools[MCP Tools - 9]
-    Hub --> Prompts[MCP Prompts]
-    Hub --> Events[MCP Subscriptions]
+    Install[npm install + npm start] --> Setup[/setup wizard]
+    Setup --> Paths[Select workspace paths]
+    Paths --> Scan[Preview scan results]
+    Scan --> AI{Configure AI?}
+    AI -->|Yes| AISetup[API key or Ollama]
+    AI -->|No| Skip[Skip — heuristics only]
+    AISetup --> Done[Ready — briefing page]
+    Skip --> Done
+```
 
-    Resources --> Claude[Claude Code]
-    Resources --> Cursor[Cursor AI]
-    Resources --> ChatGPT[ChatGPT Desktop]
-    Tools --> Claude
-    Tools --> Cursor
+### Pillar 3: Observability & Reliability
+
+Zero observability today. When something fails, it fails silently.
+
+**What to build:**
+- **Structured logging** — Every scan, query, AI call, and webhook logged with duration. `[scan] 1,247 artifacts in 3.2s (42 changed)`.
+- **Status endpoint** — `GET /api/status` returning: uptime, last scan time, DB size, artifact count, configured features, AI provider status, job queue depth.
+- **Error surfacing** — Replace `catch { return [] }` patterns with user-visible warnings. "Slack webhook failed — check your URL."
+- **AI call timeouts** — `AbortSignal.timeout(15000)` on all AI requests. Circuit breaker after 3 consecutive failures.
+- **Job queue dashboard** — Show running/failed/completed jobs. Retry button. Failure logs.
+
+### Pillar 4: Performance at Scale
+
+Untested beyond small workspaces. Known bottlenecks:
+
+**What to build:**
+- **Wire vector-index.ts to search** — The module exists but isn't connected. Hybrid search should use it for semantic results alongside FTS5.
+- **Async hygiene analysis** — Currently blocks. Move to job queue with progress reporting.
+- **Lazy content loading** — Preview panel fetches full content on demand, not on card render.
+- **Manifest streaming** — For 10K+ artifacts, stream manifest as NDJSON instead of one giant JSON blob.
+- **Query optimization** — Add `EXPLAIN QUERY PLAN` audit. Index commonly-queried columns.
+- **Scan performance metrics** — Log scan duration, files changed, cache hit rate. Show on status page.
+
+### Pillar 5: MCP as the Core Product
+
+The actual differentiator. Make it unbeatable.
+
+```mermaid
+flowchart TD
+    Hub[(The Hub)] --> Tools[9 MCP Tools]
+    Hub --> Resources[Per-Artifact Resources]
+    Hub --> Prompts[MCP Prompt Templates]
+    Hub --> Events[Change Subscriptions]
+    Hub --> Health[Health Endpoint]
+
+    Tools --> Claude[Claude Code]
+    Resources --> Claude
     Prompts --> Claude
+    Resources --> Cursor[Cursor AI]
     Events --> Cursor
+    Health --> Monitor[Monitoring]
 
-    Claude --> |reads artifacts directly| Hub
-    Cursor --> |gets real-time updates| Hub
-    ChatGPT --> |uses prompt templates| Hub
+    style Hub fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Claude fill:#d4a574,stroke:#333,color:#000
+    style Cursor fill:#7ec8e3,stroke:#333,color:#000
 ```
 
-**Features**:
-- **MCP resources** — expose every artifact as an MCP resource. Claude can `read` them directly without going through a tool call. This is faster and more natural.
-- **MCP prompts** — pre-built prompt templates: "summarize this group", "draft a status update", "find conflicts". Available to any MCP client.
-- **MCP subscriptions** — real-time events when workspace changes. Cursor gets notified when a doc you're referencing is updated.
-- **Hub-as-a-service** — any AI tool can "subscribe" to your Hub. Your knowledge base is always available, always current, across all your AI tools.
-- **Cross-tool memory** — Claude Code, Cursor, and ChatGPT all query the same Hub. No more copy-pasting context between tools.
+**What to build:**
+- **MCP prompt templates** — Pre-built prompts: "Summarize changes in {group} this week", "Draft status update from recent activity", "Find conflicts in {group}". Available to any MCP client.
+- **MCP change subscriptions** — SSE endpoint that MCP clients can subscribe to. When an artifact changes, connected clients get notified. Cursor can refresh context automatically.
+- **Per-artifact dynamic resources** — Every artifact accessible as `hub://artifact/{path}` without a tool call. Already partially built; ensure it works for all 30+ file types.
+- **MCP health/stats** — `hub://status` resource showing server health. Useful for debugging "why isn't my MCP working?"
+- **MCP tool refinement** — Improve `search` tool to return snippets with context. Add `get_decisions` and `get_impact` tools.
 
-### 4. Async Knowledge Collaboration
+### Pillar 6: Quality & Polish
 
-Not "Google Docs real-time editing" — but meaningful async collaboration on knowledge.
+Make existing features 10/10.
 
-**Features**:
-- **Annotations** — leave comments on artifacts without editing the source file. Comments stored in SQLite, linked to artifact path + line range. Visible in preview panel.
-- **Review requests** — "I updated this doc, @alice can you review?" Creates a notification and tracks review status (pending/approved/changes-requested).
-- **Per-artifact activity feed** — who viewed, who searched for, who linked to this doc. "This doc was referenced 12 times this week by 3 people."
-- **Suggested reviewers** — based on who authored related docs, who accessed this group most, who has domain expertise.
-- **Shared highlights** — mark important passages. Highlights persist across team members. "3 people highlighted this paragraph."
-- **Change subscriptions** — "Notify me when docs in the Strategy group change." Integrates with webhooks/Slack.
+**What to build:**
+- **Search UX** — Filters (by group, type, date range). Recent searches. "Did you mean...?" for typos. Search result snippets with highlighted matches.
+- **Briefing overhaul** — Merge predictive briefing, calendar events, decisions, and change feed into one unified morning page. Priority-sorted: urgent → important → informational.
+- **Graph interactivity** — Zoom/pan, click to inspect node details, filter by link type, search within graph. Currently renders but isn't interactive.
+- **Hygiene actions** — One-click archive, merge suggestion with diff view, batch operations. Currently shows findings but can't act on them.
+- **Keyboard navigation** — Cmd+K already works. Add: Cmd+/ for search, arrow keys in artifact grid, Esc to close preview.
 
-### 5. Performance & Scale
+---
 
-Make The Hub work for large workspaces (50K+ artifacts).
+## What to Defer
 
-**Features**:
-- **Incremental scanning** — only re-index files that changed (mtime + content hash comparison). Reduces scan time from O(n) to O(changed).
-- **Pagination** — all list endpoints return paginated results with cursor-based pagination. Prevents timeout on large workspaces.
-- **Vector index** — replace JSON-array embeddings with sqlite-vec or HNSW for O(log n) similarity search instead of O(n).
-- **Background job queue** — embedding generation, webhook delivery, AI calls run in an async queue (BullMQ or custom SQLite-based). No more blocking the HTTP request.
-- **HTTP caching** — ETags on manifest, search results, and static assets. CDN-ready headers.
-- **Database migrations** — versioned schema with automatic migration on startup. Safe upgrades without data loss.
-- **Connection pooling** — SQLite WAL mode + read-only connections for concurrent reads.
+Honest about what's not working and shouldn't get more investment:
 
-### 6. Developer Experience
-
-Make it easy for others to build on The Hub.
-
-**Features**:
-- **OpenAPI spec** — auto-generated from route handlers. Swagger UI at `/api/docs`.
-- **Plugin dev kit** — `npx create-hub-plugin my-plugin` scaffolds a new plugin with types, tests, and examples.
-- **Plugin sandbox** — plugins run in isolated VM (vm2 or process isolation). Can't access filesystem outside their scope.
-- **Hot-reload plugins** — change plugin code → Hub picks up changes without restart (like config hot-reload).
-- **Deployment templates** — one-click deploy buttons for Vercel, Railway, Fly.io, Render.
-- **Helm chart** — Kubernetes deployment for enterprise with configurable replicas, storage, and secrets.
-- **SDK** — `@the-hub/sdk` npm package for programmatic access to Hub APIs from Node.js scripts.
-
-### 7. User Behavior Intelligence
-
-Move from "what exists" to "how people actually work."
-
-**Features**:
-- **Reading time estimation** — based on word count + content complexity. Show on artifact cards.
-- **Knowledge decay** — docs that used to be accessed frequently but stopped. Flag: "This doc was popular 3 months ago but hasn't been viewed in 6 weeks."
-- **Onboarding paths** — new team member? Auto-generate a reading list based on what experienced members read in their first 2 weeks.
-- **Search intent classification** — are people searching to find something or to verify something exists? Different UI treatments (results vs. confirmation).
-- **Gap analysis** — topics people search for but no doc exists. "5 people searched for 'deployment process' this week but no matching doc was found. Create one?"
-- **Engagement scoring** — which docs are high-value (frequently accessed, many backlinks, cited in generated content) vs. low-value (never accessed, no links)?
-
-### 8. Native Integrations
-
-First-class connectors that feel built-in, not bolted on.
-
-| Integration | Direction | What it enables |
+| Feature | Status | Decision |
 |---|---|---|
-| **Slack** | Bidirectional | Post change summaries to channels. Pull thread context into Hub as virtual artifacts. `/hub search` Slack command. |
-| **Linear/Jira** | Read + Link | Link issues to artifacts. Show sprint status on briefing. Auto-create artifacts for PRDs linked to epics. |
-| **Google Docs** | Live sync | Real-time bidirectional sync. Edit in Google Docs, see changes in Hub. Link from Hub to Google Doc. |
-| **Notion** | API sync | Real-time page sync (not just export/import). Notion pages as first-class artifacts with backlinks. |
-| **Calendar** | Read | Today's meetings on briefing. Auto-link docs to meetings based on title/attendee matching. Pre-meeting context packets. |
-| **Email** | Read | Surface relevant email threads as virtual artifacts. "This email thread references the Q3 Roadmap." |
+| **Federation** | Schema + API built, 0 users | Defer until real multi-user demand |
+| **Plugin marketplace** | 2 plugins, 0 community | Simplify to "plugin directory" — remove marketplace ambitions |
+| **Enterprise SSO/SAML** | Full implementation, 0 enterprise users | Keep code, remove from active roadmap |
+| **Docker/PWA** | Functional | Maintain, no further investment |
+| **Multi-model AI routing** | Claude/GPT/Llama infrastructure | Keep as backend; no model-picker UI needed |
+| **Email integration** | Not started | Don't start |
 
 ---
 
-## Technical Roadmap
+## v3 Technical Roadmap
 
-Ordered by impact x effort. Each item is a PR-sized unit of work.
+Ordered by user impact. Each item is a PR-sized unit of work.
 
-### Immediate (1-2 weeks)
+### Phase 1: Foundation (Make it trustworthy)
 
-| # | Feature | Impact | Effort |
-|---|---|---|---|
-| ✅ 1 | Pagination on `/api/search` and `/api/manifest` | High | Low |
-| ✅ 2 | Incremental scanning (mtime + hash check) | High | Medium |
-| ✅ 3 | OpenAPI spec auto-generation | Medium | Low |
-| ✅ 4 | Rate limiting middleware | Medium | Low |
-| ✅ 5 | Input validation on all POST endpoints | Medium | Low |
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 1 | Setup wizard (/setup page) | Onboarding | Very High | Medium |
+| 2 | System health / status page | Observability | High | Low |
+| 3 | Structured logging (scan, queries, AI calls) | Observability | High | Low |
+| 4 | Error surfacing (replace silent catches) | Reliability | High | Medium |
+| 5 | AI call timeouts + circuit breakers | Reliability | Medium | Low |
+| 6 | Graceful degradation UI indicators | Onboarding | Medium | Low |
 
-### Short-term (1-2 months)
+### Phase 2: Surface What's Built (Wire APIs to UI)
 
-| # | Feature | Impact | Effort |
-|---|---|---|---|
-| ✅ 6 | MCP resources (artifacts as readable resources) | Very High | Medium |
-| ✅ 7 | Background job queue for AI calls | High | Medium |
-| ✅ 8 | Annotations system (comments on artifacts) | High | Medium |
-| ✅ 9 | AI change feed triage (routine / attention / breaking) | High | Medium |
-| ✅ 10 | Calendar integration (read-only, meeting context) | Medium | Medium |
-| ✅ 11 | Plugin sandbox (VM isolation) | Medium | High |
-| ✅ 12 | Database migration system | Medium | Medium |
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 7 | Integration dashboard (Google Docs, Notion, Slack, Calendar) | Surface | High | High |
+| 8 | Decision browser page | Surface | High | Medium |
+| 9 | Review request panel on artifact preview | Surface | Medium | Medium |
+| 10 | Impact scoring badges on artifact cards | Surface | Medium | Low |
+| 11 | Predictive briefing merged into briefing page | Surface | High | Medium |
+| 12 | Share button on artifact cards | Surface | Medium | Low |
+| 13 | Annotation layer on artifact preview | Surface | High | High |
 
-### Medium-term (2-6 months)
+### Phase 3: Core Quality (Make it excellent)
 
-| # | Feature | Impact | Effort |
-|---|---|---|---|
-| ✅ 13 | Slack bidirectional integration | High | High |
-| ✅ 14 | Conflict detection between docs | High | High |
-| ✅ 15 | Onboarding path generation | Medium | Medium |
-| ✅ 16 | Knowledge decay detection | Medium | Medium |
-| ✅ 17 | Review request system | Medium | High |
-| ✅ 18 | Vector index (sqlite-vec) | Medium | Medium |
-| ✅ 19 | Decision tracking with AI extraction | High | High |
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 14 | Search UX overhaul (filters, facets, suggestions) | Polish | Very High | High |
+| 15 | Briefing page overhaul (unified intelligence view) | Polish | High | High |
+| 16 | Graph interactivity (zoom, search, inspect) | Polish | Medium | Medium |
+| 17 | Hygiene actions (archive, merge, batch) | Polish | Medium | Medium |
+| 18 | Wire vector-index.ts to hybrid search | Performance | High | Medium |
+| 19 | Async hygiene analysis via job queue | Performance | Medium | Medium |
+| 20 | Lazy content loading in preview | Performance | Medium | Low |
 
-### Long-term (6+ months)
+### Phase 4: MCP Evolution (Protect the moat)
 
-| # | Feature | Impact | Effort |
-|---|---|---|---|
-| ✅ 20 | Google Docs live sync | High | Very High |
-| ✅ 21 | Notion real-time sync | High | Very High |
-| ✅ 22 | Impact scoring (who needs to know?) | Very High | Very High |
-| ✅ 23 | Predictive briefings | High | High |
-| ✅ 24 | Multi-model AI support (Claude + GPT + Llama) | Medium | Medium |
-| ✅ 25 | Enterprise SSO/SAML | Medium | High |
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 21 | MCP prompt templates | MCP | Very High | Medium |
+| 22 | MCP change subscriptions (SSE) | MCP | High | High |
+| 23 | MCP health/stats resource | MCP | Medium | Low |
+| 24 | MCP tool refinement (snippets, decisions, impact) | MCP | Medium | Medium |
+| 25 | Connection tester UI for integrations | Onboarding | Medium | Low |
 
 ---
 
-## Architecture Changes
-
-### Current → Next
+## Architecture: v2 → v3
 
 ```mermaid
 flowchart TD
-    subgraph Current["Current Architecture"]
-        Sync[Synchronous Scanning]
-        InMem[In-Memory Caching]
-        JSON[JSON Embeddings]
-        Block[Blocking AI Calls]
+    subgraph v2["v2: Breadth"]
+        APIs[53 API Routes]
+        NoUI[20+ APIs with No UI]
+        Silent[Silent Failures]
+        NoSetup[Manual Config Only]
+        Unused[Unused DB Tables]
     end
 
-    subgraph Next["Next Architecture"]
-        Incr[Incremental Scanning]
-        Cache[HTTP Cache Layer]
-        Vec[Vector Index]
-        Queue[Async Job Queue]
-        Migrate[Schema Migrations]
-        Events[Event Sourcing]
+    subgraph v3["v3: Depth"]
+        Wired[APIs Wired to UI]
+        Observable[Structured Logging + Status]
+        Wizard[Setup Wizard]
+        Clean[Pruned Schema]
+        MCPPlus[Enhanced MCP Server]
     end
 
-    Sync --> Incr
-    InMem --> Cache
-    JSON --> Vec
-    Block --> Queue
+    APIs --> Wired
+    NoUI --> Wired
+    Silent --> Observable
+    NoSetup --> Wizard
+    Unused --> Clean
 ```
 
-**Key architectural shifts**:
-1. **Synchronous → Asynchronous** — AI calls, webhook delivery, and embedding generation move to a background queue
-2. **Full scan → Incremental** — only re-index what changed
-3. **In-memory → HTTP caching** — ETags and Cache-Control headers for all read endpoints
-4. **JSON arrays → Vector index** — sqlite-vec for O(log n) similarity search
-5. **Ad-hoc schema → Migrations** — versioned database schema with automatic upgrades
-6. **Event emission → Event sourcing** — full event log as the source of truth for audit, undo, and replay
+**Key shifts:**
+1. **API-only → UI-complete** — Every Tier 2 feature gets a user-facing interface
+2. **Silent → Observable** — Structured logging, status page, error surfacing
+3. **Manual → Guided** — Setup wizard, connection testers, health indicators
+4. **Breadth → Depth** — No new features; make existing ones 10/10
+5. **MCP maintenance → MCP leadership** — Prompts, subscriptions, health monitoring
 
 ---
 
-## Competitive Landscape (Updated)
+## Competitive Position (April 2026)
 
-| Tool | What changed | Hub's position |
+### The Honest Picture
+
+| Tool | Threat Level | Why |
 |---|---|---|
-| **Obsidian** | Launched Obsidian Publish, canvas, and web clipper. Strong community plugins. | Hub indexes across ALL tools, not just one vault. MCP integration is unique. |
-| **Notion** | AI features (Notion AI), databases, calendar. | Hub is local-first, MCP-native. Notion is cloud-only. Hub can index Notion. |
-| **Raycast** | AI integration, notes, clipboard manager. | Complementary. Raycast is the launcher, Hub is the knowledge layer. |
-| **Cursor/Windsurf** | Native MCP support, context-aware AI. | Hub IS the context. MCP server makes Hub the knowledge backend for Cursor. |
-| **Backstage** | Growing adoption in platform engineering. | Backstage is team-infra, Hub is personal-first. Different audiences. |
-| **Mem.ai** | AI-powered knowledge management. | Mem is cloud-only, black-box AI. Hub is local-first, transparent, extensible. |
+| **Claude Code (native)** | 🔴 High | Building native workspace indexing. If it ships built-in MCP file reading, Hub's #1 feature becomes redundant. |
+| **Cursor** | 🟡 Medium | MCP support is standard. Context window large enough to read files directly. But no persistent index. |
+| **Obsidian** | 🟢 Low | Different audience. Vault-only, no cross-tool MCP exposure. Strong community plugins. |
+| **Notion** | 🟢 Low | Cloud-only. Hub indexes Notion, not the reverse. Different model. |
+| **Backstage** | 🟢 Low | Team infrastructure. Hub is personal-first. |
 
-**The defensible moat remains**: MCP-native knowledge backend + local-first + config-driven simplicity + plugin composability.
+### What's Actually Defensible
 
----
+1. **Cross-tool knowledge layer** — Claude Code, Cursor, and ChatGPT all reading from the same index. No other tool does this.
+2. **Local-first + config-driven** — One file, no cloud account, no vendor lock-in. Obsidian is the only comparable simplicity.
+3. **Hygiene + intelligence** — Duplicate detection, staleness, decay, conflicts. File browsers don't do this.
+4. **RAG over your workspace** — Ask questions, get answers with sources. Only works with persistent indexing.
 
-## Business Model (Updated)
+### What's NOT Defensible
 
-### What we learned building v2
+- MCP server alone (commoditizing)
+- Number of features (quality matters more)
+- Integrations (Google Docs, Notion sync are table stakes)
+- Enterprise features (no enterprise users to validate)
 
-1. **AI features are the natural paywall** — they have marginal cost (API calls) and clear value
-2. **MCP is the stickiest feature** — once your AI tools depend on Hub for context, switching cost is high
-3. **Plugins create an ecosystem flywheel** — but only if there's a community
-4. **Enterprise needs are real** — audit logging and compliance were requested before we built them
+### The Real Pitch
 
-### Updated model
+> "The Hub is a personal knowledge command center. It scans your local workspaces, makes them searchable, keeps them healthy, and exposes them to every AI tool you use — all from one config file."
 
-| Tier | Price | What's included |
-|---|---|---|
-| **Open Source** | Free forever | Core scanning, FTS search, briefing, hygiene, CLI, MCP (basic), 2 built-in plugins |
-| **Pro** | $15/month | AI features (RAG, summarization, generation), semantic search, knowledge graph, trends, personalization, unlimited MCP tools |
-| **Team** | $30/user/month | Shared instances, federation, collaboration (annotations, reviews), agentic workflows, priority support |
-| **Enterprise** | $80/user/month | SSO/SAML, governance, compliance, audit logging, custom retention policies, SLA, dedicated support |
+Not a team tool. Not an enterprise platform. Not a Notion replacement. A personal tool for knowledge workers who use AI coding assistants and want them to have context.
 
 ---
 
-## Compounding Flywheels (Verified)
+## Success Metrics
 
-After building v2, we can confirm which flywheels are real:
+v3 success is not measured by feature count. It's measured by quality:
 
-```mermaid
-flowchart TD
-    A1[More artifacts indexed] --> A2[Better AI answers]
-    A2 --> A3[More usage]
-    A3 --> A4[More artifacts curated]
-    A4 --> A1
-
-    B1[MCP exposed to AI tools] --> B2[AI tools deliver better results]
-    B2 --> B3[Users invest in curation]
-    B3 --> B4[Richer knowledge base]
-    B4 --> B1
-```
-
-**Confirmed flywheels**:
-1. **Content → AI → Usage → Content**: Verified. More indexed content = better RAG answers = more people use it = more content added.
-2. **MCP → AI tools → Curation → MCP**: Verified. Once Claude Code uses Hub MCP, users organize their workspace better because they see the value.
-
-**Not yet proven**:
-3. **Plugin ecosystem flywheel**: Only 2 plugins. Need 10+ community plugins to test this.
-4. **Network flywheel**: Federation works but no one has linked Hubs yet. Needs real multi-user adoption.
+| Metric | Current | Target | Why |
+|---|---|---|---|
+| Time to first scan | ~10 min (manual config) | < 2 min (setup wizard) | Adoption barrier |
+| Features with UI | ~40% (Tier 1 only) | 90% (Tier 1 + 2 wired) | Discoverability |
+| Features working without AI | ~60% | 80% | Reduces dependency |
+| MCP tool response time | Unmeasured | < 200ms p95 | Core product speed |
+| Silent error rate | Unknown (no logging) | Measurable + visible | Trust |
+| Test coverage | 624 tests | 750+ (cover new UI) | Stability |
