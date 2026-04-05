@@ -254,7 +254,7 @@ Ordered by user impact. Each item is a PR-sized unit of work.
 
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
-| 7 | Integration dashboard (Google Docs, Notion, Slack, Calendar) | Surface | High | High |
+| ✅ 7 | Integration dashboard (Google Docs, Notion, Slack, Calendar) | Surface | High | High |
 | 8 | Decision browser page | Surface | High | Medium |
 | 9 | Review request panel on artifact preview | Surface | Medium | Medium |
 | 10 | Impact scoring badges on artifact cards | Surface | Medium | Low |
