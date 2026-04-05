@@ -6,10 +6,12 @@ import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
   type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck, Sparkles, Share2, Settings,
+  Activity, Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
 import { usePersistedState } from "@/hooks/use-persisted-state";
+import { useFeatureStatus } from "@/hooks/use-feature-status";
 
 const iconMap: Record<string, LucideIcon> = {
   calendar: Calendar,
@@ -30,6 +32,7 @@ interface AppSidebarProps {
 export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
+  const { aiConfigured, loading: featureLoading } = useFeatureStatus();
 
   const activeTab = pathname === "/" ? defaultTab : pathname.replace("/", "");
 
@@ -83,29 +86,45 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
       >
         {[
-          { href: "/briefing", label: "Briefing", Icon: Sun },
-          { href: "/repos", label: "Repos", Icon: GitFork },
-          { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck },
-          { href: "/ask", label: "Ask AI", Icon: Sparkles },
-          { href: "/graph", label: "Graph", Icon: Share2 },
-          { href: "/settings", label: "Settings", Icon: Settings },
-        ].map(({ href, label, Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            title={collapsed ? label : undefined}
-            className={cn(
-              "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
-              collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
-              pathname === href
-                ? "bg-accent text-black font-semibold"
-                : "text-text-dim hover:text-text hover:bg-surface-hover",
-            )}
-          >
-            <Icon size={16} />
-            {!collapsed && label}
-          </Link>
-        ))}
+          { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
+          { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
+          { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false },
+          { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
+          { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
+          { href: "/status", label: "Status", Icon: Activity, needsAI: false },
+          { href: "/setup", label: "Setup", Icon: Wrench, needsAI: false },
+          { href: "/settings", label: "Settings", Icon: Settings, needsAI: false },
+        ].map(({ href, label, Icon, needsAI }) => {
+          const degraded = needsAI && !aiConfigured && !featureLoading;
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={collapsed ? `${label}${degraded ? " (needs AI)" : ""}` : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+                pathname === href
+                  ? "bg-accent text-black font-semibold"
+                  : degraded
+                    ? "text-text-muted hover:text-text-dim hover:bg-surface-hover"
+                    : "text-text-dim hover:text-text hover:bg-surface-hover",
+              )}
+            >
+              <Icon size={16} />
+              {!collapsed && (
+                <span className="flex items-center gap-2 flex-1">
+                  {label}
+                  {degraded && (
+                    <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-900/40 text-yellow-500 font-medium">
+                      AI
+                    </span>
+                  )}
+                </span>
+              )}
+            </Link>
+          );
+        })}
         <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
         {tabs.map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
