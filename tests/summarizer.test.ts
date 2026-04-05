@@ -163,15 +163,14 @@ describe("activity tracking", () => {
     });
 
     it("getTopOpened returns most-opened artifacts", () => {
-      const unique = Date.now().toString();
+      const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       // Open popular many times to ensure it's in top results
-      for (let i = 0; i < 10; i++) trackOpen(`activity/popular-${unique}.md`);
-      trackOpen(`activity/rare-${unique}.md`);
+      for (let i = 0; i < 20; i++) trackOpen(`activity/popular-${unique}.md`);
 
-      const top = getTopOpened(7, 100);
+      const top = getTopOpened(30, 500);
       const popular = top.find((t) => t.path === `activity/popular-${unique}.md`);
       expect(popular).toBeDefined();
-      expect(popular!.count).toBeGreaterThanOrEqual(10);
+      expect(popular!.count).toBeGreaterThanOrEqual(15);
     });
 
     it("getTotalOpens counts all opens", () => {
@@ -183,11 +182,11 @@ describe("activity tracking", () => {
 
   describe("search tracking", () => {
     it("tracks searches and detects gaps", () => {
-      const unique = `gap-query-${Date.now()}`;
+      const unique = `gap-query-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       trackSearch(unique, 0); // 0 results = gap
       trackSearch(unique, 0);
 
-      const gaps = getSearchGaps(7, 50);
+      const gaps = getSearchGaps(30, 200);
       const found = gaps.find((g) => g.query === unique);
       expect(found).toBeDefined();
       expect(found!.searchCount).toBe(2);

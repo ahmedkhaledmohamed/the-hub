@@ -39,6 +39,48 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // NDJSON streaming for large workspaces
+    const format = req.nextUrl.searchParams.get("format");
+    if (format === "ndjson") {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          // First line: metadata (groups, generatedAt, etc.)
+          controller.enqueue(encoder.encode(
+            JSON.stringify({
+              _type: "meta",
+              generatedAt: manifest.generatedAt,
+              lastScanReason: (manifest as unknown as Record<string, unknown>).lastScanReason,
+              groupCount: manifest.groups.length,
+              artifactCount: artifacts.length,
+              groups: manifest.groups.map((g) => ({ id: g.id, label: g.label, count: g.count, tab: g.tab })),
+            }) + "\n",
+          ));
+
+          // Subsequent lines: one artifact per line
+          for (const artifact of artifacts) {
+            controller.enqueue(encoder.encode(
+              JSON.stringify({ _type: "artifact", ...artifact }) + "\n",
+            ));
+          }
+
+          // Final line: done marker
+          controller.enqueue(encoder.encode(
+            JSON.stringify({ _type: "done", total: artifacts.length }) + "\n",
+          ));
+
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "application/x-ndjson",
+          "Transfer-Encoding": "chunked",
+        },
+      });
+    }
+
     // No pagination — return all (backward compatible)
     return NextResponse.json(manifest);
   } catch (error) {

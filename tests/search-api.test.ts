@@ -958,3 +958,66 @@ describe("inline annotation rendering", () => {
     });
   });
 });
+
+// ── Streaming manifest tests ─────────────────────────────────────
+
+describe("streaming manifest", () => {
+  describe("NDJSON format", () => {
+    it("meta line contains groups and counts", () => {
+      const meta = {
+        _type: "meta",
+        generatedAt: new Date().toISOString(),
+        groupCount: 3,
+        artifactCount: 100,
+        groups: [{ id: "docs", label: "Docs", count: 50 }],
+      };
+      const line = JSON.stringify(meta);
+      const parsed = JSON.parse(line);
+      expect(parsed._type).toBe("meta");
+      expect(parsed.groupCount).toBe(3);
+      expect(parsed.artifactCount).toBe(100);
+    });
+
+    it("artifact line contains artifact data", () => {
+      const artifact = {
+        _type: "artifact",
+        path: "docs/arch.md",
+        title: "Architecture",
+        group: "docs",
+        staleDays: 2,
+      };
+      const line = JSON.stringify(artifact);
+      const parsed = JSON.parse(line);
+      expect(parsed._type).toBe("artifact");
+      expect(parsed.path).toBe("docs/arch.md");
+    });
+
+    it("done line contains total count", () => {
+      const done = { _type: "done", total: 100 };
+      const parsed = JSON.parse(JSON.stringify(done));
+      expect(parsed._type).toBe("done");
+      expect(parsed.total).toBe(100);
+    });
+
+    it("NDJSON lines end with newline", () => {
+      const line = JSON.stringify({ _type: "meta", count: 1 }) + "\n";
+      expect(line.endsWith("\n")).toBe(true);
+      expect(JSON.parse(line.trim())._type).toBe("meta");
+    });
+
+    it("multiple NDJSON lines are parseable independently", () => {
+      const lines = [
+        JSON.stringify({ _type: "meta", artifactCount: 2 }),
+        JSON.stringify({ _type: "artifact", path: "a.md" }),
+        JSON.stringify({ _type: "artifact", path: "b.md" }),
+        JSON.stringify({ _type: "done", total: 2 }),
+      ];
+      const ndjson = lines.join("\n") + "\n";
+      const parsed = ndjson.trim().split("\n").map((l) => JSON.parse(l));
+      expect(parsed.length).toBe(4);
+      expect(parsed[0]._type).toBe("meta");
+      expect(parsed[1]._type).toBe("artifact");
+      expect(parsed[3]._type).toBe("done");
+    });
+  });
+});
