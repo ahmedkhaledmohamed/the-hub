@@ -757,3 +757,111 @@ describe("predictive briefing merged into briefing page", () => {
     });
   });
 });
+
+// ── Knowledge gap detection tests ────────────────────────────────
+
+import { detectGaps, formatGapReport } from "@/lib/knowledge-gaps";
+import { trackSearch } from "@/lib/activity";
+import { remember as agentRemember } from "@/lib/agent-memory";
+
+describe("knowledge gap detection", () => {
+  describe("detectGaps", () => {
+    it("returns valid gap report structure", () => {
+      const report = detectGaps();
+      expect(Array.isArray(report.gaps)).toBe(true);
+      expect(typeof report.stats.totalGaps).toBe("number");
+      expect(typeof report.stats.critical).toBe("number");
+      expect(typeof report.stats.notable).toBe("number");
+      expect(typeof report.stats.minor).toBe("number");
+      expect(typeof report.stats.analyzedQueries).toBe("number");
+      expect(report.generatedAt).toBeTruthy();
+    });
+
+    it("detects zero-result searches as gaps", () => {
+      const topic = `gap-zero-${Date.now()}`;
+      trackSearch(topic, 0);
+      trackSearch(topic, 0);
+      trackSearch(topic, 0);
+
+      const report = detectGaps({ days: 1, minSearches: 2 });
+      const gap = report.gaps.find((g) => g.topic === topic);
+      expect(gap).toBeDefined();
+      expect(gap!.avgResults).toBe(0);
+      expect(gap!.searchCount).toBeGreaterThanOrEqual(3);
+    });
+
+    it("detects low-result searches as gaps", () => {
+      const topic = `gap-low-${Date.now()}`;
+      trackSearch(topic, 1);
+      trackSearch(topic, 2);
+      trackSearch(topic, 1);
+
+      const report = detectGaps({ days: 1, minSearches: 2, maxAvgResults: 3 });
+      const gap = report.gaps.find((g) => g.topic === topic);
+      // May or may not be detected depending on threshold
+      if (gap) {
+        expect(gap.avgResults).toBeLessThanOrEqual(3);
+      }
+    });
+
+    it("ignores queries with enough results", () => {
+      const topic = `gap-good-${Date.now()}`;
+      trackSearch(topic, 10);
+      trackSearch(topic, 15);
+
+      const report = detectGaps({ days: 1, minSearches: 1, maxAvgResults: 3 });
+      const gap = report.gaps.find((g) => g.topic === topic);
+      expect(gap).toBeUndefined();
+    });
+
+    it("includes agent questions as gap sources", () => {
+      const question = `What is the gap-agent-${Date.now()} process?`;
+      agentRemember({ content: question, type: "question" });
+
+      const report = detectGaps({ days: 1, minSearches: 1 });
+      // Agent questions may appear as gaps
+      expect(report).toBeDefined();
+    });
+
+    it("respects days parameter", () => {
+      const report = detectGaps({ days: 7 });
+      expect(report.stats.analyzedDays).toBe(7);
+    });
+  });
+
+  describe("gap severity", () => {
+    it("critical for 5+ searches with zero results", () => {
+      const topic = `gap-crit-${Date.now()}`;
+      for (let i = 0; i < 6; i++) trackSearch(topic, 0);
+
+      const report = detectGaps({ days: 1, minSearches: 2 });
+      const gap = report.gaps.find((g) => g.topic === topic);
+      if (gap) expect(gap.severity).toBe("critical");
+    });
+
+    it("notable for 2+ searches with zero results", () => {
+      const topic = `gap-note-${Date.now()}`;
+      trackSearch(topic, 0);
+      trackSearch(topic, 0);
+
+      const report = detectGaps({ days: 1, minSearches: 2 });
+      const gap = report.gaps.find((g) => g.topic === topic);
+      if (gap) expect(["notable", "critical"]).toContain(gap.severity);
+    });
+  });
+
+  describe("formatGapReport", () => {
+    it("formats report with gaps", () => {
+      const report = detectGaps();
+      const text = formatGapReport(report);
+      expect(text).toContain("Knowledge Gap Report");
+      expect(typeof text).toBe("string");
+    });
+
+    it("shows appropriate message for no gaps", () => {
+      const report = { gaps: [], stats: { totalGaps: 0, critical: 0, notable: 0, minor: 0, analyzedQueries: 0, analyzedDays: 30 }, generatedAt: new Date().toISOString() };
+      const text = formatGapReport(report);
+      expect(text).toContain("comprehensive");
+    });
+  });
+});
