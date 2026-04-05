@@ -53,6 +53,8 @@ export function IntegrationsDashboard() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<Record<string, { success: boolean; message: string; latencyMs: number }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,6 +90,26 @@ export function IntegrationsDashboard() {
       }));
     }
     setSyncing(null);
+  };
+
+  const testConnection = async (integrationId: string) => {
+    setTesting(integrationId);
+    setTestResult((prev) => ({ ...prev, [integrationId]: undefined as unknown as { success: boolean; message: string; latencyMs: number } }));
+    try {
+      const res = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", integration: integrationId }),
+      });
+      const result = await res.json();
+      setTestResult((prev) => ({ ...prev, [integrationId]: result }));
+    } catch (err) {
+      setTestResult((prev) => ({
+        ...prev,
+        [integrationId]: { success: false, message: (err as Error).message, latencyMs: 0 },
+      }));
+    }
+    setTesting(null);
   };
 
   if (loading && !data) {
@@ -127,6 +149,9 @@ export function IntegrationsDashboard() {
               syncing={syncing === integration.id}
               syncResult={syncResult[integration.id]}
               onSync={() => triggerSync(integration.id)}
+              testingConnection={testing === integration.id}
+              testConnectionResult={testResult[integration.id]}
+              onTestConnection={() => testConnection(integration.id)}
             />
           ))}
         </div>
@@ -142,11 +167,17 @@ function IntegrationCard({
   syncing,
   syncResult,
   onSync,
+  testingConnection,
+  testConnectionResult,
+  onTestConnection,
 }: {
   integration: IntegrationStatus;
   syncing: boolean;
   syncResult?: { ok: boolean; msg: string };
   onSync: () => void;
+  testingConnection: boolean;
+  testConnectionResult?: { success: boolean; message: string; latencyMs: number };
+  onTestConnection: () => void;
 }) {
   const icon = ICONS[integration.id] || <Zap className="w-5 h-5" />;
   const description = DESCRIPTIONS[integration.id] || "";
@@ -179,16 +210,28 @@ function IntegrationCard({
           </div>
         </div>
 
-        {hasSyncAction && integration.configured && (
-          <button
-            onClick={onSync}
-            disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors"
-          >
-            {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-            Sync Now
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {integration.configured && (
+            <button
+              onClick={onTestConnection}
+              disabled={testingConnection}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors"
+            >
+              {testingConnection ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+              Test
+            </button>
+          )}
+          {hasSyncAction && integration.configured && (
+            <button
+              onClick={onSync}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors"
+            >
+              {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Sync Now
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Env vars */}
@@ -233,6 +276,20 @@ function IntegrationCard({
         )}>
           {syncResult.ok ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
           {syncResult.msg}
+        </div>
+      )}
+
+      {/* Test connection result */}
+      {testConnectionResult && (
+        <div className={cn(
+          "flex items-center gap-2 text-xs mt-2 p-2 rounded-lg",
+          testConnectionResult.success ? "bg-green-900/20 text-green-400" : "bg-red-900/20 text-red-400",
+        )}>
+          {testConnectionResult.success ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+          {testConnectionResult.message}
+          {testConnectionResult.latencyMs > 0 && (
+            <span className="text-zinc-500 ml-auto">{testConnectionResult.latencyMs}ms</span>
+          )}
         </div>
       )}
 

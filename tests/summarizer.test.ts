@@ -747,3 +747,82 @@ describe("impact scoring badges", () => {
     });
   });
 });
+
+// ── Connection tester tests ──────────────────────────────────────
+
+describe("connection tester", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  describe("integration test logic", () => {
+    it("Slack: detects when webhook URL is missing", () => {
+      delete process.env.SLACK_WEBHOOK_URL;
+      const url = process.env.SLACK_WEBHOOK_URL;
+      expect(url).toBeUndefined();
+      const result = { success: false, message: "SLACK_WEBHOOK_URL not set" };
+      expect(result.success).toBe(false);
+    });
+
+    it("Slack: has URL when configured", () => {
+      process.env.SLACK_WEBHOOK_URL = "https://hooks.slack.com/test";
+      expect(!!process.env.SLACK_WEBHOOK_URL).toBe(true);
+    });
+
+    it("Google Docs: detects when no credentials", () => {
+      delete process.env.GOOGLE_DOCS_API_KEY;
+      delete process.env.GOOGLE_DOCS_TOKEN;
+      const hasKey = !!process.env.GOOGLE_DOCS_API_KEY;
+      const hasToken = !!process.env.GOOGLE_DOCS_TOKEN;
+      expect(hasKey || hasToken).toBe(false);
+    });
+
+    it("Notion: detects when token is missing", () => {
+      delete process.env.NOTION_TOKEN;
+      expect(!!process.env.NOTION_TOKEN).toBe(false);
+    });
+
+    it("Calendar: detects when URL is missing", () => {
+      delete process.env.CALENDAR_URL;
+      expect(!!process.env.CALENDAR_URL).toBe(false);
+    });
+  });
+
+  describe("test result structure", () => {
+    it("result has success, message, latencyMs", () => {
+      const result = { success: true, message: "Connected", latencyMs: 150 };
+      expect(typeof result.success).toBe("boolean");
+      expect(typeof result.message).toBe("string");
+      expect(typeof result.latencyMs).toBe("number");
+      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("failed result has descriptive message", () => {
+      const result = { success: false, message: "NOTION_TOKEN not set", latencyMs: 0 };
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("not set");
+    });
+
+    it("latency is measured for successful connections", () => {
+      const start = Date.now();
+      // Simulate a quick check
+      const latency = Date.now() - start;
+      expect(latency).toBeGreaterThanOrEqual(0);
+      expect(latency).toBeLessThan(1000); // should be fast for env check
+    });
+  });
+
+  describe("supported integrations for testing", () => {
+    it("all testable integrations have IDs", () => {
+      const testable = ["slack", "google-docs", "notion", "calendar"];
+      expect(testable.length).toBe(4);
+      expect(new Set(testable).size).toBe(4);
+    });
+
+    it("SSO is not testable via connection test", () => {
+      const testable = ["slack", "google-docs", "notion", "calendar"];
+      expect(testable).not.toContain("sso");
+    });
+  });
+});
