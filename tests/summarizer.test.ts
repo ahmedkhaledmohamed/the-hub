@@ -970,3 +970,87 @@ describe("silent catch wiring to error reporter", () => {
     });
   });
 });
+
+// ── Query plan audit tests ───────────────────────────────────────
+
+import {
+  analyzeQuery,
+  getExistingIndexes,
+  ensureRequiredIndexes,
+  runQueryAudit,
+  formatAuditReport,
+} from "@/lib/query-audit";
+
+describe("query plan audit", () => {
+  describe("analyzeQuery", () => {
+    it("analyzes a simple query plan", () => {
+      const result = analyzeQuery("EXPLAIN QUERY PLAN SELECT * FROM artifacts WHERE path = 'test'");
+      expect(result.query).toContain("artifacts");
+      expect(Array.isArray(result.plan)).toBe(true);
+      expect(typeof result.usesIndex).toBe("boolean");
+      expect(typeof result.isFullScan).toBe("boolean");
+    });
+
+    it("handles non-existent table gracefully", () => {
+      const result = analyzeQuery("EXPLAIN QUERY PLAN SELECT * FROM nonexistent_table_xyz WHERE id = 1");
+      expect(result.plan).toBeDefined();
+    });
+  });
+
+  describe("getExistingIndexes", () => {
+    it("returns array of indexes", () => {
+      const indexes = getExistingIndexes();
+      expect(Array.isArray(indexes)).toBe(true);
+      expect(indexes.length).toBeGreaterThan(0);
+      for (const idx of indexes) {
+        expect(idx.table).toBeTruthy();
+        expect(idx.name).toBeTruthy();
+      }
+    });
+  });
+
+  describe("ensureRequiredIndexes", () => {
+    it("creates indexes without error", () => {
+      const created = ensureRequiredIndexes();
+      expect(Array.isArray(created)).toBe(true);
+    });
+
+    it("is idempotent", () => {
+      ensureRequiredIndexes();
+      const created2 = ensureRequiredIndexes();
+      expect(Array.isArray(created2)).toBe(true);
+    });
+  });
+
+  describe("runQueryAudit", () => {
+    it("returns valid audit report", () => {
+      const report = runQueryAudit();
+      expect(Array.isArray(report.queries)).toBe(true);
+      expect(Array.isArray(report.indexes)).toBe(true);
+      expect(Array.isArray(report.missingIndexes)).toBe(true);
+      expect(Array.isArray(report.optimizations)).toBe(true);
+      expect(typeof report.score).toBe("number");
+      expect(report.score).toBeGreaterThanOrEqual(0);
+      expect(report.score).toBeLessThanOrEqual(100);
+      expect(report.generatedAt).toBeTruthy();
+    });
+
+    it("queries have plan details", () => {
+      const report = runQueryAudit();
+      for (const q of report.queries) {
+        expect(q.query).toBeTruthy();
+        expect(Array.isArray(q.plan)).toBe(true);
+      }
+    });
+  });
+
+  describe("formatAuditReport", () => {
+    it("produces readable text", () => {
+      const report = runQueryAudit();
+      const text = formatAuditReport(report);
+      expect(text).toContain("Query Plan Audit");
+      expect(text).toContain("score:");
+      expect(text).toContain("indexes");
+    });
+  });
+});
