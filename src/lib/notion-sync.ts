@@ -172,7 +172,8 @@ export async function fetchPageMeta(
       parentId,
       url: (page.url as string) || `https://notion.so/${pageId}`,
     };
-  } catch {
+  } catch (err) {
+    try { const { reportError } = require("./error-reporter"); reportError("integration", err, { integration: "notion", pageId }); } catch { /* non-critical */ }
     return null;
   }
 }

@@ -108,7 +108,9 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
         const data = await res.json();
         return data.data?.[0]?.embedding || null;
       }
-    } catch { /* fall through to Ollama */ }
+    } catch (err) {
+      try { const { reportError } = require("./error-reporter"); reportError("ai", err, { operation: "embedding-gateway" }); } catch { /* non-critical */ }
+    }
   }
 
   // Try Ollama embeddings
@@ -128,7 +130,9 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
         const data = await res.json();
         return data.embedding || null;
       }
-    } catch { /* no embeddings available */ }
+    } catch (err) {
+      try { const { reportError } = require("./error-reporter"); reportError("ai", err, { operation: "embedding-ollama" }); } catch { /* non-critical */ }
+    }
   }
 
   return null;
