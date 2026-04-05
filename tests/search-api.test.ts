@@ -306,3 +306,208 @@ describe("conflict detection", () => {
     });
   });
 });
+
+// ── Predictive briefing tests ────────────────────────────────────
+
+import {
+  generateBriefing,
+  briefingToText,
+  computeBriefingScore,
+  matchEventsToArtifacts,
+  findStaleFrequentDocs,
+  findRecentHighImpactChanges,
+} from "@/lib/predictive-briefing";
+import type { PredictiveBriefing, BriefingItem, BriefingStats } from "@/lib/predictive-briefing";
+
+describe("predictive briefings", () => {
+  describe("generateBriefing", () => {
+    it("returns valid briefing structure", async () => {
+      const briefing = await generateBriefing();
+      expect(briefing.generatedAt).toBeTruthy();
+      expect(Array.isArray(briefing.items)).toBe(true);
+      expect(Array.isArray(briefing.meetingContext)).toBe(true);
+      expect(Array.isArray(briefing.decayAlerts)).toBe(true);
+      expect(typeof briefing.stats.totalItems).toBe("number");
+      expect(typeof briefing.stats.urgent).toBe("number");
+      expect(typeof briefing.stats.important).toBe("number");
+      expect(typeof briefing.stats.informational).toBe("number");
+      expect(typeof briefing.stats.meetingCount).toBe("number");
+      expect(typeof briefing.stats.decayAlerts).toBe("number");
+    });
+
+    it("AI narrative is null without AI configured", async () => {
+      const saved = process.env.AI_PROVIDER;
+      process.env.AI_PROVIDER = "none";
+      const briefing = await generateBriefing({ useAI: true });
+      expect(briefing.aiNarrative).toBeNull();
+      if (saved) process.env.AI_PROVIDER = saved;
+      else delete process.env.AI_PROVIDER;
+    });
+
+    it("accepts custom changeDays", async () => {
+      const briefing = await generateBriefing({ changeDays: 1 });
+      expect(briefing).toBeTruthy();
+    });
+  });
+
+  describe("matchEventsToArtifacts", () => {
+    it("returns empty for events with no matching artifacts", () => {
+      const result = matchEventsToArtifacts([
+        { title: "xyznonexistent999 meeting", startTime: "2026-04-05T14:00:00Z" },
+      ]);
+      expect(result).toEqual([]);
+    });
+
+    it("returns empty for events with short keywords only", () => {
+      const result = matchEventsToArtifacts([
+        { title: "1:1 w/ AB", startTime: "2026-04-05T10:00:00Z" },
+      ]);
+      expect(result).toEqual([]);
+    });
+
+    it("returns empty for empty events array", () => {
+      expect(matchEventsToArtifacts([])).toEqual([]);
+    });
+
+    it("matches events with relevant keywords to seeded artifacts", () => {
+      // This depends on what's indexed — just verify structure
+      const result = matchEventsToArtifacts([
+        { title: "Architecture Review Planning", startTime: "2026-04-05T14:00:00Z" },
+      ]);
+      expect(Array.isArray(result)).toBe(true);
+      for (const item of result) {
+        expect(item.eventTitle).toBeTruthy();
+        expect(item.eventTime).toBeTruthy();
+        expect(Array.isArray(item.relatedDocs)).toBe(true);
+      }
+    });
+  });
+
+  describe("findStaleFrequentDocs", () => {
+    it("returns array", () => {
+      const result = findStaleFrequentDocs();
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it("accepts custom options", () => {
+      const result = findStaleFrequentDocs({ frequentDays: 30, staleDays: 3, minAccess: 1 });
+      expect(Array.isArray(result)).toBe(true);
+    });
+  });
+
+  describe("findRecentHighImpactChanges", () => {
+    it("returns array", () => {
+      const result = findRecentHighImpactChanges(7);
+      expect(Array.isArray(result)).toBe(true);
+    });
+  });
+
+  describe("briefingToText", () => {
+    it("renders empty briefing", () => {
+      const briefing: PredictiveBriefing = {
+        generatedAt: "2026-04-05T10:00:00Z",
+        items: [],
+        meetingContext: [],
+        decayAlerts: [],
+        aiNarrative: null,
+        stats: { totalItems: 0, urgent: 0, important: 0, informational: 0, meetingCount: 0, decayAlerts: 0 },
+      };
+      const text = briefingToText(briefing);
+      expect(text).toContain("No items require your attention");
+    });
+
+    it("renders urgent items", () => {
+      const briefing: PredictiveBriefing = {
+        generatedAt: "2026-04-05T10:00:00Z",
+        items: [
+          {
+            artifactPath: "docs/arch.md",
+            title: "Architecture",
+            priority: "urgent",
+            reason: "Changed — 3 docs depend on this",
+            summary: null,
+            lastAccessed: null,
+            changedSince: "2026-04-04",
+            relatedEvent: null,
+          },
+        ],
+        meetingContext: [],
+        decayAlerts: [],
+        aiNarrative: null,
+        stats: { totalItems: 1, urgent: 1, important: 0, informational: 0, meetingCount: 0, decayAlerts: 0 },
+      };
+      const text = briefingToText(briefing);
+      expect(text).toContain("1 urgent item");
+      expect(text).toContain("Architecture");
+    });
+
+    it("renders AI narrative when present", () => {
+      const briefing: PredictiveBriefing = {
+        generatedAt: "2026-04-05T10:00:00Z",
+        items: [{ artifactPath: "a.md", title: "A", priority: "informational", reason: "test", summary: null, lastAccessed: null, changedSince: null, relatedEvent: null }],
+        meetingContext: [],
+        decayAlerts: [],
+        aiNarrative: "Good morning! Here is your briefing.",
+        stats: { totalItems: 1, urgent: 0, important: 0, informational: 1, meetingCount: 0, decayAlerts: 0 },
+      };
+      const text = briefingToText(briefing);
+      expect(text).toContain("Good morning!");
+    });
+
+    it("renders meeting context", () => {
+      const briefing: PredictiveBriefing = {
+        generatedAt: "2026-04-05T10:00:00Z",
+        items: [],
+        meetingContext: [
+          { eventTitle: "Sprint Planning", eventTime: "2026-04-05T14:00:00Z", relatedDocs: [{ path: "a.md", title: "A", relevance: "match" }] },
+        ],
+        decayAlerts: [],
+        aiNarrative: null,
+        stats: { totalItems: 0, urgent: 0, important: 0, informational: 0, meetingCount: 1, decayAlerts: 0 },
+      };
+      const text = briefingToText(briefing);
+      expect(text).toContain("Sprint Planning");
+    });
+  });
+
+  describe("computeBriefingScore", () => {
+    it("returns 0 for empty briefing", () => {
+      const briefing: PredictiveBriefing = {
+        generatedAt: "",
+        items: [],
+        meetingContext: [],
+        decayAlerts: [],
+        aiNarrative: null,
+        stats: { totalItems: 0, urgent: 0, important: 0, informational: 0, meetingCount: 0, decayAlerts: 0 },
+      };
+      expect(computeBriefingScore(briefing)).toBe(0);
+    });
+
+    it("weights urgent higher than informational", () => {
+      const makeStats = (overrides: Partial<BriefingStats>): PredictiveBriefing => ({
+        generatedAt: "",
+        items: [],
+        meetingContext: [],
+        decayAlerts: [],
+        aiNarrative: null,
+        stats: { totalItems: 0, urgent: 0, important: 0, informational: 0, meetingCount: 0, decayAlerts: 0, ...overrides },
+      });
+
+      const urgentScore = computeBriefingScore(makeStats({ urgent: 1 }));
+      const infoScore = computeBriefingScore(makeStats({ informational: 1 }));
+      expect(urgentScore).toBeGreaterThan(infoScore);
+    });
+
+    it("includes meeting and decay alert weights", () => {
+      const briefing: PredictiveBriefing = {
+        generatedAt: "",
+        items: [],
+        meetingContext: [],
+        decayAlerts: [],
+        aiNarrative: null,
+        stats: { totalItems: 0, urgent: 0, important: 0, informational: 0, meetingCount: 2, decayAlerts: 3 },
+      };
+      expect(computeBriefingScore(briefing)).toBe(2 * 20 + 3 * 10); // 70
+    });
+  });
+});
