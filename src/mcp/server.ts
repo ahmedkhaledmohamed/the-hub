@@ -408,6 +408,86 @@ async function main() {
     },
   );
 
+  // ── Tool: remember (agent memory write) ─────────────────────────
+
+  server.tool(
+    "remember",
+    "Store an observation, insight, or decision in The Hub's persistent memory. Survives across sessions — use this to remember important context about the workspace.",
+    {
+      content: z.string().describe("What to remember (observation, insight, decision, or question)"),
+      type: z.enum(["observation", "question", "insight", "decision", "context"]).optional().default("observation").describe("Type of memory"),
+      artifactPath: z.string().optional().describe("Related artifact path (if applicable)"),
+      confidence: z.number().optional().default(1.0).describe("Confidence level 0-1"),
+    },
+    async ({ content, type, artifactPath, confidence }) => {
+      try {
+        const { remember } = await import("../lib/agent-memory.js");
+        const id = remember({
+          agentId: "mcp-client",
+          sessionId: `session-${new Date().toISOString().slice(0, 10)}`,
+          content,
+          type,
+          artifactPath,
+          confidence,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Remembered (id: ${id}, type: ${type}): "${content.slice(0, 100)}${content.length > 100 ? "..." : ""}"`,
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Failed to remember: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
+  // ── Tool: recall (agent memory read) ───────────────────────────
+
+  server.tool(
+    "recall",
+    "Recall past observations, insights, and decisions from The Hub's persistent memory. Query by keyword, type, or artifact to retrieve cross-session context.",
+    {
+      search: z.string().optional().describe("Search keyword in memory content"),
+      type: z.enum(["observation", "question", "insight", "decision", "context"]).optional().describe("Filter by type"),
+      artifactPath: z.string().optional().describe("Filter by related artifact"),
+      days: z.number().optional().default(30).describe("Look back N days (default 30)"),
+      limit: z.number().optional().default(20).describe("Max results"),
+    },
+    async ({ search, type, artifactPath, days, limit }) => {
+      try {
+        const { recall: recallFn, getObservationCounts } = await import("../lib/agent-memory.js");
+        const observations = recallFn({ search, type, artifactPath, days, limit });
+        const counts = getObservationCounts();
+
+        if (observations.length === 0) {
+          const totalMemories = Object.values(counts).reduce((s, n) => s + n, 0);
+          return {
+            content: [{
+              type: "text" as const,
+              text: `No memories found${search ? ` for "${search}"` : ""}${type ? ` (type: ${type})` : ""}. Total memories: ${totalMemories}.`,
+            }],
+          };
+        }
+
+        const text = observations.map((o, i) =>
+          `${i + 1}. [${o.type.toUpperCase()}] ${o.content}${o.artifactPath ? `\n   Related: ${o.artifactPath}` : ""}\n   ${o.createdAt} (confidence: ${o.confidence})`
+        ).join("\n\n");
+
+        const countSummary = Object.entries(counts).map(([t, c]) => `${t}: ${c}`).join(", ");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `${observations.length} memor${observations.length === 1 ? "y" : "ies"} found (total: ${countSummary}):\n\n${text}`,
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Failed to recall: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
   server.resource(
@@ -557,7 +637,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 12,
+          tools: 14,
           resources: 3,
           prompts: 5,
         },

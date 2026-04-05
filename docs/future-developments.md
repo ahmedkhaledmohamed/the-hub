@@ -183,7 +183,7 @@ Ordered by strategic value. Each item is a PR-sized unit of work.
 
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
-| 1 | Agent memory API (write observations back) | Agent | Very High | Medium |
+| ✅ 1 | Agent memory API (write observations back) | Agent | Very High | Medium |
 | 2 | Decision query MCP tool ("what was decided about X?") | Agent | Very High | Low |
 | 3 | Auto-context compilation for meetings | Agent | High | Medium |
 | 4 | Knowledge gap detection from search patterns | Agent | High | Medium |
