@@ -89,9 +89,9 @@ flowchart TD
 
     subgraph Interfaces["Interfaces"]
         Web[Web UI - 14 pages]
-        MCP[MCP Server - 12 tools, 3 resources, 5 prompts]
+        MCP[MCP Server - 19 tools, 3 resources, 5 prompts]
         CLI[CLI - hub command]
-        API[REST API - 57 endpoints]
+        API[REST API - 70 endpoints]
         PWA[Progressive Web App]
         SSE[SSE Event Stream]
     end
@@ -203,14 +203,27 @@ flowchart TD
 - **Progressive Web App** — installable on mobile, offline-capable with service worker
 - **Docker deployment** — Dockerfile + docker-compose for containerized hosting
 
+### Agent Intelligence (v4)
+
+- **Agent memory** — AI agents write observations back to The Hub via `remember` MCP tool. Persists across sessions. Query with `recall`.
+- **Decision queries** — "What was decided about authentication?" via `ask_decisions` — returns matching decisions with contradiction detection
+- **Context compilation** — Auto-generate meeting prep packets: related docs, decisions, changes, conflicts via `compile_context`
+- **Knowledge gap detection** — Find topics your workspace lacks docs for based on search patterns via `detect_gaps`
+- **Session tracking** — Track what agents query, surface what changed since last session via `catch_up`
+- **Change pipeline** — File change → decision extraction → impact scoring → notification, fully automatic
+- **Smart summaries** — Semantic change descriptions: "Enterprise pricing changed from $80 to $60/user" instead of "pricing.md modified"
+- **Notifications** — Persistent alerts for review completions, annotations, and high-impact changes
+- **Meeting briefings** — Calendar-aware pre-meeting prep with action items, priority scoring via `meeting_brief`
+- **Performance monitoring** — Benchmark suite with threshold-based regression detection, query plan auditing
+
 ### Interfaces
 
 | Interface | Description |
 |---|---|
 | **Web UI** | 14 pages: briefing, tabs, repos, hygiene, ask, graph, decisions, integrations, status, setup, settings, admin |
-| **MCP Server** | 12 tools, 3 resources (artifact, manifest, status), 5 prompt templates |
+| **MCP Server** | 19 tools, 3 resources (artifact, manifest, status), 5 prompt templates |
 | **CLI** | `hub search`, `hub status`, `hub open`, `hub plugin install`, `hub context compile` |
-| **REST API** | 57 endpoints covering every feature |
+| **REST API** | 70 endpoints covering every feature |
 | **SSE Stream** | Real-time workspace events at `/api/events/stream` |
 | **PWA** | Installable on mobile home screens, offline-capable |
 | **Cursor Extension** | Hub as an editor tab (Cmd+Shift+H) |
@@ -253,7 +266,7 @@ npm run build && npm start
 }
 ```
 
-**Available MCP tools:** search, read_artifact, list_groups, get_manifest, ask_question, generate_content, get_hygiene, get_trends, list_repos, get_decisions, get_impact, get_errors
+**Available MCP tools:** search, read_artifact, list_groups, get_manifest, ask_question, generate_content, get_hygiene, get_trends, list_repos, get_decisions, get_impact, get_errors, remember, recall, ask_decisions, compile_context, detect_gaps, catch_up, meeting_brief
 
 **Available MCP prompts:** summarize_group, draft_status_update, find_conflicts, review_artifact, onboarding_brief
 
@@ -276,7 +289,7 @@ const config: HubConfig = {
 };
 ```
 
-## API (57 endpoints)
+## API (70 endpoints)
 
 Full OpenAPI 3.1 spec available at `/api/docs` when running.
 
@@ -288,7 +301,8 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 | **Intelligence** | `/api/graph`, `/api/trends`, `/api/activity`, `/api/admin`, `/api/decisions`, `/api/impact`, `/api/decay`, `/api/briefing`, `/api/annotations`, `/api/reviews`, `/api/conflicts`, `/api/onboarding` |
 | **Platform** | `/api/plugins`, `/api/marketplace`, `/api/agents`, `/api/webhooks`, `/api/webhooks/test`, `/api/auth/session`, `/api/framework`, `/api/jobs`, `/api/logs`, `/api/errors`, `/api/migrations` |
 | **Network** | `/api/federation`, `/api/sharing`, `/api/contexts`, `/api/google-docs`, `/api/notion`, `/api/slack`, `/api/calendar`, `/api/sso` |
-| **System** | `/api/status`, `/api/setup`, `/api/settings`, `/api/preferences`, `/api/integrations`, `/api/events/stream` |
+| **Agent** | `/api/agent-memory`, `/api/context`, `/api/gaps`, `/api/pipeline`, `/api/digest`, `/api/notifications`, `/api/meeting-brief`, `/api/embeddings`, `/api/backup` |
+| **System** | `/api/status`, `/api/setup`, `/api/settings`, `/api/preferences`, `/api/integrations`, `/api/events/stream`, `/api/benchmarks`, `/api/query-audit` |
 
 ## Tech Stack
 
@@ -299,7 +313,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 - **MCP SDK** (@modelcontextprotocol/sdk) for AI tool integration
 - **marked** + **highlight.js** for markdown rendering
 - **chokidar** for filesystem watching
-- **vitest** for testing (875 tests across 11 suites)
+- **vitest** for testing (1,048 tests across 11 suites)
 
 ## Commands
 
@@ -307,7 +321,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 npm run dev        # Dev server with Turbopack
 npm run build      # Production build
 npm start          # Production server (HTTPS :9001 + HTTP :9002)
-npm test           # Run all 875 tests
+npm test           # Run all 1,048 tests
 npm run mcp        # Start MCP server
 hub search <query> # CLI search
 hub status         # Workspace status
@@ -333,18 +347,20 @@ the-hub/
 │   ├── manifest.json         # PWA manifest
 │   └── sw.js                 # Service worker
 ├── src/
-│   ├── app/                  # Next.js 14 pages + 57 API routes
+│   ├── app/                  # Next.js 14 pages + 70 API routes
 │   ├── components/           # 40+ React components
 │   ├── hooks/                # Client-side hooks (feature status, impact, search)
-│   ├── mcp/                  # MCP server (12 tools, 3 resources, 5 prompts)
-│   ├── lib/                  # 57 library modules
+│   ├── hooks/                # Client-side hooks (feature status, impact, search)
+│   ├── mcp/                  # MCP server (19 tools, 3 resources, 5 prompts)
+│   ├── lib/                  # 69 library modules
 │   └── middleware.ts         # Rate limiting + API authentication
-└── tests/                    # 875 tests across 11 suites
+└── tests/                    # 1,048 tests across 11 suites
 ```
 
 ## Links
 
 - [Landing Page](https://ahmedkhaledmohamed.github.io/the-hub/)
 - [Future Developments](docs/future-developments.md)
+- [Release v3.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v3.0.0)
 - [Release v2.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v2.0.0)
 - [Release v1.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v1.0.0)
