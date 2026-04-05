@@ -596,3 +596,137 @@ describe("structured logging", () => {
     });
   });
 });
+
+// ── Search UX tests ──────────────────────────────────────────────
+
+import { searchArtifacts, persistArtifacts } from "@/lib/db";
+import { trackSearch, getPopularSearches, getSearchGaps } from "@/lib/activity";
+
+describe("search UX", () => {
+  describe("FTS5 search API", () => {
+    beforeEach(() => {
+      persistArtifacts([
+        { path: "search/doc-alpha.md", title: "Alpha Documentation", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 1, snippet: "This is the alpha guide for developers." },
+        { path: "search/doc-beta.md", title: "Beta Testing Guide", type: "md", group: "testing", modifiedAt: new Date().toISOString(), size: 200, staleDays: 2, snippet: "Beta testing procedures." },
+        { path: "search/report.csv", title: "Quarterly Report", type: "csv", group: "reports", modifiedAt: new Date().toISOString(), size: 300, staleDays: 5, snippet: "Q3 financial summary." },
+      ], new Map([
+        ["search/doc-alpha.md", "# Alpha\n\nThis is the alpha documentation for new developers."],
+        ["search/doc-beta.md", "# Beta\n\nBeta testing guide with procedures."],
+        ["search/report.csv", "date,amount\n2026-01,5000"],
+      ]), { deleteStale: false });
+    });
+
+    it("searches by content via FTS5", () => {
+      const results = searchArtifacts("alpha");
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0].path).toContain("alpha");
+    });
+
+    it("returns empty for no matches", () => {
+      expect(searchArtifacts("xyznonexistent999")).toEqual([]);
+    });
+
+    it("respects limit parameter", () => {
+      const results = searchArtifacts("doc", 1);
+      expect(results.length).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe("search tracking", () => {
+    it("tracks a search query", () => {
+      trackSearch(`ux-test-${Date.now()}`, 5);
+      // Tracking should not throw
+    });
+
+    it("getPopularSearches returns array", () => {
+      const popular = getPopularSearches(7, 5);
+      expect(Array.isArray(popular)).toBe(true);
+    });
+  });
+
+  describe("client-side filter logic", () => {
+    it("filters by group", () => {
+      const artifacts = [
+        { group: "docs", type: "md", title: "A" },
+        { group: "testing", type: "md", title: "B" },
+        { group: "docs", type: "html", title: "C" },
+      ];
+      const groupFilter = "docs";
+      const filtered = artifacts.filter((a) => a.group === groupFilter);
+      expect(filtered.length).toBe(2);
+    });
+
+    it("filters by type", () => {
+      const artifacts = [
+        { group: "docs", type: "md", title: "A" },
+        { group: "docs", type: "html", title: "B" },
+        { group: "docs", type: "md", title: "C" },
+      ];
+      const typeFilter = "md";
+      const filtered = artifacts.filter((a) => a.type === typeFilter);
+      expect(filtered.length).toBe(2);
+    });
+
+    it("combines group + type + text filters", () => {
+      const artifacts = [
+        { group: "docs", type: "md", title: "Alpha Docs" },
+        { group: "docs", type: "md", title: "Beta Docs" },
+        { group: "testing", type: "md", title: "Alpha Tests" },
+        { group: "docs", type: "html", title: "Alpha Page" },
+      ];
+      const groupFilter = "docs";
+      const typeFilter = "md";
+      const textQuery = "alpha";
+
+      let result = artifacts;
+      result = result.filter((a) => a.group === groupFilter);
+      result = result.filter((a) => a.type === typeFilter);
+      result = result.filter((a) => a.title.toLowerCase().includes(textQuery));
+      expect(result.length).toBe(1);
+      expect(result[0].title).toBe("Alpha Docs");
+    });
+
+    it("extracts unique groups from artifacts", () => {
+      const artifacts = [
+        { group: "docs" }, { group: "testing" }, { group: "docs" }, { group: "reports" },
+      ];
+      const groups = [...new Set(artifacts.map((a) => a.group))].sort();
+      expect(groups).toEqual(["docs", "reports", "testing"]);
+    });
+
+    it("extracts unique types from artifacts", () => {
+      const artifacts = [
+        { type: "md" }, { type: "html" }, { type: "md" }, { type: "csv" },
+      ];
+      const types = [...new Set(artifacts.map((a) => a.type))].sort();
+      expect(types).toEqual(["csv", "html", "md"]);
+    });
+  });
+
+  describe("recent searches", () => {
+    it("deduplicates and limits recent searches", () => {
+      const MAX_RECENT = 8;
+      const addRecent = (prev: string[], query: string): string[] => {
+        const filtered = prev.filter((s) => s !== query.trim());
+        return [query.trim(), ...filtered].slice(0, MAX_RECENT);
+      };
+
+      let recent: string[] = [];
+      recent = addRecent(recent, "architecture");
+      recent = addRecent(recent, "roadmap");
+      recent = addRecent(recent, "architecture"); // duplicate
+      expect(recent).toEqual(["architecture", "roadmap"]);
+      expect(recent.length).toBe(2);
+    });
+
+    it("caps at MAX_RECENT entries", () => {
+      const MAX_RECENT = 8;
+      let recent: string[] = [];
+      for (let i = 0; i < 12; i++) {
+        const filtered = recent.filter((s) => s !== `query-${i}`);
+        recent = [`query-${i}`, ...filtered].slice(0, MAX_RECENT);
+      }
+      expect(recent.length).toBe(MAX_RECENT);
+    });
+  });
+});

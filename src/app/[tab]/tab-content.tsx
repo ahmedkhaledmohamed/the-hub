@@ -10,7 +10,7 @@ import { ArtifactGrid } from "@/components/artifacts/artifact-grid";
 import { ArtifactPreview } from "@/components/artifacts/artifact-preview";
 import { ArtifactCard } from "@/components/artifacts/artifact-card";
 import { ContextCompiler } from "@/components/context-compiler";
-import { SearchBar } from "@/components/layout/search-bar";
+import { EnhancedSearch } from "@/components/layout/enhanced-search";
 import { relativeTime, cn } from "@/lib/utils";
 import { useRecentArtifacts } from "@/hooks/use-recent-artifacts";
 import { usePinnedArtifacts } from "@/hooks/use-pinned-artifacts";
@@ -48,6 +48,8 @@ export function TabContent({
   const [sortMode, setSortMode] = usePersistedState<SortMode>("sort-mode", "recent");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const { recent, recordView } = useRecentArtifacts();
   const { pinned, togglePin, isPinned } = usePinnedArtifacts();
 
@@ -90,15 +92,21 @@ export function TabContent({
   }, [artifacts, sortMode]);
 
   const filteredArtifacts = useMemo(() => {
+    let result = sortedArtifacts;
+    if (groupFilter) result = result.filter((a) => a.group === groupFilter);
+    if (typeFilter) result = result.filter((a) => a.type === typeFilter);
     const q = search.toLowerCase().trim();
-    if (!q) return sortedArtifacts;
-    return sortedArtifacts.filter(
+    if (!q) return result;
+    return result.filter(
       (a) =>
         a.title.toLowerCase().includes(q) ||
         a.path.toLowerCase().includes(q) ||
         (a.snippet && a.snippet.toLowerCase().includes(q)),
     );
-  }, [sortedArtifacts, search]);
+  }, [sortedArtifacts, search, groupFilter, typeFilter]);
+
+  const availableGroups = useMemo(() => [...new Set(artifacts.map((a) => a.group))].sort(), [artifacts]);
+  const availableTypes = useMemo(() => [...new Set(artifacts.map((a) => a.type))].sort(), [artifacts]);
 
   const pinnedArtifacts = useMemo(() => {
     const pinnedSet = new Set(pinned);
@@ -136,7 +144,17 @@ export function TabContent({
     <div className="p-6">
       <div className="flex items-center gap-4 mb-5">
         <h1 className="text-lg font-semibold">{tabLabel}</h1>
-        <SearchBar value={search} onChange={setSearch} className="w-64" />
+        <EnhancedSearch
+          value={search}
+          onChange={setSearch}
+          groups={availableGroups}
+          types={availableTypes}
+          onGroupFilter={setGroupFilter}
+          onTypeFilter={setTypeFilter}
+          activeGroup={groupFilter}
+          activeType={typeFilter}
+          className="w-80"
+        />
         <div className="flex items-center gap-3 ml-auto text-[12px] text-text-dim">
           <button
             onClick={() => setSortMode(nextSort[sortMode])}
