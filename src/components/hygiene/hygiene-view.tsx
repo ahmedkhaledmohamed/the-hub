@@ -42,6 +42,8 @@ export function HygieneView() {
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
   const [selectedFindings, setSelectedFindings] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
+  const [asyncJobId, setAsyncJobId] = useState<number | null>(null);
+  const [asyncStatus, setAsyncStatus] = useState<string | null>(null);
 
   const load = useCallback((refresh = false) => {
     setLoading(true);
@@ -53,6 +55,36 @@ export function HygieneView() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const startAsyncAnalysis = useCallback(async () => {
+    setAsyncStatus("queuing");
+    try {
+      const res = await fetch("/api/hygiene", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "analyze-async" }),
+      });
+      const data = await res.json();
+      setAsyncJobId(data.jobId);
+      setAsyncStatus("pending");
+
+      // Poll for completion
+      const poll = setInterval(async () => {
+        try {
+          const jobRes = await fetch(`/api/hygiene?job=${data.jobId}`);
+          const job = await jobRes.json();
+          setAsyncStatus(job.status);
+          if (job.status === "completed" || job.status === "failed") {
+            clearInterval(poll);
+            if (job.status === "completed") load(true);
+            setAsyncJobId(null);
+          }
+        } catch { /* continue polling */ }
+      }, 2000);
+    } catch {
+      setAsyncStatus("failed");
+    }
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!report) return [];
@@ -145,6 +177,19 @@ export function HygieneView() {
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
           Re-analyze
+        </button>
+        <button
+          onClick={startAsyncAnalysis}
+          disabled={!!asyncJobId}
+          className="flex items-center gap-1.5 text-[11px] text-text-dim hover:text-accent transition-colors disabled:opacity-50"
+          title="Run analysis in background (for large workspaces)"
+        >
+          {asyncStatus === "pending" || asyncStatus === "running" ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <RefreshCw size={12} />
+          )}
+          {asyncStatus === "pending" ? "Queued..." : asyncStatus === "running" ? "Running..." : "Background"}
         </button>
       </div>
 

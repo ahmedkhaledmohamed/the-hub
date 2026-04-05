@@ -829,3 +829,94 @@ describe("decision browser", () => {
     });
   });
 });
+
+// ── Async hygiene analysis tests ─────────────────────────────────
+
+import {
+  enqueueJob,
+  getJob,
+  registerJobHandler,
+  getJobsByStatus,
+  markJobCompleted,
+  markJobRunning,
+  getJobCounts,
+} from "@/lib/job-queue";
+import { analyzeHygiene } from "@/lib/hygiene-analyzer";
+
+describe("async hygiene analysis", () => {
+  describe("job queue for hygiene", () => {
+    it("enqueues a hygiene-analysis job", () => {
+      const jobId = enqueueJob("hygiene-analysis", { hygieneExclude: [] });
+      expect(jobId).toBeGreaterThan(0);
+
+      const job = getJob(jobId);
+      expect(job).not.toBeNull();
+      expect(job!.type).toBe("hygiene-analysis");
+      expect(job!.status).toBe("pending");
+    });
+
+    it("job payload contains exclude list", () => {
+      const jobId = enqueueJob("hygiene-analysis", { hygieneExclude: ["node_modules", ".git"] });
+      const job = getJob(jobId);
+      const payload = JSON.parse(job!.payload);
+      expect(payload.hygieneExclude).toEqual(["node_modules", ".git"]);
+    });
+
+    it("job transitions through status lifecycle", () => {
+      const jobId = enqueueJob("test-lifecycle", {});
+      expect(getJob(jobId)!.status).toBe("pending");
+
+      markJobRunning(jobId);
+      expect(getJob(jobId)!.status).toBe("running");
+
+      markJobCompleted(jobId, JSON.stringify({ findings: 5 }));
+      expect(getJob(jobId)!.status).toBe("completed");
+      expect(getJob(jobId)!.result).toContain("findings");
+    });
+
+    it("getJobCounts returns counts by status", () => {
+      const counts = getJobCounts();
+      expect(typeof counts.pending).toBe("number");
+      expect(typeof counts.running).toBe("number");
+      expect(typeof counts.completed).toBe("number");
+      expect(typeof counts.failed).toBe("number");
+    });
+  });
+
+  describe("hygiene analysis runs correctly", () => {
+    it("analyzeHygiene returns report structure for empty input", () => {
+      const report = analyzeHygiene([], new Date().toISOString());
+      expect(report.stats.totalFindings).toBe(0);
+      expect(report.stats.filesAnalyzed).toBe(0);
+      expect(Array.isArray(report.findings)).toBe(true);
+    });
+
+    it("report result serializes to JSON for job completion", () => {
+      const report = analyzeHygiene([], new Date().toISOString());
+      const result = JSON.stringify({
+        totalFindings: report.stats.totalFindings,
+        filesAnalyzed: report.stats.filesAnalyzed,
+      });
+      const parsed = JSON.parse(result);
+      expect(typeof parsed.totalFindings).toBe("number");
+      expect(typeof parsed.filesAnalyzed).toBe("number");
+    });
+  });
+
+  describe("async polling simulation", () => {
+    it("job status transitions are queryable for polling", () => {
+      const jobId = enqueueJob("hygiene-poll-test", {});
+
+      // Poll 1: pending
+      expect(getJob(jobId)!.status).toBe("pending");
+
+      // Simulate worker picks up
+      markJobRunning(jobId);
+      expect(getJob(jobId)!.status).toBe("running");
+
+      // Simulate completion
+      markJobCompleted(jobId, "done");
+      expect(getJob(jobId)!.status).toBe("completed");
+    });
+  });
+});
