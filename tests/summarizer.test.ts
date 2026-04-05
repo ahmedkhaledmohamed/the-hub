@@ -187,7 +187,7 @@ describe("activity tracking", () => {
       trackSearch(unique, 0); // 0 results = gap
       trackSearch(unique, 0);
 
-      const gaps = getSearchGaps(1, 10);
+      const gaps = getSearchGaps(7, 50);
       const found = gaps.find((g) => g.query === unique);
       expect(found).toBeDefined();
       expect(found!.searchCount).toBe(2);
@@ -198,7 +198,7 @@ describe("activity tracking", () => {
       trackSearch(unique, 5);
       trackSearch(unique, 5);
 
-      const popular = getPopularSearches(1, 10);
+      const popular = getPopularSearches(7, 50);
       expect(popular.some((p) => p.query === unique)).toBe(true);
     });
   });

@@ -193,7 +193,7 @@ Ordered by strategic value. Each item is a PR-sized unit of work.
 
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
-| 6 | End-to-end change pipeline (change → extract → score → notify) | Realtime | Very High | High |
+| ✅ 6 | End-to-end change pipeline (change → extract → score → notify) | Realtime | Very High | High |
 | 7 | Smart change summaries (semantic, not file-level) | Realtime | High | Medium |
 | 8 | Slack weekly digest generation | Realtime | High | Medium |
 | 9 | Notification system (review/annotation alerts) | Realtime | Medium | Medium |
