@@ -578,3 +578,98 @@ describe("vector index", () => {
     });
   });
 });
+
+// ── Review panel tests (review API used by artifact preview) ─────
+
+import {
+  createReviewRequest,
+  updateReviewStatus,
+  getReviewRequest,
+  getReviewsForArtifact,
+  getPendingReviews,
+  getReviewCounts,
+} from "@/lib/reviews";
+
+describe("review panel", () => {
+  describe("review request lifecycle", () => {
+    it("creates a review and retrieves it for artifact panel", () => {
+      const path = `panel/review-${Date.now()}.md`;
+      const id = createReviewRequest({
+        artifactPath: path,
+        requestedBy: "alice",
+        reviewer: "bob",
+        message: "Please review my changes",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      const reviews = getReviewsForArtifact(path);
+      expect(reviews.length).toBeGreaterThanOrEqual(1);
+      const review = reviews.find((r) => r.id === id);
+      expect(review).toBeDefined();
+      expect(review!.status).toBe("pending");
+      expect(review!.requestedBy).toBe("alice");
+      expect(review!.reviewer).toBe("bob");
+      expect(review!.message).toBe("Please review my changes");
+    });
+
+    it("approves a review from the panel", () => {
+      const id = createReviewRequest({
+        artifactPath: `panel/approve-${Date.now()}.md`,
+        requestedBy: "alice",
+        reviewer: "bob",
+      });
+      updateReviewStatus(id, "approved", "Looks good!");
+      const review = getReviewRequest(id);
+      expect(review!.status).toBe("approved");
+      expect(review!.responseMessage).toBe("Looks good!");
+    });
+
+    it("requests changes from the panel", () => {
+      const id = createReviewRequest({
+        artifactPath: `panel/changes-${Date.now()}.md`,
+        requestedBy: "alice",
+        reviewer: "bob",
+      });
+      updateReviewStatus(id, "changes-requested", "Fix section 3");
+      expect(getReviewRequest(id)!.status).toBe("changes-requested");
+    });
+
+    it("dismisses a review from the panel", () => {
+      const id = createReviewRequest({
+        artifactPath: `panel/dismiss-${Date.now()}.md`,
+        requestedBy: "alice",
+        reviewer: "bob",
+      });
+      updateReviewStatus(id, "dismissed");
+      expect(getReviewRequest(id)!.status).toBe("dismissed");
+    });
+  });
+
+  describe("pending reviews count for panel badge", () => {
+    it("getPendingReviews returns only pending", () => {
+      const pending = getPendingReviews();
+      for (const r of pending) expect(r.status).toBe("pending");
+    });
+
+    it("getReviewCounts includes all statuses", () => {
+      const counts = getReviewCounts();
+      expect(typeof counts.pending).toBe("number");
+      expect(typeof counts.approved).toBe("number");
+      expect(typeof counts["changes-requested"]).toBe("number");
+      expect(typeof counts.dismissed).toBe("number");
+    });
+  });
+
+  describe("multiple reviews per artifact", () => {
+    it("tracks multiple reviewers for same artifact", () => {
+      const path = `panel/multi-${Date.now()}.md`;
+      createReviewRequest({ artifactPath: path, requestedBy: "alice", reviewer: "bob" });
+      createReviewRequest({ artifactPath: path, requestedBy: "alice", reviewer: "charlie" });
+      const reviews = getReviewsForArtifact(path);
+      expect(reviews.length).toBeGreaterThanOrEqual(2);
+      const reviewers = reviews.map((r) => r.reviewer);
+      expect(reviewers).toContain("bob");
+      expect(reviewers).toContain("charlie");
+    });
+  });
+});
