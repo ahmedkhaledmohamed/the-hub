@@ -673,3 +673,121 @@ describe("review panel", () => {
     });
   });
 });
+
+// ── Annotation layer tests ───────────────────────────────────────
+
+import {
+  addAnnotation,
+  getAnnotationsForArtifact,
+  getReplies,
+  getAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
+  getAnnotationCount,
+  getRecentAnnotations,
+  getAnnotatedArtifacts,
+} from "@/lib/annotations";
+
+describe("annotation layer", () => {
+  describe("create and retrieve", () => {
+    it("adds an annotation and retrieves it", () => {
+      const path = `ann/create-${Date.now()}.md`;
+      const id = addAnnotation({
+        artifactPath: path,
+        author: "alice",
+        content: "This section needs clarification.",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      const annotations = getAnnotationsForArtifact(path);
+      expect(annotations.length).toBeGreaterThanOrEqual(1);
+      const ann = annotations.find((a) => a.id === id);
+      expect(ann).toBeDefined();
+      expect(ann!.author).toBe("alice");
+      expect(ann!.content).toBe("This section needs clarification.");
+      expect(ann!.parentId).toBeNull();
+    });
+
+    it("supports line range annotations", () => {
+      const path = `ann/lines-${Date.now()}.md`;
+      const id = addAnnotation({
+        artifactPath: path,
+        content: "Typo on this line",
+        lineStart: 15,
+        lineEnd: 15,
+      });
+      const ann = getAnnotation(id);
+      expect(ann).not.toBeNull();
+      expect(ann!.lineStart).toBe(15);
+      expect(ann!.lineEnd).toBe(15);
+    });
+
+    it("defaults author to anonymous", () => {
+      const path = `ann/anon-${Date.now()}.md`;
+      const id = addAnnotation({ artifactPath: path, content: "Anonymous note" });
+      expect(getAnnotation(id)!.author).toBe("anonymous");
+    });
+  });
+
+  describe("threading (replies)", () => {
+    it("creates a reply to a parent annotation", () => {
+      const path = `ann/thread-${Date.now()}.md`;
+      const parentId = addAnnotation({ artifactPath: path, author: "alice", content: "Question?" });
+      const replyId = addAnnotation({ artifactPath: path, author: "bob", content: "Answer.", parentId });
+
+      const replies = getReplies(parentId);
+      expect(replies.length).toBeGreaterThanOrEqual(1);
+      expect(replies[0].author).toBe("bob");
+      expect(replies[0].parentId).toBe(parentId);
+    });
+
+    it("top-level query excludes replies", () => {
+      const path = `ann/toplevel-${Date.now()}.md`;
+      const parentId = addAnnotation({ artifactPath: path, content: "Parent" });
+      addAnnotation({ artifactPath: path, content: "Reply", parentId });
+
+      const topLevel = getAnnotationsForArtifact(path);
+      // Top-level only (parentId IS NULL)
+      for (const a of topLevel) expect(a.parentId).toBeNull();
+    });
+  });
+
+  describe("update and delete", () => {
+    it("updates annotation content", () => {
+      const id = addAnnotation({ artifactPath: "ann/update.md", content: "Original" });
+      const updated = updateAnnotation(id, "Updated content");
+      expect(updated).toBe(true);
+      expect(getAnnotation(id)!.content).toBe("Updated content");
+    });
+
+    it("deletes an annotation", () => {
+      const id = addAnnotation({ artifactPath: "ann/delete.md", content: "To delete" });
+      expect(deleteAnnotation(id)).toBe(true);
+      expect(getAnnotation(id)).toBeNull();
+    });
+  });
+
+  describe("counts and aggregation", () => {
+    it("getAnnotationCount returns count for path", () => {
+      const path = `ann/count-${Date.now()}.md`;
+      addAnnotation({ artifactPath: path, content: "One" });
+      addAnnotation({ artifactPath: path, content: "Two" });
+      expect(getAnnotationCount(path)).toBeGreaterThanOrEqual(2);
+    });
+
+    it("getRecentAnnotations returns array", () => {
+      const recent = getRecentAnnotations(5);
+      expect(Array.isArray(recent)).toBe(true);
+      expect(recent.length).toBeLessThanOrEqual(5);
+    });
+
+    it("getAnnotatedArtifacts returns path-count pairs", () => {
+      const artifacts = getAnnotatedArtifacts();
+      expect(Array.isArray(artifacts)).toBe(true);
+      for (const a of artifacts) {
+        expect(typeof a.path).toBe("string");
+        expect(typeof a.count).toBe("number");
+      }
+    });
+  });
+});
