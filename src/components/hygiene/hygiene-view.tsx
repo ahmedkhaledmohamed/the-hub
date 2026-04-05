@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ShieldCheck, RefreshCw, AlertTriangle, Copy, FileText,
   Trash2, Archive, Sparkles, ExternalLink, ChevronDown, ChevronRight,
-  Filter,
+  Filter, CheckSquare, Square, Loader2,
 } from "lucide-react";
 import { cn, relativeTime } from "@/lib/utils";
 import type { HygieneFinding, HygieneReport, HygieneFindingType } from "@/lib/types";
@@ -40,6 +40,8 @@ export function HygieneView() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
+  const [selectedFindings, setSelectedFindings] = useState<Set<string>>(new Set());
+  const [batchProcessing, setBatchProcessing] = useState(false);
 
   const load = useCallback((refresh = false) => {
     setLoading(true);
@@ -66,6 +68,51 @@ export function HygieneView() {
     const types = new Set(report.findings.map((f) => f.type));
     return Array.from(types);
   }, [report]);
+
+  const toggleFinding = useCallback((id: string) => {
+    setSelectedFindings((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedFindings(new Set(filtered.map((f) => f.id)));
+  }, [filtered]);
+
+  const selectNone = useCallback(() => {
+    setSelectedFindings(new Set());
+  }, []);
+
+  const batchAction = useCallback(async (action: "archive" | "delete") => {
+    const selectedFindingsArr = filtered.filter((f) => selectedFindings.has(f.id));
+    const paths = new Set<string>();
+    for (const f of selectedFindingsArr) {
+      for (const a of f.artifacts) paths.add(a.path);
+    }
+    const pathList = Array.from(paths);
+    if (pathList.length === 0) return;
+
+    const actionLabel = action === "delete" ? "Delete" : "Archive";
+    if (!confirm(`${actionLabel} ${pathList.length} file(s) from ${selectedFindings.size} finding(s)?`)) return;
+
+    setBatchProcessing(true);
+    let success = 0;
+    for (const path of pathList) {
+      try {
+        const res = await fetch("/api/hygiene/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, path }),
+        });
+        if (res.ok) success++;
+      } catch { /* continue with next */ }
+    }
+    setBatchProcessing(false);
+    setSelectedFindings(new Set());
+    load(true);
+  }, [filtered, selectedFindings, load]);
 
   if (loading && !report) {
     return (
@@ -147,10 +194,52 @@ export function HygieneView() {
         </span>
       </div>
 
+      {/* Batch action bar */}
+      {filtered.length > 0 && (
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <button
+            onClick={selectedFindings.size === filtered.length ? selectNone : selectAll}
+            className="flex items-center gap-1 text-[11px] text-text-dim hover:text-text transition-colors"
+          >
+            {selectedFindings.size === filtered.length ? <CheckSquare size={12} /> : <Square size={12} />}
+            {selectedFindings.size > 0 ? `${selectedFindings.size} selected` : "Select all"}
+          </button>
+          {selectedFindings.size > 0 && (
+            <>
+              <button
+                onClick={() => batchAction("archive")}
+                disabled={batchProcessing}
+                className="flex items-center gap-1 text-[11px] px-2 py-1 bg-orange-900/30 text-orange-400 rounded hover:bg-orange-900/50 disabled:opacity-50 transition-colors"
+              >
+                {batchProcessing ? <Loader2 size={10} className="animate-spin" /> : <Archive size={10} />}
+                Archive selected
+              </button>
+              <button
+                onClick={() => batchAction("delete")}
+                disabled={batchProcessing}
+                className="flex items-center gap-1 text-[11px] px-2 py-1 bg-red-900/30 text-red-400 rounded hover:bg-red-900/50 disabled:opacity-50 transition-colors"
+              >
+                {batchProcessing ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                Delete selected
+              </button>
+              <button onClick={selectNone} className="text-[11px] text-text-muted hover:text-text ml-auto transition-colors">
+                Clear
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Findings */}
       <div className="space-y-2">
         {filtered.map((finding) => (
-          <FindingCard key={finding.id} finding={finding} onAction={() => load(true)} />
+          <FindingCard
+            key={finding.id}
+            finding={finding}
+            onAction={() => load(true)}
+            selected={selectedFindings.has(finding.id)}
+            onToggleSelect={() => toggleFinding(finding.id)}
+          />
         ))}
       </div>
 
@@ -176,7 +265,7 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   );
 }
 
-function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction: () => void }) {
+function FindingCard({ finding, onAction, selected, onToggleSelect }: { finding: HygieneFinding; onAction: () => void; selected?: boolean; onToggleSelect?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [aiReview, setAiReview] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -219,17 +308,26 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
   };
 
   return (
-    <div className="bg-surface border border-border rounded-md overflow-hidden">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-hover transition-colors"
-      >
-        {expanded ? <ChevronDown size={12} className="text-text-dim shrink-0" /> : <ChevronRight size={12} className="text-text-dim shrink-0" />}
+    <div className={cn("bg-surface border rounded-md overflow-hidden", selected ? "border-accent" : "border-border")}>
+      <div className="flex items-center">
+        {onToggleSelect && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+            className="pl-3 pr-1 py-3 text-text-dim hover:text-accent transition-colors shrink-0"
+          >
+            {selected ? <CheckSquare size={14} className="text-accent" /> : <Square size={14} />}
+          </button>
+        )}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex-1 flex items-center gap-3 px-3 py-3 text-left hover:bg-surface-hover transition-colors"
+        >
+          {expanded ? <ChevronDown size={12} className="text-text-dim shrink-0" /> : <ChevronRight size={12} className="text-text-dim shrink-0" />}
 
-        <span
-          className="w-2 h-2 rounded-full shrink-0"
-          style={{ backgroundColor: SEVERITY_COLORS[finding.severity] }}
-        />
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: SEVERITY_COLORS[finding.severity] }}
+          />
 
         <span
           className="text-[10px] px-2 py-0.5 rounded-full shrink-0"
@@ -248,10 +346,11 @@ function FindingCard({ finding, onAction }: { finding: HygieneFinding; onAction:
           {finding.artifacts.map((a) => a.title).join(" ↔ ")}
         </span>
 
-        <span className="text-[10px] text-text-dim shrink-0">
-          {finding.artifacts.length} file{finding.artifacts.length > 1 ? "s" : ""}
-        </span>
-      </button>
+          <span className="text-[10px] text-text-dim shrink-0">
+            {finding.artifacts.length} file{finding.artifacts.length > 1 ? "s" : ""}
+          </span>
+        </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-border">

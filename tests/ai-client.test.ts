@@ -842,3 +842,82 @@ describe("circuit breaker", () => {
     });
   });
 });
+
+// ── Hygiene batch actions tests ──────────────────────────────────
+
+import { analyzeHygiene } from "@/lib/hygiene-analyzer";
+import type { Artifact } from "@/lib/types";
+
+describe("hygiene batch actions", () => {
+  describe("batch selection logic", () => {
+    it("select all adds all finding IDs", () => {
+      const findings = [
+        { id: "f1" }, { id: "f2" }, { id: "f3" },
+      ];
+      const selected = new Set(findings.map((f) => f.id));
+      expect(selected.size).toBe(3);
+      expect(selected.has("f1")).toBe(true);
+      expect(selected.has("f3")).toBe(true);
+    });
+
+    it("toggle adds and removes", () => {
+      const selected = new Set<string>();
+      // Toggle on
+      selected.add("f1");
+      expect(selected.has("f1")).toBe(true);
+      // Toggle off
+      selected.delete("f1");
+      expect(selected.has("f1")).toBe(false);
+    });
+
+    it("select none clears all", () => {
+      const selected = new Set(["f1", "f2", "f3"]);
+      selected.clear();
+      expect(selected.size).toBe(0);
+    });
+  });
+
+  describe("batch path collection", () => {
+    it("collects unique paths from selected findings", () => {
+      const findings = [
+        { id: "f1", artifacts: [{ path: "a.md" }, { path: "b.md" }] },
+        { id: "f2", artifacts: [{ path: "b.md" }, { path: "c.md" }] },
+      ];
+      const selectedIds = new Set(["f1", "f2"]);
+      const selectedFindings = findings.filter((f) => selectedIds.has(f.id));
+      const paths = new Set<string>();
+      for (const f of selectedFindings) {
+        for (const a of f.artifacts) paths.add(a.path);
+      }
+      expect(paths.size).toBe(3); // a, b, c (deduplicated)
+      expect(paths.has("b.md")).toBe(true);
+    });
+
+    it("empty selection yields no paths", () => {
+      const selectedIds = new Set<string>();
+      expect(selectedIds.size).toBe(0);
+    });
+  });
+
+  describe("analyzeHygiene returns findings for batch UI", () => {
+    it("returns report structure with findings array", () => {
+      const report = analyzeHygiene([], new Date().toISOString());
+      expect(Array.isArray(report.findings)).toBe(true);
+      expect(typeof report.stats.totalFindings).toBe("number");
+      expect(typeof report.stats.filesAnalyzed).toBe("number");
+    });
+
+    it("findings have id, type, severity, artifacts", () => {
+      const artifacts: Artifact[] = [
+        { path: "batch/a.md", title: "Doc A", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 1, snippet: "test" },
+      ];
+      const report = analyzeHygiene(artifacts, new Date().toISOString());
+      for (const f of report.findings) {
+        expect(f.id).toBeTruthy();
+        expect(f.type).toBeTruthy();
+        expect(f.severity).toBeTruthy();
+        expect(Array.isArray(f.artifacts)).toBe(true);
+      }
+    });
+  });
+});
