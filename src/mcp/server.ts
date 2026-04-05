@@ -398,6 +398,25 @@ async function main() {
     },
   );
 
+  // ── Tool: detect_gaps ──────────────────────────────────────────
+
+  server.tool(
+    "detect_gaps",
+    "Detect knowledge gaps in the workspace — topics people search for but have no documentation. Helps identify what docs to create next.",
+    {
+      days: z.number().optional().default(30).describe("Look back N days (default 30)"),
+    },
+    async ({ days }) => {
+      try {
+        const { detectGaps, formatGapReport } = await import("../lib/knowledge-gaps.js");
+        const report = detectGaps({ days });
+        return { content: [{ type: "text" as const, text: formatGapReport(report) }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Gap detection failed: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Tool: get_impact ───────────────────────────────────────────
 
   server.tool(
@@ -705,7 +724,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 16,
+          tools: 17,
           resources: 3,
           prompts: 5,
         },
