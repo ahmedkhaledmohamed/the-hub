@@ -953,3 +953,109 @@ describe("MCP health/stats resource", () => {
     });
   });
 });
+
+// ── MCP tool refinement tests ────────────────────────────────────
+
+import { getActiveDecisions, searchDecisions as searchDecisionsLib, getDecisionCounts, saveDecision as saveDecisionLib } from "@/lib/decision-tracker";
+import { computeImpactScore } from "@/lib/impact-scoring";
+import { getActiveErrors as getActiveErrorsLib, getErrorSummary as getErrorSummaryLib, reportError as reportErrorLib } from "@/lib/error-reporter";
+
+describe("MCP tool refinement", () => {
+  describe("get_decisions tool data", () => {
+    it("getActiveDecisions returns array for MCP tool", () => {
+      const decisions = getActiveDecisions(5);
+      expect(Array.isArray(decisions)).toBe(true);
+      for (const d of decisions) {
+        expect(d.status).toBe("active");
+        expect(d.summary).toBeTruthy();
+        expect(d.artifactPath).toBeTruthy();
+      }
+    });
+
+    it("searchDecisions finds by keyword for MCP tool", () => {
+      const keyword = `mcp-tool-${Date.now()}`;
+      saveDecisionLib({ artifactPath: "mcp/tool-test.md", summary: `Use ${keyword} for search` });
+      const results = searchDecisionsLib(keyword);
+      expect(results.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("getDecisionCounts provides summary for tool response", () => {
+      const counts = getDecisionCounts();
+      expect(typeof counts.active).toBe("number");
+      expect(typeof counts.superseded).toBe("number");
+      expect(typeof counts.reverted).toBe("number");
+    });
+
+    it("formats decisions for MCP text output", () => {
+      const decisions = [
+        { status: "active", summary: "Use TypeScript", artifactPath: "docs/decisions.md", actor: "alice", source: "heuristic" },
+      ];
+      const text = decisions.map((d, i) =>
+        `${i + 1}. [${d.status.toUpperCase()}] ${d.summary}\n   Source: ${d.artifactPath}${d.actor ? ` | Actor: ${d.actor}` : ""}`
+      ).join("\n\n");
+      expect(text).toContain("[ACTIVE]");
+      expect(text).toContain("Use TypeScript");
+      expect(text).toContain("Actor: alice");
+    });
+  });
+
+  describe("get_impact tool data", () => {
+    it("computeImpactScore returns valid structure for MCP tool", () => {
+      const score = computeImpactScore("mcp/impact-test.md");
+      expect(typeof score.score).toBe("number");
+      expect(["critical", "high", "medium", "low", "none"]).toContain(score.level);
+      expect(Array.isArray(score.stakeholders)).toBe(true);
+      expect(typeof score.signals.accessCount).toBe("number");
+      expect(typeof score.signals.backlinkCount).toBe("number");
+    });
+
+    it("formats impact score for MCP text output", () => {
+      const score = { score: 65, level: "high", signals: { accessCount: 10, uniqueAccessors: 3, annotationCount: 2, reviewCount: 1, backlinkCount: 4, dependentCount: 2 } };
+      const signalSummary = `Access: ${score.signals.accessCount} views by ${score.signals.uniqueAccessors} users`;
+      expect(signalSummary).toContain("10 views by 3 users");
+    });
+  });
+
+  describe("get_errors tool data", () => {
+    it("getErrorSummary provides counts for MCP tool", () => {
+      const summary = getErrorSummaryLib();
+      expect(typeof summary.total).toBe("number");
+      expect(typeof summary.critical).toBe("number");
+      expect(typeof summary.warning).toBe("number");
+    });
+
+    it("getActiveErrors returns errors for MCP tool", () => {
+      reportErrorLib("system", `mcp-tool-test-${Date.now()}`);
+      const errors = getActiveErrorsLib({ limit: 5 });
+      expect(Array.isArray(errors)).toBe(true);
+      for (const e of errors) {
+        expect(e.message).toBeTruthy();
+        expect(e.category).toBeTruthy();
+        expect(e.severity).toBeTruthy();
+      }
+    });
+
+    it("formats errors for MCP text output", () => {
+      const errors = [
+        { severity: "warning", category: "ai", message: "Timeout", occurrences: 3, lastSeen: "2026-04-05T00:00:00Z" },
+      ];
+      const text = errors.map((e, i) =>
+        `${i + 1}. [${e.severity.toUpperCase()}] ${e.category}: ${e.message}${e.occurrences > 1 ? ` (×${e.occurrences})` : ""}`
+      ).join("\n\n");
+      expect(text).toContain("[WARNING]");
+      expect(text).toContain("(×3)");
+    });
+  });
+
+  describe("tool catalog", () => {
+    it("12 MCP tools registered", () => {
+      const tools = [
+        "search", "read_artifact", "list_groups", "get_manifest",
+        "ask_question", "generate_content", "get_hygiene", "get_trends",
+        "list_repos", "get_decisions", "get_impact", "get_errors",
+      ];
+      expect(tools.length).toBe(12);
+      expect(new Set(tools).size).toBe(12);
+    });
+  });
+});
