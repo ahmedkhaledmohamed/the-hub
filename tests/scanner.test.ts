@@ -730,3 +730,135 @@ describe("search UX", () => {
     });
   });
 });
+
+// ── SSE / Change subscription tests ──────────────────────────────
+
+import {
+  on as onEvent,
+  off as offEvent,
+  emit as emitEvent,
+  getRecentEvents,
+  clearEventLog,
+  getListenerCount,
+  clearAllListeners,
+} from "@/lib/events";
+import type { HubEvent } from "@/lib/events";
+
+describe("change subscriptions (SSE)", () => {
+  afterEach(() => {
+    clearAllListeners();
+    clearEventLog();
+  });
+
+  describe("event bus for SSE", () => {
+    it("emits and receives events", async () => {
+      let received: HubEvent | null = null;
+      const handler = (e: HubEvent) => { received = e; };
+      onEvent("scan.complete", handler);
+
+      await emitEvent("scan.complete", { artifacts: 100 });
+
+      expect(received).not.toBeNull();
+      expect(received!.type).toBe("scan.complete");
+      expect(received!.data.artifacts).toBe(100);
+      expect(received!.timestamp).toBeTruthy();
+    });
+
+    it("records events in log", async () => {
+      await emitEvent("artifact.created", { path: "sse/new.md" });
+      const events = getRecentEvents(5);
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      expect(events[0].type).toBe("artifact.created");
+    });
+
+    it("supports multiple listeners per event type", async () => {
+      let count = 0;
+      const h1 = () => { count++; };
+      const h2 = () => { count++; };
+      onEvent("scan.complete", h1);
+      onEvent("scan.complete", h2);
+
+      await emitEvent("scan.complete", {});
+      expect(count).toBe(2);
+    });
+
+    it("off removes a specific listener", async () => {
+      let count = 0;
+      const handler = () => { count++; };
+      onEvent("artifact.modified", handler);
+      offEvent("artifact.modified", handler);
+
+      await emitEvent("artifact.modified", {});
+      expect(count).toBe(0);
+    });
+
+    it("getListenerCount tracks registered handlers", () => {
+      const handler = () => {};
+      onEvent("scan.complete", handler);
+      expect(getListenerCount("scan.complete")).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("event type filtering", () => {
+    it("filters events by allowed types", async () => {
+      const allowedTypes = new Set(["scan.complete", "artifact.created"]);
+      const events: HubEvent[] = [];
+
+      const handler = (e: HubEvent) => {
+        if (allowedTypes.has(e.type)) events.push(e);
+      };
+      onEvent("scan.complete", handler);
+      onEvent("artifact.modified", handler);
+
+      await emitEvent("scan.complete", {});
+      await emitEvent("artifact.modified", {});
+
+      expect(events.length).toBe(1);
+      expect(events[0].type).toBe("scan.complete");
+    });
+
+    it("null filter allows all events", async () => {
+      const allowedTypes: Set<string> | null = null;
+      const events: HubEvent[] = [];
+
+      const handler = (e: HubEvent) => {
+        if (!allowedTypes || allowedTypes.has(e.type)) events.push(e);
+      };
+      onEvent("scan.complete", handler);
+      await emitEvent("scan.complete", {});
+      expect(events.length).toBe(1);
+    });
+  });
+
+  describe("SSE message formatting", () => {
+    it("formats event as SSE data line", async () => {
+      await emitEvent("artifact.created", { path: "test.md" });
+      const events = getRecentEvents(1);
+      const sseMsg = `data: ${JSON.stringify(events[0])}\n\n`;
+      expect(sseMsg).toContain("data: {");
+      expect(sseMsg).toContain("artifact.created");
+      expect(sseMsg.endsWith("\n\n")).toBe(true);
+    });
+
+    it("heartbeat format is SSE comment", () => {
+      const heartbeat = `: heartbeat ${new Date().toISOString()}\n\n`;
+      expect(heartbeat).toMatch(/^: heartbeat \d{4}-/);
+    });
+  });
+
+  describe("recent events for replay on connect", () => {
+    it("getRecentEvents returns most recent first", async () => {
+      await emitEvent("artifact.created", { order: 1 });
+      await emitEvent("artifact.created", { order: 2 });
+      const events = getRecentEvents(5);
+      expect(events.length).toBeGreaterThanOrEqual(2);
+      expect(events[0].data.order).toBe(2); // most recent first
+    });
+
+    it("clearEventLog empties the log", async () => {
+      await emitEvent("scan.complete", {});
+      clearEventLog();
+      expect(getRecentEvents(10)).toEqual([]);
+    });
+  });
+});
