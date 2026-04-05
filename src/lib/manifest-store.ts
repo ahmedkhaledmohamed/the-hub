@@ -95,6 +95,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* events not critical */ }
 
+      // Trigger embedding auto-generation after scan (non-blocking)
+      try {
+        const { autoGenerateIfNeeded } = require("./embedding-generator");
+        autoGenerateIfNeeded().catch(() => { /* non-blocking */ });
+      } catch { /* non-critical */ }
+
       if (changedCount > 0) {
         console.log(
           `[scan] ${cachedManifest.artifacts.length} artifacts (${reason}) +${changes.added.length} -${changes.removed.length} ~${changes.changed.length}`,
