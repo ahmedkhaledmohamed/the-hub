@@ -330,3 +330,69 @@ export function findContradictions(): Array<{ decisionA: Decision; decisionB: De
 
   return contradictions;
 }
+
+// ── Natural language query ─────────────────────────────────────────
+
+/**
+ * Query decisions using a natural language question.
+ * Extracts keywords, searches across summaries and details,
+ * and finds related contradictions.
+ *
+ * Example: "what was decided about authentication?"
+ * → searches for "authentication", "auth", finds matching decisions + contradictions
+ */
+export function queryDecisions(question: string): {
+  decisions: Decision[];
+  contradictions: Array<{ decisionA: Decision; decisionB: Decision; reason: string }>;
+  keywords: string[];
+} {
+  ensureDecisionTable();
+
+  // Extract keywords from the question (remove stop words)
+  const stopWords = new Set([
+    "what", "was", "were", "is", "are", "the", "a", "an", "about",
+    "how", "when", "who", "why", "did", "does", "do", "have", "has",
+    "been", "decided", "decision", "decisions", "made", "any", "there",
+    "which", "that", "this", "for", "with", "from", "our", "we", "they",
+  ]);
+
+  const keywords = question
+    .toLowerCase()
+    .replace(/[?!.,;:'"]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w));
+
+  if (keywords.length === 0) {
+    return { decisions: getActiveDecisions(20), contradictions: [], keywords: [] };
+  }
+
+  // Search for each keyword and merge results
+  const scoreMap = new Map<number, { decision: Decision; score: number }>();
+
+  for (const keyword of keywords) {
+    const results = searchDecisions(keyword);
+    for (const d of results) {
+      const existing = scoreMap.get(d.id);
+      if (existing) {
+        existing.score += 1; // boost for matching multiple keywords
+      } else {
+        scoreMap.set(d.id, { decision: d, score: 1 });
+      }
+    }
+  }
+
+  // Sort by relevance (number of keyword matches)
+  const decisions = Array.from(scoreMap.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 20)
+    .map((s) => s.decision);
+
+  // Find contradictions among the matched decisions
+  const matchedPaths = new Set(decisions.map((d) => d.artifactPath));
+  const allContradictions = findContradictions();
+  const relevantContradictions = allContradictions.filter(
+    (c) => matchedPaths.has(c.decisionA.artifactPath) || matchedPaths.has(c.decisionB.artifactPath),
+  );
+
+  return { decisions, contradictions: relevantContradictions, keywords };
+}

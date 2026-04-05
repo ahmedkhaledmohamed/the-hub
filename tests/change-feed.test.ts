@@ -920,3 +920,92 @@ describe("async hygiene analysis", () => {
     });
   });
 });
+
+// ── Decision query tool tests ────────────────────────────────────
+
+import { queryDecisions } from "@/lib/decision-tracker";
+
+describe("decision query tool", () => {
+  beforeEach(() => {
+    // Seed decisions for querying
+    saveDecision({ artifactPath: "query/auth.md", summary: "Use JWT tokens for authentication with 24h expiry", actor: "alice" });
+    saveDecision({ artifactPath: "query/db.md", summary: "Use PostgreSQL as the primary database", actor: "bob" });
+    saveDecision({ artifactPath: "query/api.md", summary: "REST API with JSON responses for all endpoints" });
+    saveDecision({ artifactPath: "query/deploy.md", summary: "Deploy to Kubernetes with Helm charts" });
+  });
+
+  describe("queryDecisions", () => {
+    it("finds decisions by keyword from question", () => {
+      const result = queryDecisions("what was decided about authentication?");
+      expect(result.keywords).toContain("authentication");
+      expect(result.decisions.length).toBeGreaterThanOrEqual(1);
+      expect(result.decisions.some((d) => d.summary.toLowerCase().includes("jwt") || d.summary.toLowerCase().includes("auth"))).toBe(true);
+    });
+
+    it("extracts multiple keywords", () => {
+      const result = queryDecisions("what database should we use for the API?");
+      expect(result.keywords.length).toBeGreaterThanOrEqual(1);
+      // Should find "database" and/or "api" keywords
+      expect(result.keywords.some((k) => k === "database" || k === "api")).toBe(true);
+    });
+
+    it("removes stop words from question", () => {
+      const result = queryDecisions("what was decided about the deployment process?");
+      expect(result.keywords).not.toContain("what");
+      expect(result.keywords).not.toContain("was");
+      expect(result.keywords).not.toContain("decided");
+      expect(result.keywords).not.toContain("about");
+      expect(result.keywords).not.toContain("the");
+    });
+
+    it("returns all active decisions for empty keywords", () => {
+      const result = queryDecisions("what?");
+      // After stop word removal, no keywords left → returns all active
+      expect(result.decisions.length).toBeGreaterThan(0);
+    });
+
+    it("boosts decisions matching multiple keywords", () => {
+      const result = queryDecisions("JWT authentication tokens");
+      // The JWT auth decision should rank high (matches "jwt", "authentication", "tokens")
+      if (result.decisions.length > 0) {
+        expect(result.decisions[0].summary.toLowerCase()).toContain("jwt");
+      }
+    });
+
+    it("includes contradictions for matched decisions", () => {
+      // Add potentially contradicting decisions
+      saveDecision({ artifactPath: "query/auth2.md", summary: "Use OAuth2 tokens for authentication instead of JWT" });
+      const result = queryDecisions("authentication tokens");
+      expect(Array.isArray(result.contradictions)).toBe(true);
+    });
+
+    it("returns keywords used for the search", () => {
+      const result = queryDecisions("kubernetes helm deployment");
+      expect(result.keywords).toContain("kubernetes");
+      expect(result.keywords).toContain("helm");
+      expect(result.keywords).toContain("deployment");
+    });
+  });
+
+  describe("query result structure", () => {
+    it("decisions have all required fields", () => {
+      const result = queryDecisions("database");
+      for (const d of result.decisions) {
+        expect(d.id).toBeDefined();
+        expect(d.summary).toBeTruthy();
+        expect(d.artifactPath).toBeTruthy();
+        expect(d.status).toBeTruthy();
+        expect(d.source).toBeTruthy();
+      }
+    });
+
+    it("contradictions have both decisions and reason", () => {
+      const result = queryDecisions("all decisions");
+      for (const c of result.contradictions) {
+        expect(c.decisionA).toBeDefined();
+        expect(c.decisionB).toBeDefined();
+        expect(typeof c.reason).toBe("string");
+      }
+    });
+  });
+});

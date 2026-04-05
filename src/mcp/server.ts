@@ -330,6 +330,54 @@ async function main() {
     },
   );
 
+  // ── Tool: ask_decisions ─────────────────────────────────────────
+
+  server.tool(
+    "ask_decisions",
+    "Ask a natural language question about decisions made in the workspace. E.g., 'what was decided about authentication?' Returns matching decisions with sources and any contradictions.",
+    {
+      question: z.string().describe("Natural language question about decisions (e.g., 'what was decided about auth?')"),
+    },
+    async ({ question }) => {
+      try {
+        const { queryDecisions } = await import("../lib/decision-tracker.js");
+        const result = queryDecisions(question);
+
+        if (result.decisions.length === 0) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `No decisions found for: "${question}"\nKeywords searched: ${result.keywords.join(", ") || "none"}\n\nTry a more specific question, or check if decisions have been extracted from your documents.`,
+            }],
+          };
+        }
+
+        let text = `**${result.decisions.length} decision(s) found** for: "${question}"\nKeywords: ${result.keywords.join(", ")}\n\n`;
+
+        text += result.decisions.map((d, i) => {
+          let entry = `${i + 1}. [${d.status.toUpperCase()}] ${d.summary}`;
+          entry += `\n   Source: ${d.artifactPath}`;
+          if (d.actor) entry += ` | By: ${d.actor}`;
+          if (d.decidedAt) entry += ` | Date: ${d.decidedAt}`;
+          if (d.status === "superseded" && d.supersededBy) entry += ` | Superseded by decision #${d.supersededBy}`;
+          if (d.detail) entry += `\n   Detail: ${d.detail.slice(0, 200)}`;
+          return entry;
+        }).join("\n\n");
+
+        if (result.contradictions.length > 0) {
+          text += `\n\n⚠️ **${result.contradictions.length} potential contradiction(s):**\n`;
+          text += result.contradictions.map((c, i) =>
+            `${i + 1}. "${c.decisionA.summary}" vs "${c.decisionB.summary}"\n   ${c.reason}`
+          ).join("\n\n");
+        }
+
+        return { content: [{ type: "text" as const, text }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Decision query failed: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Tool: get_impact ───────────────────────────────────────────
 
   server.tool(
@@ -637,7 +685,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 14,
+          tools: 15,
           resources: 3,
           prompts: 5,
         },
