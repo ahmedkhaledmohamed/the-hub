@@ -398,6 +398,26 @@ async function main() {
     },
   );
 
+  // ── Tool: catch_up ─────────────────────────────────────────────
+
+  server.tool(
+    "catch_up",
+    "Get a catch-up report: what changed since your last session. Shows updated docs, new decisions, and artifacts you previously asked about that were modified.",
+    {
+      sessionId: z.string().optional().describe("Session ID to catch up from (default: most recent)"),
+    },
+    async ({ sessionId }) => {
+      try {
+        const { generateCatchUp, formatCatchUp, getRecentSessions } = await import("../lib/session-tracker.js");
+        const sid = sessionId || (getRecentSessions(1)[0]?.sessionId as string) || "default";
+        const report = generateCatchUp(sid);
+        return { content: [{ type: "text" as const, text: formatCatchUp(report) }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Catch-up failed: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Tool: detect_gaps ──────────────────────────────────────────
 
   server.tool(
@@ -724,7 +744,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 17,
+          tools: 18,
           resources: 3,
           prompts: 5,
         },
