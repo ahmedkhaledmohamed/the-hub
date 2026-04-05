@@ -8,6 +8,7 @@ import { stalenessInfo, relativeTime, cn } from "@/lib/utils";
 import { usePinnedArtifacts } from "@/hooks/use-pinned-artifacts";
 import { useRecentArtifacts } from "@/hooks/use-recent-artifacts";
 import { ChangeFeed } from "./change-feed";
+import { PredictiveInsights } from "./predictive-insights";
 
 interface MorningBriefingProps {
   artifacts: Artifact[];
@@ -94,6 +95,9 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
           <div className="text-2xl font-bold text-[#e68a00]">{stats.stale}</div>
         </div>
       </div>
+
+      {/* Predictive insights */}
+      <PredictiveInsights />
 
       {/* Active milestones */}
       {activeTimeline.length > 0 && (

@@ -673,3 +673,87 @@ describe("system status", () => {
     });
   });
 });
+
+// ── Predictive briefing integration tests ────────────────────────
+
+import {
+  generateBriefing,
+  computeBriefingScore,
+  matchEventsToArtifacts,
+  findStaleFrequentDocs,
+} from "@/lib/predictive-briefing";
+
+describe("predictive briefing merged into briefing page", () => {
+  describe("generateBriefing for page integration", () => {
+    it("returns all sections needed by PredictiveInsights component", async () => {
+      const briefing = await generateBriefing();
+      // Component expects: items, meetingContext, decayAlerts, stats
+      expect(Array.isArray(briefing.items)).toBe(true);
+      expect(Array.isArray(briefing.meetingContext)).toBe(true);
+      expect(Array.isArray(briefing.decayAlerts)).toBe(true);
+      expect(typeof briefing.stats.totalItems).toBe("number");
+      expect(typeof briefing.stats.urgent).toBe("number");
+      expect(typeof briefing.stats.important).toBe("number");
+      expect(typeof briefing.stats.informational).toBe("number");
+      expect(typeof briefing.stats.meetingCount).toBe("number");
+      expect(typeof briefing.stats.decayAlerts).toBe("number");
+    });
+
+    it("items have required fields for rendering", async () => {
+      const briefing = await generateBriefing();
+      for (const item of briefing.items) {
+        expect(item.artifactPath).toBeDefined();
+        expect(item.title).toBeDefined();
+        expect(["urgent", "important", "informational"]).toContain(item.priority);
+        expect(typeof item.reason).toBe("string");
+      }
+    });
+  });
+
+  describe("computeBriefingScore for dashboard", () => {
+    it("returns numeric score", async () => {
+      const briefing = await generateBriefing();
+      const score = computeBriefingScore(briefing);
+      expect(typeof score).toBe("number");
+      expect(score).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("priority sorting for component", () => {
+    it("items are sorted by priority (urgent first)", async () => {
+      const briefing = await generateBriefing();
+      if (briefing.items.length >= 2) {
+        const priorityOrder = { urgent: 0, important: 1, informational: 2 };
+        for (let i = 1; i < briefing.items.length; i++) {
+          expect(priorityOrder[briefing.items[i].priority])
+            .toBeGreaterThanOrEqual(priorityOrder[briefing.items[i - 1].priority]);
+        }
+      }
+    });
+  });
+
+  describe("meeting context for component", () => {
+    it("meeting items have event title and related docs", async () => {
+      const briefing = await generateBriefing({
+        events: [{ title: "Architecture Review", startTime: "2026-04-05T14:00:00Z" }],
+      });
+      for (const meeting of briefing.meetingContext) {
+        expect(meeting.eventTitle).toBeTruthy();
+        expect(meeting.eventTime).toBeTruthy();
+        expect(Array.isArray(meeting.relatedDocs)).toBe(true);
+      }
+    });
+  });
+
+  describe("decay alerts for component", () => {
+    it("findStaleFrequentDocs returns expected structure", () => {
+      const docs = findStaleFrequentDocs();
+      expect(Array.isArray(docs)).toBe(true);
+      for (const doc of docs) {
+        expect(doc.path).toBeTruthy();
+        expect(doc.title).toBeTruthy();
+        expect(typeof doc.totalAccess).toBe("number");
+      }
+    });
+  });
+});
