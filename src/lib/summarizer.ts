@@ -52,8 +52,8 @@ export function setCachedSummary(hash: string, summary: string, model: string, w
         word_count = excluded.word_count,
         created_at = datetime('now')
     `).run(hash, summary, model, wordCount);
-  } catch {
-    // Non-fatal
+  } catch (err) {
+    try { const { reportError } = require("./error-reporter"); reportError("ai", err, { operation: "cache-summary" }); } catch { /* non-critical */ }
   }
 }
 
