@@ -364,6 +364,98 @@ async function main() {
     },
   );
 
+  // ── Resource: status (health/stats) ──────────────────────────────
+
+  server.resource(
+    "status",
+    "hub://status",
+    {
+      description: "Hub server health and stats — uptime, artifact count, AI status, feature availability, database size.",
+    },
+    async (uri) => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+      const db = await getDb();
+
+      // AI status
+      let aiConfigured = false;
+      let aiProvider: string | null = null;
+      try {
+        const aiClient = await import("../lib/ai-client.js");
+        aiConfigured = aiClient.isAiConfigured();
+        const config = aiClient.getAiConfig();
+        if (config) {
+          if (config.gatewayUrl.includes("anthropic")) aiProvider = "Anthropic";
+          else if (config.gatewayUrl.includes("openai")) aiProvider = "OpenAI";
+          else if (config.gatewayUrl.includes("localhost:11434")) aiProvider = "Ollama";
+          else aiProvider = "Custom";
+        }
+      } catch { /* non-critical */ }
+
+      // DB stats
+      let dbTables = 0;
+      try {
+        const tables = (await import("../lib/db.js")).getDb().prepare(
+          "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).get() as { count: number };
+        dbTables = tables.count;
+      } catch { /* non-critical */ }
+
+      // Feature availability
+      const features = {
+        search: true,
+        hygiene: true,
+        knowledgeGraph: true,
+        changeFeed: true,
+        ragQA: aiConfigured,
+        summarization: aiConfigured,
+        contentGeneration: aiConfigured,
+        smartTriage: aiConfigured,
+      };
+      const availableCount = Object.values(features).filter(Boolean).length;
+
+      const status = {
+        server: {
+          version: "3.0.0",
+          nodeVersion: process.version,
+          platform: process.platform,
+          uptime: Math.round(process.uptime()),
+        },
+        workspace: {
+          artifactCount: manifest.artifacts.length,
+          groupCount: manifest.groups.length,
+          lastScanReason: (manifest as unknown as Record<string, unknown>).lastScanReason || null,
+          generatedAt: manifest.generatedAt,
+        },
+        ai: {
+          configured: aiConfigured,
+          provider: aiProvider,
+        },
+        database: {
+          tables: dbTables,
+        },
+        features: {
+          available: availableCount,
+          total: Object.keys(features).length,
+          details: features,
+        },
+        mcp: {
+          tools: 9,
+          resources: 3,
+          prompts: 5,
+        },
+      };
+
+      return {
+        contents: [{
+          uri: uri.href,
+          text: JSON.stringify(status, null, 2),
+          mimeType: "application/json",
+        }],
+      };
+    },
+  );
+
   // ── Prompt: summarize_group ──────────────────────────────────────
 
   server.prompt(
