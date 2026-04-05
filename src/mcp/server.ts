@@ -291,6 +291,123 @@ async function main() {
     },
   );
 
+  // ── Tool: get_decisions ──────────────────────────────────────────
+
+  server.tool(
+    "get_decisions",
+    "Get tracked decisions from workspace documents. Shows active, superseded, and reverted decisions with sources.",
+    {
+      status: z.enum(["active", "all"]).optional().default("active").describe("Filter: 'active' (default) or 'all'"),
+      search: z.string().optional().describe("Search decisions by keyword"),
+      limit: z.number().optional().default(20).describe("Max results"),
+    },
+    async ({ status, search, limit }) => {
+      try {
+        const { getActiveDecisions, searchDecisions, getDecisionCounts } = await import("../lib/decision-tracker.js");
+        const counts = getDecisionCounts();
+
+        let decisions;
+        if (search) {
+          decisions = searchDecisions(search).slice(0, limit);
+        } else if (status === "all") {
+          decisions = getActiveDecisions(limit * 2).slice(0, limit);
+        } else {
+          decisions = getActiveDecisions(limit);
+        }
+
+        if (decisions.length === 0) {
+          return { content: [{ type: "text" as const, text: `No decisions found.${search ? ` (searched: "${search}")` : ""}\n\nCounts: ${JSON.stringify(counts)}` }] };
+        }
+
+        const text = decisions.map((d, i) =>
+          `${i + 1}. [${d.status.toUpperCase()}] ${d.summary}\n   Source: ${d.artifactPath}${d.actor ? ` | Actor: ${d.actor}` : ""}${d.source === "ai" ? " | AI-extracted" : ""}`
+        ).join("\n\n");
+
+        return { content: [{ type: "text" as const, text: `${decisions.length} decision(s) (${counts.active} active, ${counts.superseded} superseded, ${counts.reverted} reverted):\n\n${text}` }] };
+      } catch {
+        return { content: [{ type: "text" as const, text: "Decision tracking not available." }] };
+      }
+    },
+  );
+
+  // ── Tool: get_impact ───────────────────────────────────────────
+
+  server.tool(
+    "get_impact",
+    "Get impact score for an artifact — who needs to know when this doc changes. Shows stakeholders and signals.",
+    {
+      path: z.string().describe("Artifact path to score"),
+    },
+    async ({ path }) => {
+      try {
+        const { computeImpactScore } = await import("../lib/impact-scoring.js");
+        const score = computeImpactScore(path);
+
+        const stakeholderList = score.stakeholders.length > 0
+          ? score.stakeholders.map((s) => `  - ${s.name} (${s.reason}) — relevance: ${s.relevance}`).join("\n")
+          : "  No stakeholders identified yet.";
+
+        const signalSummary = [
+          `Access: ${score.signals.accessCount} views by ${score.signals.uniqueAccessors} users`,
+          `Annotations: ${score.signals.annotationCount}`,
+          `Reviews: ${score.signals.reviewCount}`,
+          `Backlinks: ${score.signals.backlinkCount} docs depend on this`,
+        ].join(" | ");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `**Impact Score: ${score.score}/100 (${score.level})**\n\n` +
+              `Path: ${score.artifactPath}\n` +
+              `Signals: ${signalSummary}\n\n` +
+              `Stakeholders:\n${stakeholderList}` +
+              (score.downstreamPaths.length > 0 ? `\n\nDownstream docs (${score.downstreamPaths.length}): ${score.downstreamPaths.slice(0, 5).join(", ")}` : ""),
+          }],
+        };
+      } catch {
+        return { content: [{ type: "text" as const, text: "Impact scoring not available." }] };
+      }
+    },
+  );
+
+  // ── Tool: get_errors ───────────────────────────────────────────
+
+  server.tool(
+    "get_errors",
+    "Get recent system errors and warnings. Useful for debugging issues with the Hub.",
+    {
+      category: z.string().optional().describe("Filter by category: scan, search, ai, api, integration, plugin, system, config"),
+      limit: z.number().optional().default(10).describe("Max results"),
+    },
+    async ({ category, limit }) => {
+      try {
+        const { getActiveErrors, getErrorSummary } = await import("../lib/error-reporter.js");
+        const summary = getErrorSummary();
+        const errors = getActiveErrors({
+          category: category as "scan" | "ai" | undefined,
+          limit,
+        });
+
+        if (errors.length === 0 && summary.total === 0) {
+          return { content: [{ type: "text" as const, text: "No active errors. System is healthy." }] };
+        }
+
+        const text = errors.map((e, i) =>
+          `${i + 1}. [${e.severity.toUpperCase()}] ${e.category}: ${e.message}${e.occurrences > 1 ? ` (×${e.occurrences})` : ""}\n   Last seen: ${e.lastSeen}`
+        ).join("\n\n");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `${summary.total} active error(s) (${summary.critical} critical, ${summary.warning} warnings):\n\n${text}`,
+          }],
+        };
+      } catch {
+        return { content: [{ type: "text" as const, text: "Error reporting not available." }] };
+      }
+    },
+  );
+
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
   server.resource(
@@ -440,7 +557,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 9,
+          tools: 12,
           resources: 3,
           prompts: 5,
         },
