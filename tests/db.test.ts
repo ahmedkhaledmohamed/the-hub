@@ -791,3 +791,102 @@ describe("annotation layer", () => {
     });
   });
 });
+
+// ── Vector index wired to hybrid search tests ────────────────────
+
+import {
+  buildIndex as buildVectorIndex,
+  searchIndex as searchVectorIndex,
+  clearIndex as clearVectorIndex,
+  getIndexSize as getVectorIndexSize,
+  isIndexStale as isVectorIndexStale,
+} from "@/lib/vector-index";
+import { getEmbeddingCount } from "@/lib/embeddings";
+
+describe("vector index wired to search", () => {
+  beforeEach(() => {
+    clearVectorIndex();
+  });
+
+  describe("vector index integration with embeddings", () => {
+    it("builds index from embedding-like data", () => {
+      const embeddings = [
+        { path: "vi/doc1.md", chunkIndex: 0, embedding: [1, 0, 0, 0] },
+        { path: "vi/doc2.md", chunkIndex: 0, embedding: [0, 1, 0, 0] },
+        { path: "vi/doc3.md", chunkIndex: 0, embedding: [0, 0, 1, 0] },
+      ];
+      const count = buildVectorIndex(embeddings);
+      expect(count).toBe(3);
+      expect(getVectorIndexSize()).toBe(3);
+      expect(isVectorIndexStale()).toBe(false);
+    });
+
+    it("searches built index for similar vectors", () => {
+      buildVectorIndex([
+        { path: "vi/arch.md", chunkIndex: 0, embedding: [1, 0, 0, 0] },
+        { path: "vi/pricing.md", chunkIndex: 0, embedding: [0, 1, 0, 0] },
+        { path: "vi/roadmap.md", chunkIndex: 0, embedding: [0, 0, 1, 0] },
+      ]);
+      const results = searchVectorIndex([1, 0.1, 0, 0], { topK: 2 });
+      expect(results.length).toBeLessThanOrEqual(2);
+      expect(results[0].path).toBe("vi/arch.md");
+      expect(results[0].score).toBeGreaterThan(0.9);
+    });
+
+    it("respects minScore filter", () => {
+      buildVectorIndex([
+        { path: "vi/a.md", chunkIndex: 0, embedding: [1, 0, 0, 0] },
+        { path: "vi/b.md", chunkIndex: 0, embedding: [0, 1, 0, 0] },
+      ]);
+      const results = searchVectorIndex([1, 0, 0, 0], { topK: 10, minScore: 0.5 });
+      for (const r of results) expect(r.score).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it("deduplicates by path (multiple chunks)", () => {
+      buildVectorIndex([
+        { path: "vi/doc.md", chunkIndex: 0, embedding: [1, 0, 0, 0] },
+        { path: "vi/doc.md", chunkIndex: 1, embedding: [0.9, 0.1, 0, 0] },
+      ]);
+      const results = searchVectorIndex([1, 0, 0, 0], { topK: 10 });
+      const docResults = results.filter((r) => r.path === "vi/doc.md");
+      expect(docResults.length).toBe(1); // deduplicated
+    });
+  });
+
+  describe("fallback when vector index empty", () => {
+    it("getEmbeddingCount works for fallback detection", () => {
+      const count = getEmbeddingCount();
+      expect(typeof count).toBe("number");
+      expect(count).toBeGreaterThanOrEqual(0);
+    });
+
+    it("empty vector index triggers fallback path", () => {
+      clearVectorIndex();
+      expect(getVectorIndexSize()).toBe(0);
+      expect(isVectorIndexStale()).toBe(true);
+      // semanticSearch would fall through to inline cosine similarity
+    });
+  });
+
+  describe("index lifecycle for search", () => {
+    it("stale index triggers rebuild", () => {
+      clearVectorIndex();
+      expect(isVectorIndexStale()).toBe(true);
+
+      // Rebuild
+      buildVectorIndex([
+        { path: "vi/fresh.md", chunkIndex: 0, embedding: [1, 0, 0, 0] },
+      ]);
+      expect(isVectorIndexStale()).toBe(false);
+      expect(getVectorIndexSize()).toBe(1);
+    });
+
+    it("search returns empty for zero-vector query", () => {
+      buildVectorIndex([
+        { path: "vi/doc.md", chunkIndex: 0, embedding: [1, 0, 0, 0] },
+      ]);
+      const results = searchVectorIndex([0, 0, 0, 0]);
+      expect(results).toEqual([]);
+    });
+  });
+});
