@@ -76,6 +76,25 @@ export function regenerate(reason: string = "manual"): Manifest {
         });
       } catch { /* logger not critical */ }
 
+      // Emit events for SSE subscribers
+      try {
+        const { emit } = require("./events");
+        emit("scan.complete", {
+          reason,
+          artifactCount: cachedManifest.artifacts.length,
+          added: changes.added.length,
+          removed: changes.removed.length,
+          changed: changes.changed.length,
+        });
+        // Emit individual artifact events for significant changes
+        for (const path of changes.added.slice(0, 10)) {
+          emit("artifact.created", { path });
+        }
+        for (const path of changes.removed.slice(0, 10)) {
+          emit("artifact.deleted", { path });
+        }
+      } catch { /* events not critical */ }
+
       if (changedCount > 0) {
         console.log(
           `[scan] ${cachedManifest.artifacts.length} artifacts (${reason}) +${changes.added.length} -${changes.removed.length} ~${changes.changed.length}`,
