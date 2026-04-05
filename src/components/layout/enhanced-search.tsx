@@ -215,10 +215,15 @@ export function EnhancedSearch({
       {/* Server search results dropdown */}
       {serverSearch && value.length >= 3 && serverResults.length > 0 && focused && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-surface border border-border rounded-md shadow-lg max-h-72 overflow-y-auto">
-          <div className="px-3 py-1.5 border-b border-border">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
             <span className="text-[10px] text-text-dim uppercase tracking-wider">
               {serverResults.length} result{serverResults.length !== 1 ? "s" : ""}
             </span>
+            {serverResults.some((r) => r.source) && (
+              <span className="text-[9px] text-text-muted">
+                {serverResults.filter((r) => r.source === "semantic" || r.source === "hybrid").length > 0 ? "FTS + semantic" : "FTS only"}
+              </span>
+            )}
           </div>
           {serverResults.map((result) => (
             <div
@@ -227,6 +232,16 @@ export function EnhancedSearch({
             >
               <div className="flex items-center gap-2">
                 <span className="text-[9px] uppercase font-semibold px-1 py-0.5 rounded bg-surface-hover text-text-dim">{result.type}</span>
+                {result.source && (
+                  <span className={cn(
+                    "text-[8px] px-1 py-0.5 rounded font-medium shrink-0",
+                    result.source === "semantic" ? "bg-purple-900/30 text-purple-400" :
+                    result.source === "hybrid" ? "bg-blue-900/30 text-blue-400" :
+                    "bg-zinc-800 text-zinc-500",
+                  )}>
+                    {result.source === "fts" ? "FTS" : result.source === "semantic" ? "AI" : result.source === "hybrid" ? "FTS+AI" : result.source}
+                  </span>
+                )}
                 <span className="text-[12px] font-medium text-text truncate">{result.title}</span>
                 {result.score && (
                   <span className="text-[9px] text-text-muted ml-auto shrink-0">{Math.round(result.score * 100)}%</span>

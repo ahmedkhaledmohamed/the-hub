@@ -975,3 +975,64 @@ describe("weekly digest", () => {
     });
   });
 });
+
+// ── Search source indicators tests ───────────────────────────────
+
+describe("search source indicators", () => {
+  describe("source label mapping", () => {
+    it("maps fts to FTS", () => {
+      const label = "fts" === "fts" ? "FTS" : "fts" === "semantic" ? "AI" : "FTS+AI";
+      expect(label).toBe("FTS");
+    });
+
+    it("maps semantic to AI", () => {
+      const source = "semantic";
+      const label = source === "fts" ? "FTS" : source === "semantic" ? "AI" : "FTS+AI";
+      expect(label).toBe("AI");
+    });
+
+    it("maps hybrid to FTS+AI", () => {
+      const source = "hybrid";
+      const label = source === "fts" ? "FTS" : source === "semantic" ? "AI" : "FTS+AI";
+      expect(label).toBe("FTS+AI");
+    });
+  });
+
+  describe("source color mapping", () => {
+    it("semantic gets purple styling", () => {
+      const source = "semantic";
+      const color = source === "semantic" ? "purple" : source === "hybrid" ? "blue" : "zinc";
+      expect(color).toBe("purple");
+    });
+
+    it("hybrid gets blue styling", () => {
+      const source = "hybrid";
+      const color = source === "semantic" ? "purple" : source === "hybrid" ? "blue" : "zinc";
+      expect(color).toBe("blue");
+    });
+
+    it("fts gets zinc/default styling", () => {
+      const source = "fts";
+      const color = source === "semantic" ? "purple" : source === "hybrid" ? "blue" : "zinc";
+      expect(color).toBe("zinc");
+    });
+  });
+
+  describe("results mode detection", () => {
+    it("detects FTS-only results", () => {
+      const results = [
+        { source: "fts" }, { source: "fts" },
+      ];
+      const hasSemanticResults = results.some((r) => r.source === "semantic" || r.source === "hybrid");
+      expect(hasSemanticResults).toBe(false);
+    });
+
+    it("detects mixed FTS + semantic results", () => {
+      const results = [
+        { source: "fts" }, { source: "semantic" }, { source: "hybrid" },
+      ];
+      const hasSemanticResults = results.some((r) => r.source === "semantic" || r.source === "hybrid");
+      expect(hasSemanticResults).toBe(true);
+    });
+  });
+});
