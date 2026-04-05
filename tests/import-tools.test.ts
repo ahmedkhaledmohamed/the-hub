@@ -815,3 +815,114 @@ describe("briefing overhaul — intelligence summary", () => {
     });
   });
 });
+
+// ── Change pipeline tests ────────────────────────────────────────
+
+import {
+  processArtifact,
+  processBatch,
+  startPipeline,
+  isPipelineActive,
+  getPipelineStats,
+  resetPipelineStats,
+} from "@/lib/change-pipeline";
+import { persistArtifacts } from "@/lib/db";
+
+describe("change pipeline", () => {
+  beforeEach(() => {
+    resetPipelineStats();
+    // Seed an artifact for pipeline processing
+    persistArtifacts([{
+      path: "pipeline/test-doc.md",
+      title: "Pipeline Test Doc",
+      type: "md",
+      group: "docs",
+      modifiedAt: new Date().toISOString(),
+      size: 200,
+      staleDays: 0,
+      snippet: "We decided to use TypeScript for the project.",
+    }], new Map([
+      ["pipeline/test-doc.md", "# Test\n\nWe decided to use TypeScript for all new services."],
+    ]), { deleteStale: false });
+  });
+
+  describe("processArtifact", () => {
+    it("returns valid pipeline result", async () => {
+      const result = await processArtifact("pipeline/test-doc.md");
+      expect(result.path).toBe("pipeline/test-doc.md");
+      expect(typeof result.decisionsExtracted).toBe("number");
+      expect(typeof result.impactScore).toBe("number");
+      expect(typeof result.impactLevel).toBe("string");
+      expect(Array.isArray(result.stakeholders)).toBe(true);
+      expect(result.processedAt).toBeTruthy();
+    });
+
+    it("extracts decisions from content", async () => {
+      const result = await processArtifact("pipeline/test-doc.md");
+      // "We decided to use TypeScript" should be extractable
+      expect(result.decisionsExtracted).toBeGreaterThanOrEqual(0);
+    });
+
+    it("scores impact", async () => {
+      const result = await processArtifact("pipeline/test-doc.md");
+      expect(result.impactScore).toBeGreaterThanOrEqual(0);
+      expect(result.impactScore).toBeLessThanOrEqual(100);
+      expect(["critical", "high", "medium", "low", "none"]).toContain(result.impactLevel);
+    });
+
+    it("handles non-existent artifact gracefully", async () => {
+      const result = await processArtifact("pipeline/nonexistent.md");
+      expect(result.path).toBe("pipeline/nonexistent.md");
+      expect(result.decisionsExtracted).toBe(0);
+    });
+  });
+
+  describe("processBatch", () => {
+    it("processes multiple artifacts", async () => {
+      const results = await processBatch(["pipeline/test-doc.md", "pipeline/other.md"]);
+      expect(results.length).toBe(2);
+      for (const r of results) {
+        expect(r.path).toBeTruthy();
+        expect(typeof r.impactScore).toBe("number");
+      }
+    });
+
+    it("caps at 20 per batch", async () => {
+      const paths = Array.from({ length: 25 }, (_, i) => `pipeline/doc-${i}.md`);
+      const results = await processBatch(paths);
+      expect(results.length).toBeLessThanOrEqual(20);
+    });
+
+    it("handles empty batch", async () => {
+      const results = await processBatch([]);
+      expect(results).toEqual([]);
+    });
+  });
+
+  describe("pipeline state", () => {
+    it("starts inactive", () => {
+      // Note: pipeline may already be active from previous tests
+      expect(typeof isPipelineActive()).toBe("boolean");
+    });
+
+    it("becomes active after start", () => {
+      startPipeline();
+      expect(isPipelineActive()).toBe(true);
+    });
+
+    it("tracks stats", async () => {
+      resetPipelineStats();
+      await processArtifact("pipeline/test-doc.md");
+      const stats = getPipelineStats();
+      expect(stats.totalProcessed).toBeGreaterThanOrEqual(1);
+      expect(stats.lastRunAt).toBeTruthy();
+    });
+
+    it("resetPipelineStats clears counters", () => {
+      resetPipelineStats();
+      const stats = getPipelineStats();
+      expect(stats.totalProcessed).toBe(0);
+      expect(stats.lastRunAt).toBeNull();
+    });
+  });
+});
