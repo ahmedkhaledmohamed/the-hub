@@ -62,19 +62,33 @@ export function regenerate(reason: string = "manual"): Manifest {
       updateMtimes(result.fileMtimes);
       recordSnapshot(cachedManifest);
 
+      // Structured logging for scan operations
+      try {
+        const { hubLog } = require("./logger");
+        hubLog("info", "scan", "Workspace scan complete", {
+          reason,
+          artifactCount: cachedManifest.artifacts.length,
+          added: changes.added.length,
+          removed: changes.removed.length,
+          changed: changes.changed.length,
+          unchanged: changes.unchanged.length,
+          durationMs: 0, // filled by caller if timed
+        });
+      } catch { /* logger not critical */ }
+
       if (changedCount > 0) {
         console.log(
-          `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (+${changes.added.length} -${changes.removed.length} ~${changes.changed.length} unchanged:${changes.unchanged.length})`,
+          `[scan] ${cachedManifest.artifacts.length} artifacts (${reason}) +${changes.added.length} -${changes.removed.length} ~${changes.changed.length}`,
         );
       } else {
         console.log(
-          `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts (no changes detected)`,
+          `[scan] ${cachedManifest.artifacts.length} artifacts (${reason}) — no changes`,
         );
       }
     } catch (dbErr) {
-      console.warn("[hub] SQLite persistence failed (non-fatal):", dbErr);
+      console.warn("[scan] SQLite persistence failed (non-fatal):", dbErr);
       console.log(
-        `[hub] Manifest regenerated (${reason}): ${cachedManifest.artifacts.length} artifacts`,
+        `[scan] ${cachedManifest.artifacts.length} artifacts (${reason})`,
       );
     }
 

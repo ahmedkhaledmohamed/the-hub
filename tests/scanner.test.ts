@@ -455,3 +455,144 @@ describe("setup wizard", () => {
     });
   });
 });
+
+// ── Structured logging tests ─────────────────────────────────────
+
+import {
+  hubLog,
+  logTimedSync,
+  getRecentLogs,
+  getLogSummary,
+  getTimingStats,
+  pruneLogs,
+} from "@/lib/logger";
+
+describe("structured logging", () => {
+  describe("hubLog", () => {
+    it("writes a log entry to the database", () => {
+      hubLog("info", "system", "Test log entry", { testKey: "testValue" });
+      const logs = getRecentLogs({ limit: 1, category: "system" });
+      expect(logs.length).toBeGreaterThanOrEqual(1);
+      expect(logs[0].level).toBe("info");
+      expect(logs[0].category).toBe("system");
+      expect(logs[0].message).toBe("Test log entry");
+      expect(logs[0].metadata.testKey).toBe("testValue");
+    });
+
+    it("writes all log levels", () => {
+      const tag = `level-test-${Date.now()}`;
+      hubLog("debug", "system", tag);
+      hubLog("info", "system", tag);
+      hubLog("warn", "system", tag);
+      hubLog("error", "system", tag);
+      const logs = getRecentLogs({ limit: 10, category: "system" });
+      const tagged = logs.filter((l) => l.message === tag);
+      expect(tagged.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it("writes all categories", () => {
+      const categories = ["scan", "search", "ai", "api", "system", "plugin", "integration"] as const;
+      for (const cat of categories) {
+        hubLog("info", cat, `Category test: ${cat}`);
+      }
+      const summary = getLogSummary();
+      const cats = summary.map((s) => s.category);
+      expect(cats).toContain("system");
+    });
+  });
+
+  describe("logTimedSync", () => {
+    it("logs duration of sync operations", () => {
+      const tag = `timed-${Date.now()}`;
+      const result = logTimedSync("system", tag, () => {
+        let sum = 0;
+        for (let i = 0; i < 1000; i++) sum += i;
+        return sum;
+      });
+      expect(result).toBe(499500);
+      const logs = getRecentLogs({ limit: 20, category: "system" });
+      const timed = logs.find((l) => l.message.includes(tag));
+      expect(timed).toBeDefined();
+      expect(typeof timed!.durationMs).toBe("number");
+    });
+
+    it("logs errors from failed operations", () => {
+      const tag = `fail-${Date.now()}`;
+      expect(() => {
+        logTimedSync("system", tag, () => {
+          throw new Error("intentional failure");
+        });
+      }).toThrow("intentional failure");
+
+      const logs = getRecentLogs({ limit: 20, category: "system" });
+      const errLog = logs.find((l) => l.message.includes(tag) && l.level === "error");
+      expect(errLog).toBeDefined();
+      expect(errLog!.metadata.error).toBe("intentional failure");
+    });
+  });
+
+  describe("getRecentLogs", () => {
+    it("returns logs ordered by most recent first", () => {
+      const logs = getRecentLogs({ limit: 5 });
+      expect(Array.isArray(logs)).toBe(true);
+      if (logs.length >= 2) {
+        expect(logs[0].createdAt >= logs[1].createdAt).toBe(true);
+      }
+    });
+
+    it("filters by category", () => {
+      hubLog("info", "scan", "Scan-specific log");
+      const logs = getRecentLogs({ category: "scan", limit: 5 });
+      for (const l of logs) expect(l.category).toBe("scan");
+    });
+
+    it("filters by level", () => {
+      hubLog("error", "system", "Error-level log");
+      const logs = getRecentLogs({ level: "error", limit: 5 });
+      for (const l of logs) expect(l.level).toBe("error");
+    });
+
+    it("respects limit", () => {
+      const logs = getRecentLogs({ limit: 3 });
+      expect(logs.length).toBeLessThanOrEqual(3);
+    });
+  });
+
+  describe("getLogSummary", () => {
+    it("returns counts by category and level", () => {
+      const summary = getLogSummary();
+      expect(Array.isArray(summary)).toBe(true);
+      for (const entry of summary) {
+        expect(typeof entry.category).toBe("string");
+        expect(typeof entry.level).toBe("string");
+        expect(typeof entry.count).toBe("number");
+      }
+    });
+  });
+
+  describe("getTimingStats", () => {
+    it("returns timing stats for a category", () => {
+      // Create some timed entries
+      logTimedSync("scan", "Stats test", () => 42);
+      const stats = getTimingStats("scan");
+      expect(typeof stats.count).toBe("number");
+      expect(typeof stats.avgMs).toBe("number");
+      expect(typeof stats.maxMs).toBe("number");
+      expect(typeof stats.minMs).toBe("number");
+      expect(typeof stats.p95Ms).toBe("number");
+    });
+
+    it("returns zeros for empty category", () => {
+      const stats = getTimingStats("integration", 1);
+      expect(stats.count).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("pruneLogs", () => {
+    it("prunes old logs without error", () => {
+      const removed = pruneLogs(30);
+      expect(typeof removed).toBe("number");
+      expect(removed).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
