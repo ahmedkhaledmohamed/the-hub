@@ -116,7 +116,7 @@ export function IntelligenceSummary() {
   if (visibleCards.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-3 gap-3 mb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
       {visibleCards.map((card) => (
         <a
           key={card.label}

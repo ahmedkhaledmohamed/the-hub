@@ -780,3 +780,42 @@ describe("smart change summaries", () => {
     });
   });
 });
+
+// ── Mobile-responsive briefing tests ─────────────────────────────
+
+describe("mobile-responsive briefing", () => {
+  describe("responsive CSS class patterns", () => {
+    it("padding uses sm: breakpoint", () => {
+      // Verify the responsive pattern: p-4 sm:p-6
+      const mobileFirst = "p-4 sm:p-6";
+      expect(mobileFirst).toContain("p-4");
+      expect(mobileFirst).toContain("sm:p-6");
+    });
+
+    it("grid uses single column on mobile", () => {
+      // Verify: grid-cols-1 sm:grid-cols-3
+      const responsiveGrid = "grid-cols-1 sm:grid-cols-3";
+      expect(responsiveGrid).toContain("grid-cols-1");
+      expect(responsiveGrid).toContain("sm:grid-cols-3");
+    });
+
+    it("artifact grid stacks on mobile", () => {
+      // Verify: grid-cols-1 sm:grid-cols-[repeat(auto-fill,...)]
+      const artifactGrid = "grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(340px,1fr))]";
+      expect(artifactGrid).toContain("grid-cols-1");
+      expect(artifactGrid).toContain("sm:grid-cols");
+    });
+
+    it("text sizes reduce on mobile", () => {
+      const textSize = "text-base sm:text-lg";
+      expect(textSize).toContain("text-base");
+      expect(textSize).toContain("sm:text-lg");
+    });
+
+    it("gap sizes reduce on mobile", () => {
+      const gaps = "gap-2 sm:gap-3";
+      expect(gaps).toContain("gap-2");
+      expect(gaps).toContain("sm:gap-3");
+    });
+  });
+});

@@ -68,12 +68,12 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
   }, [artifacts]);
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Sun size={20} className="text-yellow-400" />
-        <h1 className="text-lg font-semibold">Morning Briefing</h1>
-        <span className="text-[11px] text-text-dim ml-auto">
-          Last scan {relativeTime(generatedAt)}
+    <div className="p-4 sm:p-6">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Sun size={20} className="text-yellow-400 shrink-0" />
+        <h1 className="text-base sm:text-lg font-semibold">Morning Briefing</h1>
+        <span className="text-[10px] sm:text-[11px] text-text-dim ml-auto whitespace-nowrap">
+          {relativeTime(generatedAt)}
         </span>
       </div>
 
@@ -81,18 +81,18 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
       <IntelligenceSummary />
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-surface border border-border rounded-md px-4 py-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="bg-surface border border-border rounded-md px-3 py-2 sm:px-4 sm:py-3">
           <div className="text-[11px] text-text-dim uppercase tracking-wider mb-1">Total artifacts</div>
           <div className="text-2xl font-bold text-text">{stats.total}</div>
         </div>
-        <div className="bg-surface border border-border rounded-md px-4 py-3">
+        <div className="bg-surface border border-border rounded-md px-3 py-2 sm:px-4 sm:py-3">
           <div className="text-[11px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">
             <Clock size={10} /> Fresh (7d)
           </div>
           <div className="text-2xl font-bold text-[#3b82f6]">{stats.fresh}</div>
         </div>
-        <div className="bg-surface border border-border rounded-md px-4 py-3">
+        <div className="bg-surface border border-border rounded-md px-3 py-2 sm:px-4 sm:py-3">
           <div className="text-[11px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">
             <TrendingDown size={10} /> Stale (30d+)
           </div>
@@ -105,7 +105,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
 
       {/* Active milestones */}
       {activeTimeline.length > 0 && (
-        <section className="mb-6">
+        <section className="mb-4 sm:mb-6">
           <div className="flex items-baseline gap-3 mb-2.5 pb-1.5 border-b border-border">
             <h2 className="text-[14px] font-semibold text-accent">Active Milestones</h2>
           </div>
@@ -130,7 +130,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
 
       {/* Pinned artifacts */}
       {pinnedArtifacts.length > 0 && (
-        <section className="mb-6">
+        <section className="mb-4 sm:mb-6">
           <div className="flex items-baseline gap-3 mb-2.5 pb-1.5 border-b border-border">
             <Star size={14} className="text-yellow-400" fill="currentColor" />
             <h2 className="text-[14px] font-semibold text-text-muted">Pinned</h2>
@@ -138,7 +138,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
               {pinnedArtifacts.length}
             </span>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
             {pinnedArtifacts.map((a) => (
               <ArtifactCard
                 key={a.path}
@@ -154,14 +154,14 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
 
       {/* Recently modified */}
       {recentlyModified.length > 0 && (
-        <section className="mb-6">
+        <section className="mb-4 sm:mb-6">
           <div className="flex items-baseline gap-3 mb-2.5 pb-1.5 border-b border-border">
             <h2 className="text-[14px] font-semibold text-text-muted">Modified Today / Yesterday</h2>
             <span className="text-[11px] text-text-dim bg-surface px-2 py-0.5 rounded-full">
               {recentlyModified.length}
             </span>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
             {recentlyModified.map((a) => (
               <ArtifactCard
                 key={a.path}
@@ -177,7 +177,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
 
       {/* Needs attention */}
       {needsAttention.length > 0 && (
-        <section className="mb-6">
+        <section className="mb-4 sm:mb-6">
           <div className="flex items-baseline gap-3 mb-2.5 pb-1.5 border-b border-border">
             <AlertTriangle size={14} className="text-[#e68a00]" />
             <h2 className="text-[14px] font-semibold text-text-muted">Needs Attention</h2>
@@ -185,7 +185,7 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
               {needsAttention.length}
             </span>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-1.5">
             {needsAttention.map((a) => (
               <ArtifactCard
                 key={a.path}
