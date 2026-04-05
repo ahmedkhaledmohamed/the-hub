@@ -254,9 +254,27 @@ export async function complete(options: AiCompletionOptions): Promise<AiCompleti
       setCachedResponse(options.cacheKey, content, config.model, options.cacheTtl || 3600);
     }
 
+    // Structured logging
+    try {
+      const { hubLog } = require("./logger");
+      hubLog("info", "ai", "AI completion", {
+        model: config.model,
+        cached: false,
+        contentLength: content.length,
+        messageCount: options.messages.length,
+      });
+    } catch { /* logger not critical */ }
+
     return result;
   } catch (err) {
     console.error("[ai-client] Request error:", err);
+    try {
+      const { hubLog } = require("./logger");
+      hubLog("error", "ai", "AI request failed", {
+        model: config.model,
+        error: (err as Error).message,
+      });
+    } catch { /* logger not critical */ }
     return {
       content: "**AI error** — Could not connect to the AI gateway. Check that the server is running.",
       cached: false,
