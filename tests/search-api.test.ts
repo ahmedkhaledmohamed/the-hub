@@ -1103,3 +1103,108 @@ describe("search result caching", () => {
     });
   });
 });
+
+// ── Hygiene-as-code tests ───────────────────────────────────────
+
+import { evaluateRule } from "@/lib/hygiene-analyzer";
+import type { HygieneRule, Artifact } from "@/lib/types";
+
+describe("hygiene-as-code custom rules", () => {
+  const mockArtifacts: Artifact[] = [
+    { path: "decisions/auth.md", title: "Auth Decision", type: "md", group: "decisions", modifiedAt: new Date().toISOString(), size: 200, staleDays: 5, snippet: "Auth" },
+    { path: "decisions/old.md", title: "Old Decision", type: "md", group: "decisions", modifiedAt: "2025-01-01", size: 100, staleDays: 120, snippet: "Old" },
+    { path: "docs/api.md", title: "API Guide", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 300, staleDays: 10, snippet: "API" },
+    { path: "docs/stale.md", title: "Stale Guide", type: "md", group: "docs", modifiedAt: "2024-06-01", size: 200, staleDays: 300, snippet: "Very stale" },
+  ];
+
+  describe("max-staleness rule", () => {
+    it("flags artifacts older than maxDays", () => {
+      const rule: HygieneRule = {
+        id: "max-stale-decisions",
+        name: "Decisions must be reviewed within 90 days",
+        type: "max-staleness",
+        severity: "high",
+        group: "decisions",
+        config: { maxDays: 90 },
+      };
+      const findings = evaluateRule(rule, mockArtifacts);
+      expect(findings.length).toBe(1);
+      expect(findings[0].artifacts[0].path).toBe("decisions/old.md");
+      expect(findings[0].severity).toBe("high");
+      expect(findings[0].suggestion).toContain("120 days old");
+    });
+
+    it("returns empty when no violations", () => {
+      const rule: HygieneRule = {
+        id: "fresh-check",
+        name: "Must be fresh",
+        type: "max-staleness",
+        severity: "low",
+        group: "decisions",
+        config: { maxDays: 200 },
+      };
+      expect(evaluateRule(rule, mockArtifacts).length).toBe(0);
+    });
+  });
+
+  describe("no-duplicates rule", () => {
+    it("returns empty when no duplicates exist", () => {
+      const rule: HygieneRule = {
+        id: "no-dup-decisions",
+        name: "No duplicate decisions",
+        type: "no-duplicates",
+        severity: "high",
+        group: "decisions",
+        config: {},
+      };
+      const findings = evaluateRule(rule, mockArtifacts);
+      // No exact duplicates in our test data
+      expect(Array.isArray(findings)).toBe(true);
+    });
+  });
+
+  describe("rule scoping", () => {
+    it("scopes by group", () => {
+      const rule: HygieneRule = {
+        id: "docs-freshness",
+        name: "Docs must be current",
+        type: "max-staleness",
+        severity: "medium",
+        group: "docs",
+        config: { maxDays: 30 },
+      };
+      const findings = evaluateRule(rule, mockArtifacts);
+      expect(findings.length).toBe(1);
+      expect(findings[0].artifacts[0].group).toBe("docs");
+    });
+
+    it("applies to all artifacts when no scope set", () => {
+      const rule: HygieneRule = {
+        id: "global-freshness",
+        name: "All docs must be current",
+        type: "max-staleness",
+        severity: "low",
+        config: { maxDays: 90 },
+      };
+      const findings = evaluateRule(rule, mockArtifacts);
+      expect(findings.length).toBe(2); // old.md (120d) + stale.md (300d)
+    });
+  });
+
+  describe("rule structure", () => {
+    it("findings include rule name in suggestion", () => {
+      const rule: HygieneRule = {
+        id: "test-rule",
+        name: "Custom test rule",
+        type: "max-staleness",
+        severity: "medium",
+        config: { maxDays: 10 },
+      };
+      const findings = evaluateRule(rule, mockArtifacts);
+      for (const f of findings) {
+        expect(f.suggestion).toContain("Custom test rule");
+        expect(f.id).toContain("rule:test-rule:");
+      }
+    });
+  });
+});

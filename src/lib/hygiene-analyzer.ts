@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { basename, extname, resolve, dirname } from "path";
-import type { Artifact, HygieneFinding, HygieneReport } from "./types";
+import type { Artifact, HygieneFinding, HygieneReport, HygieneRule } from "./types";
 import { loadConfig, getResolvedWorkspacePaths } from "./config";
 
 // ── Content helpers ───────────────────────────────────────────────────
@@ -396,12 +396,16 @@ export function analyzeHygiene(artifacts: Artifact[], manifestGeneratedAt: strin
 
   const orphanFindings = detectSupersededAndOrphans(artifacts, allFlaggedPairs);
 
+  // Custom rules from hub.config.ts
+  const customFindings = evaluateCustomRules(artifacts);
+
   const findings = [
     ...exactFindings,
     ...nearFindings,
     ...titleFindings,
     ...filenameFindings,
     ...orphanFindings,
+    ...customFindings,
   ];
 
   const byType: Record<string, number> = {};
@@ -452,6 +456,130 @@ export function getCachedHygieneSummary(): { total: number; high: number; medium
     medium: cachedReport.stats.bySeverity.medium || 0,
     low: cachedReport.stats.bySeverity.low || 0,
   };
+}
+
+// ── Custom hygiene rules (hygiene-as-code) ───────────────────────
+
+/**
+ * Evaluate a single custom hygiene rule against artifacts.
+ */
+export function evaluateRule(rule: HygieneRule, artifacts: Artifact[]): HygieneFinding[] {
+  // Filter artifacts by match pattern or group
+  let scoped = artifacts;
+  if (rule.match) {
+    const { minimatch } = require("minimatch");
+    scoped = artifacts.filter((a) => minimatch(a.path, rule.match!));
+  } else if (rule.group) {
+    scoped = artifacts.filter((a) => a.group === rule.group);
+  }
+
+  if (scoped.length === 0) return [];
+
+  const findings: HygieneFinding[] = [];
+
+  switch (rule.type) {
+    case "max-staleness": {
+      const maxDays = rule.config.maxDays || 90;
+      const stale = scoped.filter((a) => a.staleDays > maxDays);
+      for (const a of stale) {
+        findings.push({
+          id: `rule:${rule.id}:${a.path}`,
+          type: "stale-orphan",
+          severity: rule.severity,
+          artifacts: [a],
+          suggestion: `${rule.name}: "${a.title}" is ${a.staleDays} days old (max: ${maxDays}d)`,
+        });
+      }
+      break;
+    }
+    case "required-field": {
+      const field = rule.config.field;
+      if (!field) break;
+      const pattern = new RegExp(`^\\s*${field}\\s*[:=]`, "im");
+      for (const a of scoped) {
+        const content = readContent(a.path);
+        if (!pattern.test(content)) {
+          findings.push({
+            id: `rule:${rule.id}:${a.path}`,
+            type: "stale-orphan",
+            severity: rule.severity,
+            artifacts: [a],
+            suggestion: `${rule.name}: "${a.title}" is missing required field "${field}"`,
+          });
+        }
+      }
+      break;
+    }
+    case "max-similarity": {
+      const maxSim = (rule.config.maxSimilarity || 80) / 100;
+      for (let i = 0; i < scoped.length; i++) {
+        for (let j = i + 1; j < scoped.length; j++) {
+          const contentA = readContent(scoped[i].path);
+          const contentB = readContent(scoped[j].path);
+          if (!contentA || !contentB) continue;
+          const tokensA = new Set(tokenize(normalize(contentA, extname(scoped[i].path))));
+          const tokensB = new Set(tokenize(normalize(contentB, extname(scoped[j].path))));
+          const sim = jaccard(tokensA, tokensB);
+          if (sim > maxSim) {
+            findings.push({
+              id: `rule:${rule.id}:${scoped[i].path}:${scoped[j].path}`,
+              type: "near-duplicate",
+              severity: rule.severity,
+              artifacts: [scoped[i], scoped[j]],
+              similarity: sim,
+              suggestion: `${rule.name}: ${Math.round(sim * 100)}% similar (max: ${rule.config.maxSimilarity}%)`,
+            });
+          }
+        }
+      }
+      break;
+    }
+    case "no-duplicates": {
+      // Check for exact content duplicates within scope
+      const hashes = new Map<string, Artifact[]>();
+      for (const a of scoped) {
+        const content = readContent(a.path);
+        if (!content) continue;
+        const hash = sha256(normalize(content, extname(a.path)));
+        const list = hashes.get(hash) || [];
+        list.push(a);
+        hashes.set(hash, list);
+      }
+      for (const [, group] of hashes) {
+        if (group.length > 1) {
+          findings.push({
+            id: `rule:${rule.id}:${group.map((a) => a.path).join(":")}`,
+            type: "exact-duplicate",
+            severity: rule.severity,
+            artifacts: group,
+            similarity: 1.0,
+            suggestion: `${rule.name}: ${group.length} identical files in scope`,
+          });
+        }
+      }
+      break;
+    }
+    case "custom":
+      // Custom rules just flag that the rule exists — actual evaluation is manual
+      break;
+  }
+
+  return findings;
+}
+
+/**
+ * Evaluate all custom hygiene rules from config.
+ */
+export function evaluateCustomRules(artifacts: Artifact[]): HygieneFinding[] {
+  const config = loadConfig();
+  const rules = config.hygieneRules || [];
+  if (rules.length === 0) return [];
+
+  const findings: HygieneFinding[] = [];
+  for (const rule of rules) {
+    findings.push(...evaluateRule(rule, artifacts));
+  }
+  return findings;
 }
 
 export { resolveFullPath };

@@ -158,7 +158,7 @@ Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the
 
 | # | Item | Impact | Effort |
 |---|---|---|---|
-| 16 | Hygiene-as-code — custom rules in hub.config.ts | High | High |
+| 16 | ✅ Hygiene-as-code — custom rules in hub.config.ts | High | High |
 | 17 | Auto-fix suggestions — AI-generated merge diffs for duplicates | High | Medium |
 | 18 | Doc lifecycle states (draft → active → stale → archived) with transition rules | Medium | Medium |
 | 19 | Quality score per artifact + workspace-level health metric | Medium | Medium |
