@@ -89,7 +89,7 @@ flowchart TD
 
     subgraph Interfaces["Interfaces"]
         Web[Web UI - 14 pages]
-        MCP[MCP Server - 19 tools, 3 resources, 5 prompts]
+        MCP[MCP Server - 6 core tools, 3 resources, 5 prompts]
         CLI[CLI - hub command]
         API[REST API - 70 endpoints]
         PWA[Progressive Web App]
@@ -197,11 +197,10 @@ flowchart TD
 - **Notion sync** — page sync with rich block-to-markdown conversion, database queries
 - **Slack integration** — webhook posting, slash commands, change summaries
 - **Calendar integration** — iCal parsing, event-artifact linking, meeting context
-- **Hub-to-Hub federation** — federated search across linked Hub instances with source attribution
-- **Shared instances** — role-based access (admin, read-write, read-only) with per-user activity tracking
-- **Multi-workspace contexts** — switch between configurations without restart
 - **Progressive Web App** — installable on mobile, offline-capable with service worker
 - **Docker deployment** — Dockerfile + docker-compose for containerized hosting
+
+> **Deprecated in v5** (still functional, will be removed in v5.1): Hub-to-Hub federation, shared instances, multi-workspace contexts, Enterprise SSO/SAML, plugin marketplace. See `/api/deprecated` for details.
 
 ### Agent Intelligence (v4)
 
@@ -221,7 +220,7 @@ flowchart TD
 | Interface | Description |
 |---|---|
 | **Web UI** | 14 pages: briefing, tabs, repos, hygiene, ask, graph, decisions, integrations, status, setup, settings, admin |
-| **MCP Server** | 19 tools, 3 resources (artifact, manifest, status), 5 prompt templates |
+| **MCP Server** | 6 core tools (search, read, ask, manifest, groups, decisions), 3 resources, 5 prompts. 19 total with `HUB_MCP_ALL_TOOLS=true` |
 | **CLI** | `hub search`, `hub status`, `hub open`, `hub plugin install`, `hub context compile` |
 | **REST API** | 70 endpoints covering every feature |
 | **SSE Stream** | Real-time workspace events at `/api/events/stream` |
@@ -313,7 +312,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 - **MCP SDK** (@modelcontextprotocol/sdk) for AI tool integration
 - **marked** + **highlight.js** for markdown rendering
 - **chokidar** for filesystem watching
-- **vitest** for testing (1,048 tests across 11 suites)
+- **vitest** for testing (1,129 tests across 11 suites)
 
 ## Commands
 
@@ -321,7 +320,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 npm run dev        # Dev server with Turbopack
 npm run build      # Production build
 npm start          # Production server (HTTPS :9001 + HTTP :9002)
-npm test           # Run all 1,048 tests
+npm test           # Run all 1,129 tests
 npm run mcp        # Start MCP server
 hub search <query> # CLI search
 hub status         # Workspace status
@@ -354,7 +353,7 @@ the-hub/
 │   ├── mcp/                  # MCP server (19 tools, 3 resources, 5 prompts)
 │   ├── lib/                  # 69 library modules
 │   └── middleware.ts         # Rate limiting + API authentication
-└── tests/                    # 1,048 tests across 11 suites
+└── tests/                    # 1,129 tests across 11 suites
 ```
 
 ## Links
