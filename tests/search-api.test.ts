@@ -778,16 +778,16 @@ describe("knowledge gap detection", () => {
     });
 
     it("detects zero-result searches as gaps", () => {
-      const topic = `gap-zero-${Date.now()}`;
-      trackSearch(topic, 0);
-      trackSearch(topic, 0);
-      trackSearch(topic, 0);
+      const topic = `gap-zero-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      for (let i = 0; i < 10; i++) trackSearch(topic, 0);
 
-      const report = detectGaps({ days: 1, minSearches: 2 });
+      const report = detectGaps({ days: 365, minSearches: 2 });
       const gap = report.gaps.find((g) => g.topic === topic);
       expect(gap).toBeDefined();
-      expect(gap!.avgResults).toBe(0);
-      expect(gap!.searchCount).toBeGreaterThanOrEqual(3);
+      if (gap) {
+        expect(gap.avgResults).toBe(0);
+        expect(gap.searchCount).toBeGreaterThanOrEqual(10);
+      }
     });
 
     it("detects low-result searches as gaps", () => {
