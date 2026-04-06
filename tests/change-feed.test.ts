@@ -921,3 +921,120 @@ describe("decision query tool", () => {
     });
   });
 });
+
+// ── Doc lifecycle state tests ───────────────────────────────────
+
+import {
+  getLifecycleState,
+  getEffectiveState,
+  setLifecycleState,
+  getLifecycleSummary,
+  getTransitionHistory,
+  getArtifactsByState,
+  applyAutoTransitions,
+} from "@/lib/doc-lifecycle";
+
+describe("doc lifecycle states", () => {
+  describe("getEffectiveState", () => {
+    it("returns 'active' for artifacts without lifecycle record", () => {
+      expect(getEffectiveState("lifecycle/no-record.md")).toBe("active");
+    });
+  });
+
+  describe("setLifecycleState", () => {
+    it("sets state and returns record", () => {
+      const path = `lifecycle/set-${Date.now()}.md`;
+      const record = setLifecycleState(path, "draft", { changedBy: "user", reason: "New document" });
+      expect(record.path).toBe(path);
+      expect(record.state).toBe("draft");
+      expect(record.changedBy).toBe("user");
+      expect(record.reason).toBe("New document");
+    });
+
+    it("tracks previous state on transition", () => {
+      const path = `lifecycle/transition-${Date.now()}.md`;
+      setLifecycleState(path, "draft");
+      const record = setLifecycleState(path, "active", { reason: "Published" });
+      expect(record.state).toBe("active");
+      expect(record.previousState).toBe("draft");
+    });
+
+    it("logs transition in history", () => {
+      const path = `lifecycle/history-${Date.now()}.md`;
+      setLifecycleState(path, "draft");
+      setLifecycleState(path, "active", { reason: "Published" });
+      setLifecycleState(path, "stale", { reason: "Aged out" });
+
+      const history = getTransitionHistory(path);
+      expect(history.length).toBeGreaterThanOrEqual(2);
+      // Verify all expected transitions are present
+      const transitions = history.map((h) => `${h.from}->${h.to}`);
+      expect(transitions).toContain("active->stale");
+      expect(transitions).toContain("draft->active");
+    });
+  });
+
+  describe("getLifecycleSummary", () => {
+    it("returns counts by state", () => {
+      const ts = Date.now();
+      setLifecycleState(`lifecycle/sum-draft-${ts}.md`, "draft");
+      setLifecycleState(`lifecycle/sum-active-${ts}.md`, "active");
+      setLifecycleState(`lifecycle/sum-stale-${ts}.md`, "stale");
+
+      const summary = getLifecycleSummary();
+      expect(summary.total).toBeGreaterThanOrEqual(3);
+      expect(typeof summary.draft).toBe("number");
+      expect(typeof summary.active).toBe("number");
+      expect(typeof summary.stale).toBe("number");
+      expect(typeof summary.archived).toBe("number");
+    });
+  });
+
+  describe("getArtifactsByState", () => {
+    it("returns artifacts in a specific state", () => {
+      const ts = Date.now();
+      setLifecycleState(`lifecycle/by-state-${ts}.md`, "archived", { reason: "test" });
+
+      const archived = getArtifactsByState("archived");
+      expect(archived.some((r) => r.path === `lifecycle/by-state-${ts}.md`)).toBe(true);
+    });
+  });
+
+  describe("applyAutoTransitions", () => {
+    it("transitions active → stale when past threshold", () => {
+      const path = `lifecycle/auto-stale-${Date.now()}.md`;
+      setLifecycleState(path, "active");
+
+      const count = applyAutoTransitions([{ path, staleDays: 100 }], { stale: 90 });
+      expect(count).toBe(1);
+      expect(getEffectiveState(path)).toBe("stale");
+    });
+
+    it("transitions to archived when past archive threshold", () => {
+      const path = `lifecycle/auto-archive-${Date.now()}.md`;
+      setLifecycleState(path, "active");
+
+      const count = applyAutoTransitions([{ path, staleDays: 400 }], { archive: 365 });
+      expect(count).toBe(1);
+      expect(getEffectiveState(path)).toBe("archived");
+    });
+
+    it("reactivates stale docs when updated", () => {
+      const path = `lifecycle/auto-reactivate-${Date.now()}.md`;
+      setLifecycleState(path, "stale");
+
+      const count = applyAutoTransitions([{ path, staleDays: 3 }], { fresh: 7 });
+      expect(count).toBe(1);
+      expect(getEffectiveState(path)).toBe("active");
+    });
+
+    it("does not transition fresh active docs", () => {
+      const path = `lifecycle/auto-fresh-${Date.now()}.md`;
+      setLifecycleState(path, "active");
+
+      const count = applyAutoTransitions([{ path, staleDays: 5 }]);
+      expect(count).toBe(0);
+      expect(getEffectiveState(path)).toBe("active");
+    });
+  });
+});
