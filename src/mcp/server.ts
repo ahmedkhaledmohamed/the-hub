@@ -681,8 +681,8 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: coreToolCount,
-          resources: 3,
+          tools: 13,
+          resources: 4,
           prompts: 5,
         },
       };
@@ -691,6 +691,74 @@ async function main() {
         contents: [{
           uri: uri.href,
           text: JSON.stringify(status, null, 2),
+          mimeType: "application/json",
+        }],
+      };
+    },
+  );
+
+  // ── Resource: health (workspace health summary) ──────────────────
+
+  server.resource(
+    "health",
+    "hub://health",
+    {
+      description: "Workspace health: hygiene score, staleness distribution, freshness, trend alerts, and quality metrics.",
+    },
+    async (uri) => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+
+      // Staleness distribution
+      const fresh = manifest.artifacts.filter((a) => a.staleDays <= 7).length;
+      const aging = manifest.artifacts.filter((a) => a.staleDays > 7 && a.staleDays <= 90).length;
+      const stale = manifest.artifacts.filter((a) => a.staleDays > 90).length;
+      const total = manifest.artifacts.length;
+      const freshPercent = total > 0 ? Math.round((fresh / total) * 100) : 0;
+      const stalePercent = total > 0 ? Math.round((stale / total) * 100) : 0;
+
+      // Hygiene summary
+      let hygiene = { totalFindings: 0, highCount: 0, mediumCount: 0, lowCount: 0 };
+      try {
+        const { getCachedHygieneSummary } = await import("../lib/hygiene-analyzer.js");
+        const cached = getCachedHygieneSummary();
+        if (cached) hygiene = cached;
+      } catch { /* non-critical */ }
+
+      // Trend alerts
+      let alerts: Array<{ groupLabel: string; currentStalePercent: number; predictedStalePercent: number; predictedDate: string }> = [];
+      try {
+        const lib = await getTrendsLib();
+        alerts = lib.getPredictiveAlerts(manifest);
+      } catch { /* non-critical */ }
+
+      // Quality score (0-100): freshness weighted + hygiene penalty
+      const freshnessScore = freshPercent; // 0-100
+      const hygienePenalty = Math.min(30, hygiene.highCount * 10 + hygiene.mediumCount * 3 + hygiene.lowCount * 1);
+      const qualityScore = Math.max(0, freshnessScore - hygienePenalty);
+
+      const health = {
+        qualityScore,
+        staleness: { fresh, aging, stale, total, freshPercent, stalePercent },
+        hygiene: {
+          totalFindings: hygiene.totalFindings,
+          high: hygiene.highCount,
+          medium: hygiene.mediumCount,
+          low: hygiene.lowCount,
+        },
+        alerts: alerts.slice(0, 5).map((a) => ({
+          group: a.groupLabel,
+          currentStalePercent: a.currentStalePercent,
+          predictedStalePercent: a.predictedStalePercent,
+          predictedDate: a.predictedDate,
+        })),
+        generatedAt: new Date().toISOString(),
+      };
+
+      return {
+        contents: [{
+          uri: uri.href,
+          text: JSON.stringify(health, null, 2),
           mimeType: "application/json",
         }],
       };
