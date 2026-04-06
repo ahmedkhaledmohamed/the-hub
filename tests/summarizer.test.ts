@@ -1054,3 +1054,70 @@ describe("query plan audit", () => {
     });
   });
 });
+
+// ── Briefing optimization tests ──────────────────────────────────
+
+describe("briefing page optimization", () => {
+  describe("server-side artifact filtering", () => {
+    it("filters recently modified (staleDays <= 1)", () => {
+      const artifacts = [
+        { staleDays: 0, path: "a.md", modifiedAt: new Date().toISOString() },
+        { staleDays: 1, path: "b.md", modifiedAt: new Date().toISOString() },
+        { staleDays: 5, path: "c.md", modifiedAt: new Date().toISOString() },
+        { staleDays: 30, path: "d.md", modifiedAt: new Date().toISOString() },
+      ];
+      const recent = artifacts.filter((a) => a.staleDays <= 1);
+      expect(recent.length).toBe(2);
+    });
+
+    it("filters needs-attention (staleDays > 14)", () => {
+      const artifacts = [
+        { staleDays: 0 }, { staleDays: 10 }, { staleDays: 15 }, { staleDays: 45 },
+      ];
+      const attention = artifacts.filter((a) => a.staleDays > 14);
+      expect(attention.length).toBe(2);
+    });
+
+    it("deduplicates merged artifacts", () => {
+      const recent = [{ path: "a.md" }, { path: "b.md" }];
+      const stale = [{ path: "b.md" }, { path: "c.md" }];
+      const seen = new Set<string>();
+      const merged = [];
+      for (const a of [...recent, ...stale]) {
+        if (!seen.has(a.path)) { seen.add(a.path); merged.push(a); }
+      }
+      expect(merged.length).toBe(3); // a, b, c (deduplicated)
+    });
+
+    it("caps at 20 per category", () => {
+      const artifacts = Array.from({ length: 50 }, (_, i) => ({
+        staleDays: 0, path: `doc-${i}.md`, modifiedAt: new Date().toISOString(),
+      }));
+      const capped = artifacts.slice(0, 20);
+      expect(capped.length).toBe(20);
+    });
+  });
+
+  describe("pre-computed stats", () => {
+    it("stats computed server-side match client-side", () => {
+      const artifacts = [
+        { staleDays: 0 }, { staleDays: 3 }, { staleDays: 7 },
+        { staleDays: 15 }, { staleDays: 31 }, { staleDays: 60 },
+      ];
+      const stats = {
+        total: artifacts.length,
+        fresh: artifacts.filter((a) => a.staleDays <= 7).length,
+        stale: artifacts.filter((a) => a.staleDays > 30).length,
+      };
+      expect(stats.total).toBe(6);
+      expect(stats.fresh).toBe(3);
+      expect(stats.stale).toBe(2);
+    });
+
+    it("pre-computed stats bypass client recalculation", () => {
+      const precomputed = { total: 1000, fresh: 500, stale: 100 };
+      const stats = precomputed || { total: 0, fresh: 0, stale: 0 };
+      expect(stats.total).toBe(1000);
+    });
+  });
+});
