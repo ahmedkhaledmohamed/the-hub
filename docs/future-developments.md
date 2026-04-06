@@ -107,7 +107,7 @@ Delete or deprecate features that aren't used. Reduce cognitive load.
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
 | ✅ 6 | Scheduled Slack weekly digest (actual cron) | Automation | High | Medium |
-| 7 | Calendar-driven briefings (wire iCal → briefing page) | Automation | High | Medium |
+| ✅ 7 | Calendar-driven briefings (wire iCal → briefing page) | Automation | High | Medium |
 | 8 | Notification triggers (review/annotation → notify → badge) | Automation | Medium | Medium |
 | 9 | Notification inbox page | Automation | Medium | Low |
 | 10 | Auto-hygiene badge on sidebar (run on every scan) | Automation | Medium | Low |

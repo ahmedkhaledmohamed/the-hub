@@ -10,6 +10,7 @@ import { useRecentArtifacts } from "@/hooks/use-recent-artifacts";
 import { ChangeFeed } from "./change-feed";
 import { PredictiveInsights } from "./predictive-insights";
 import { IntelligenceSummary } from "./intelligence-summary";
+import { CalendarSection } from "./calendar-section";
 
 interface MorningBriefingProps {
   artifacts: Artifact[];
@@ -104,6 +105,9 @@ export function MorningBriefing({ artifacts, panels, generatedAt, stats: precomp
 
       {/* Predictive insights */}
       <PredictiveInsights />
+
+      {/* Calendar — today's meetings with related artifacts */}
+      <CalendarSection />
 
       {/* Active milestones */}
       {activeTimeline.length > 0 && (

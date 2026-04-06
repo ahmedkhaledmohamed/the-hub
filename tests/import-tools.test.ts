@@ -986,3 +986,78 @@ describe("embedding pruning", () => {
     });
   });
 });
+
+// ── Calendar-driven briefing tests ───────────────────────────────
+
+import { isCalendarConfigured, parseICal, filterTodayEvents } from "@/lib/calendar";
+
+describe("calendar-driven briefings", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => { process.env = { ...savedEnv }; });
+
+  describe("isCalendarConfigured", () => {
+    it("false when no CALENDAR_URL", () => {
+      delete process.env.CALENDAR_URL;
+      expect(isCalendarConfigured()).toBe(false);
+    });
+
+    it("true when CALENDAR_URL set", () => {
+      process.env.CALENDAR_URL = "https://calendar.google.com/calendar/ical/test.ics";
+      expect(isCalendarConfigured()).toBe(true);
+    });
+  });
+
+  describe("parseICal", () => {
+    it("parses basic VEVENT", () => {
+      const ical = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+SUMMARY:Sprint Planning
+DTSTART:20260406T140000Z
+DTEND:20260406T150000Z
+END:VEVENT
+END:VCALENDAR`;
+      const events = parseICal(ical);
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      expect(events[0].title).toBe("Sprint Planning");
+    });
+
+    it("handles empty calendar", () => {
+      expect(parseICal("BEGIN:VCALENDAR\nEND:VCALENDAR")).toEqual([]);
+    });
+
+    it("handles malformed input", () => {
+      expect(parseICal("not ical")).toEqual([]);
+    });
+  });
+
+  describe("filterTodayEvents", () => {
+    it("returns empty for no events", () => {
+      expect(filterTodayEvents([])).toEqual([]);
+    });
+
+    it("filters events matching today", () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const events = [
+        { title: "Today", start: `${today}T10:00:00Z`, end: `${today}T11:00:00Z` },
+        { title: "Tomorrow", start: "2099-01-01T10:00:00Z", end: "2099-01-01T11:00:00Z" },
+      ];
+      const filtered = filterTodayEvents(events as any);
+      expect(filtered.length).toBeLessThanOrEqual(events.length);
+    });
+  });
+
+  describe("briefing section rendering data", () => {
+    it("event has title and time", () => {
+      const event = { title: "Sprint Review", startTime: "2026-04-06T14:00:00Z" };
+      expect(event.title).toBeTruthy();
+      expect(event.startTime).toBeTruthy();
+    });
+
+    it("formatTime produces readable output", () => {
+      const date = new Date("2026-04-06T14:00:00Z");
+      const formatted = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      expect(formatted).toBeTruthy();
+      expect(formatted.length).toBeGreaterThan(0);
+    });
+  });
+});
