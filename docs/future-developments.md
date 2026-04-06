@@ -1,209 +1,278 @@
-# Future Developments — v5: Ship Less, Use More
+# Future Developments — v6: The Context Engine
 
-Four versions shipped. 118 PRs. 1,048 tests. 69 lib modules. 19 MCP tools. The Hub went from file browser (v1) to feature explosion (v2) to polish (v3) to agent intelligence (v4). This document is about what we learned — and the uncomfortable truth about what to do next.
+Five versions shipped. 134 PRs. 1,152 tests. 73 lib modules. The Hub went from file browser (v1) to feature explosion (v2) to polish (v3) to agent intelligence (v4) to cleanup (v5). This document is the strategy for v6.
 
 ---
 
 ## The Honest Retrospective
 
-### What survived four versions
+### What v1–v5 revealed
 
-After building everything, **five things actually matter**:
+After 5 versions, the pattern is clear: **the web UI is not the product. The context layer is.**
 
-1. **Fast search** (Cmd+K) — FTS5 indexing works. Users find docs. This is the core value.
-2. **Morning briefing** — The daily entry point. Change feed, stale detection, pinned artifacts.
-3. **Hygiene reports** — Duplicate detection, staleness. Catches documentation debt.
-4. **MCP core tools** — `search`, `read_artifact`, `ask_question`, `get_manifest`, `list_groups`. Agents use these.
-5. **File watching + config simplicity** — One config file, auto-updates. It just works.
+Evidence:
+- The 5 features that survived all versions are infrastructure, not UI: search indexing, file watching, config simplicity, hygiene detection, MCP tools
+- The web UI features that get used (Cmd+K search, briefing page) are entry points to data, not destinations themselves
+- The MCP server is the interface with the most leverage — AI assistants use it without a browser
+- Every "platform" feature (SSO, federation, marketplace, sharing) had 0 adoption
+- Every "agent intelligence" feature (memory, sessions, change pipeline) had 0 invocations in production
+- v5 acknowledged this ("ship less, use more") but archived/deprecated instead of deleting
 
-### What didn't survive
+### What the numbers mean
 
-| Feature | Shipped | Used | Verdict |
-|---|---|---|---|
-| Agent memory (remember/recall) | v4 | Never invoked in production | Dead infrastructure |
-| Session tracking (catch_up) | v4 | Tool exists, nobody calls it | Theoretical |
-| Change pipeline | v4 | Code exists, never triggered | Dead code |
-| Notifications | v4 | DB table exists, no UI, no triggers | Scaffolding |
-| Weekly digest / Slack | v4 | API-only, no scheduling | On-demand only |
-| Meeting briefings | v4 | No calendar wired, no schedule | Half-built |
-| Knowledge gap detection | v4 | Tool exists, low usage | Niche |
-| Smart change summaries | v4 | Never integrated into briefing | Orphaned |
-| Impact scoring | v2 | API exists, no UI surfaces it meaningfully | Invisible |
-| Federation | v2 | 0 users linking Hubs | Dead |
-| Plugin marketplace | v2 | 0 community plugins | Dead |
-| Enterprise SSO | v2 | 0 enterprise users | Over-built |
-| 13 of 19 MCP tools | v3-v4 | Only 5-6 are invoked by agents | Feature bloat |
-
-### What the numbers really mean
-
-| Metric | Count | Meaningful |
+| Metric | Count | Honest Assessment |
 |---|---|---|
-| Lib modules | 69 | ~40 carry weight, ~29 are scaffolding |
-| API routes | 70 | ~35 are used, ~35 are undiscoverable |
-| MCP tools | 19 | 5-6 are valuable, rest are noise |
-| Tests | 1,048 | ~200 are integration-level, rest are existence checks |
-| PRs | 118 | ~50 delivered lasting value |
+| Lib modules | 73 | ~30 carry real weight. ~20 are partially scaffolded. ~23 should be deleted. |
+| API routes | 71 | ~25 are core. ~20 are feature-specific. ~26 are unused or deprecated. |
+| Components | 52 | ~25 are essential. ~15 are feature-specific. ~12 are scaffolding. |
+| MCP tools | 19 (6 core) | 6 core tools are the product. 13 archived tools should be deleted. |
+| Tests | 1,152 | Broad but shallow. Most test existence, not behavior. |
+
+### The uncomfortable truth
+
+The Hub has 3x more code than it needs. v5 said "cut the dead weight" but added deprecation headers instead of deleting routes, archived tools instead of removing them, and inventoried modules instead of consolidating them. The codebase is still carrying the weight of every ambitious idea from v2–v4.
 
 ---
 
-## The v5 Thesis
+## The v6 Thesis
 
-> **Stop building. Start using. Measure what matters. Delete what doesn't.**
+> **The Hub is not a web app. It's a context engine that makes AI assistants smarter about your workspace.**
 
-v5 is not a feature roadmap. It's a **quality and adoption** roadmap. The goal: make the 5 things that work into a 10/10 product, wire the 3 things that almost work into real automation, and delete the rest.
+The web UI exists to configure and inspect the engine. The MCP server is the primary interface. The value prop is: "Point it at your directories. Your AI tools instantly understand your entire workspace."
+
+Three principles:
+
+1. **Delete more than you add.** Target: 73 → 40 modules. 71 → 35 routes. 52 → 30 components.
+2. **MCP-first, web-second.** Every new capability should be an MCP tool first, web UI second.
+3. **Proactive, not passive.** Don't wait for the user to visit a page. Push context to where they already are.
 
 ---
 
-## v5 Evolution: 3 Pillars
+## v6 Evolution: 4 Pillars
 
-### Pillar 1: Make What Works Exceptional
+### Pillar 1: The Great Deletion
 
-The core 5 features work. Make them undeniably great.
-
-**Features:**
-- **Search speed target: < 50ms p95** — Profile FTS5 queries, add result caching, optimize for common patterns
-- **Briefing page as the home screen** — First load < 500ms, show everything important in one glance (no click-to-expand)
-- **Hygiene auto-run on scan** — Don't wait for user to visit /hygiene. Run on every scan, badge count on sidebar
-- **MCP tool response time < 100ms** — Profile the 5 core tools, pre-cache common queries
-- **Preview panel polish** — Instant content loading, keyboard navigation (j/k for next/prev artifact)
-- **Offline-capable PWA** — Cache manifest + recent searches for offline browsing
-
-### Pillar 2: Wire the Automation (For Real This Time)
-
-Three v4 features almost work but lack triggers. Wire them properly.
-
-**Features:**
-- **Scheduled weekly digest** — Cron job (not manual API call) that generates and posts to Slack. Actually wire `SLACK_WEBHOOK_URL` → `postWeeklyDigest()`. Test with real Slack workspace.
-- **Calendar-driven briefings** — Wire `CALENDAR_URL` → `fetchCalendarEvents()` → `compileContext()` → show on briefing page. Actually parse iCal and display today's meetings.
-- **Notification delivery** — When a review is completed or annotation added, actually call `notify()`. Show notification count badge on sidebar. Simple inbox page.
-
-### Pillar 3: Cut the Dead Weight
-
-Delete or deprecate features that aren't used. Reduce cognitive load.
+v5 deprecated. v6 deletes. Remove every line of code that doesn't serve the context engine.
 
 **Actions:**
-- **Archive 13 unused MCP tools** — Keep: search, read_artifact, ask_question, get_manifest, list_groups, get_decisions. Archive the rest to `src/mcp/archived/`.
-- **Mark dead API routes as deprecated** — Add `X-Deprecated` header to routes nobody hits. Remove in v5.1.
-- **Consolidate lib modules** — 69 modules → target 45. Merge small single-function modules.
-- **Upgrade test quality** — Replace 100 existence-check tests with 20 integration tests that test real user flows.
-- **Remove from marketing**: Federation, SSO, plugin marketplace, enterprise tiers.
+
+| Target | Current | v6 Target | What to cut |
+|---|---|---|---|
+| Lib modules | 73 | ~40 | Delete federation, sharing, marketplace, context-manager, SSO, plugin-sandbox, governance, agent-memory, session-tracker, change-pipeline, smart-summary, meeting-briefing (as standalone), config-client (already merged) |
+| API routes | 71 | ~35 | Delete all 8 deprecated routes (federation, sharing, contexts, marketplace, agent-memory, pipeline, gaps, meeting-brief). Delete scaffolding routes (sso, proxy, onboarding as API). |
+| MCP tools | 19 | 8 | Delete archived tools directory. Keep 6 core + promote `get_hygiene` and `get_trends` to core. |
+| Components | 52 | ~35 | Delete scaffolding components (federation UI, sharing UI, marketplace UI if any). Consolidate panel renderers. |
+| Tests | 1,152 | ~800 quality | Delete existence-check tests. Keep integration and behavioral tests. Add coverage for real user flows. |
+
+**Deletion criteria:** If a module has 0 callers outside its own API route and 0 MCP tool consumers, delete it.
+
+### Pillar 2: MCP as the Primary Interface
+
+The MCP server should be the best way for AI assistants to understand a workspace. Today it wraps API calls. Tomorrow it should be intelligent.
+
+**Features:**
+
+1. **Workspace summary tool** — One-call overview: "Here's what this workspace is about, how it's organized, what's changed recently, and what needs attention." No AI assistant should need to call 4 tools to get oriented.
+
+2. **Contextual search** — Today: keyword search returns file matches. Tomorrow: "Find me everything related to the pricing decision we made last month" returns a synthesized answer with decision context, related docs, and timeline.
+
+3. **Write-back tools** — Today: MCP is read-only (except `remember`). Add: `create_doc` (create a new document from template), `update_artifact` (append/edit content), `mark_reviewed` (update hygiene status). Let AI assistants not just read but contribute to the workspace.
+
+4. **Workspace health as a resource** — Expose `hub://health` as an MCP resource that includes: hygiene score, stale doc count, recent changes, knowledge graph density. AI assistants can check this proactively.
+
+5. **Smart context windows** — When an AI assistant asks for context about a topic, The Hub should return optimally-sized context: not too much (token waste), not too little (missing info). Use the existing impact scoring to prioritize what matters.
+
+### Pillar 3: Proactive Intelligence
+
+Stop waiting for the user to visit a page. Push insights to where they already are.
+
+**Features:**
+
+1. **Auto-generated context files** — The Hub already scans for `CLAUDE.md` and `.cursorrules` in repos. Flip the direction: The Hub *generates* a workspace context file on every scan. Contents: workspace overview, stale docs, recent decisions, hygiene warnings, key artifacts. Every AI assistant (Claude Code, Cursor, Copilot) already reads these files natively. Zero extension to install. Zero friction. The Hub becomes invisible infrastructure that enriches the context AI tools already consume.
+
+2. **Editor extension (complementing, not duplicating)** — Cursor and VS Code have file search, git, AI chat, and MCP. They do NOT have persistent cross-workspace intelligence. The extension surfaces what editors can't compute on their own:
+   - **Hygiene warnings** — "This doc has 2 near-duplicates", "Stale: 90 days without update", "Contradicts decision in pricing-v3.md" — shown in a sidebar panel when viewing any indexed file
+   - **Decision context** — "3 decisions reference this area" with links to source docs — extracted from Hub's decision graph, not available via grep
+   - **Impact preview** — "Changing this affects 5 stakeholders" — requires Hub's activity tracking + impact scoring over time
+   - **Knowledge graph navigation** — "4 docs link to this, 2 depend on it" — backlinks and typed relationships from Hub's persistent graph
+   - **Cross-workspace search** — Search ALL indexed workspaces, not just the open project. Cursor only sees the current folder.
+   - **Workspace health** — Quality score, staleness trend sparklines, hygiene badge count in the status bar
+
+   What this is NOT: not file search (Cmd+P exists), not git (built-in), not AI chat (Claude/GPT built-in), not MCP tools (already consumed natively). Purely the persistent, temporal, cross-workspace layer.
+
+3. **Slack proactive alerts** — Not just weekly digests. Real-time alerts for: "Document X contradicts document Y" (detected during scan), "Meeting in 2 hours — here's context for 3 docs you'll discuss" (calendar + context compilation), "5 docs haven't been updated in 90 days — here's which ones matter" (decay + impact scoring).
+
+4. **CLI intelligence** — `hub context` before a meeting. `hub stale` to see what needs attention. `hub search <query>` with AI-enhanced results. Make the CLI a first-class citizen, not an afterthought.
+
+5. **Scan-time insights** — When a file changes, The Hub should know if that change matters. "pricing.md changed — this affects 3 decisions and 2 stakeholders." Wire the existing impact scoring and decision tracking into the scan pipeline so insights are computed eagerly, not lazily.
+
+### Pillar 4: Content Quality Engine
+
+Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the core differentiator.
+
+**Features:**
+
+1. **Hygiene-as-code** — Define hygiene rules in hub.config.ts: "docs older than 90 days in /decisions/ must be reviewed", "no two docs in /specs/ should have >80% similarity", "every doc in /runbooks/ must have a last-reviewed date." Custom rules, not just built-in heuristics.
+
+2. **Auto-fix suggestions** — Today hygiene says "these 2 docs are duplicates." Tomorrow it says "here's the merged version" with a diff preview. Use AI to generate merge suggestions, not just detection.
+
+3. **Doc lifecycle tracking** — Formal states: draft → active → stale → archived. Transitions triggered by rules (staleness threshold, review completion, superseded-by relationship). Visible in the UI and queryable via MCP.
+
+4. **Quality score** — Every artifact gets a quality score: freshness, completeness (has title, has content, has metadata), link health (outbound links resolve), consistency (doesn't contradict other docs). Aggregated to workspace-level health metric.
 
 ---
 
-## v5 Technical Roadmap
+## v6 Technical Roadmap
 
-### Phase 1: Core Excellence (Make the 5 great things exceptional)
+### Phase 1: Delete (Reduce surface area)
 
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 1 | Search result caching (< 50ms p95 target) | Excellence | Very High | Medium |
-| ✅ 2 | Briefing page first-load optimization (< 500ms) | Excellence | High | Medium |
-| ✅ 3 | Hygiene auto-run on scan with sidebar badge | Excellence | High | Low |
-| ✅ 4 | MCP core tool profiling + caching (< 100ms) | Excellence | High | Medium |
-| ✅ 5 | Preview keyboard navigation (j/k, Esc) | Excellence | Medium | Low |
+| # | Item | Impact | Effort |
+|---|---|---|---|
+| 1 | Delete deprecated API routes (federation, sharing, contexts, marketplace, agent-memory, pipeline, gaps, meeting-brief) | High | Low |
+| 2 | Delete unused lib modules (federation, sharing, marketplace, context-manager, SSO, plugin-sandbox, governance) | High | Medium |
+| 3 | Delete archived MCP tools directory — remove code, not just archive | Medium | Low |
+| 4 | Delete agent-memory, session-tracker, change-pipeline, smart-summary modules | Medium | Low |
+| 5 | Consolidate remaining modules — merge small utilities, reduce public API surface | Medium | High |
 
-### Phase 2: Real Automation (Wire what almost works)
+### Phase 2: MCP-First (Make the context engine exceptional)
 
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 6 | Scheduled Slack weekly digest (actual cron) | Automation | High | Medium |
-| ✅ 7 | Calendar-driven briefings (wire iCal → briefing page) | Automation | High | Medium |
-| ✅ 8 | Notification triggers (review/annotation → notify → badge) | Automation | Medium | Medium |
-| ✅ 9 | Notification inbox page | Automation | Medium | Low |
-| ✅ 10 | Auto-hygiene badge on sidebar (run on every scan) | Automation | Medium | Low |
+| # | Item | Impact | Effort |
+|---|---|---|---|
+| 6 | Workspace summary MCP tool — single-call workspace orientation | Very High | Medium |
+| 7 | Write-back MCP tools (create_doc, update_artifact, mark_reviewed) | High | Medium |
+| 8 | Smart context windows — optimally-sized context based on topic + impact scoring | High | High |
+| 9 | Promote get_hygiene and get_trends to core MCP tools | Medium | Low |
+| 10 | hub://health MCP resource — workspace health summary | Medium | Low |
 
-### Phase 3: Cleanup (Delete what doesn't work)
+### Phase 3: Proactive (Push context to where users are)
 
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 11 | Archive 13 unused MCP tools to archived/ | Cleanup | Medium | Low |
-| ✅ 12 | Deprecate unused API routes (X-Deprecated header) | Cleanup | Low | Low |
-| ✅ 13 | Consolidate lib modules (69 → 45 target) | Cleanup | Medium | High |
-| ✅ 14 | Upgrade 100 weak tests to 20 integration tests | Cleanup | High | High |
-| ✅ 15 | Remove dead features from README/landing page | Cleanup | Medium | Low |
+| # | Item | Impact | Effort |
+|---|---|---|---|
+| 11 | Auto-generated context files — CLAUDE.md / .cursorrules written on every scan with workspace state | High | Medium |
+| 12 | Editor extension — hygiene warnings, decision context, impact preview, knowledge graph, cross-workspace search (only what Cursor lacks) | Very High | High |
+| 13 | Scan-time insight computation — eager impact/decision analysis on file changes | High | Medium |
+| 14 | Slack proactive alerts — contradiction detection, meeting prep, decay alerts | Medium | Medium |
+| 15 | CLI upgrade — `hub context`, `hub stale`, AI-enhanced `hub search` | Medium | Medium |
+
+### Phase 4: Quality Engine (Make hygiene the differentiator)
+
+| # | Item | Impact | Effort |
+|---|---|---|---|
+| 16 | Hygiene-as-code — custom rules in hub.config.ts | High | High |
+| 17 | Auto-fix suggestions — AI-generated merge diffs for duplicates | High | Medium |
+| 18 | Doc lifecycle states (draft → active → stale → archived) with transition rules | Medium | Medium |
+| 19 | Quality score per artifact + workspace-level health metric | Medium | Medium |
 
 ---
 
-## What to Delete
+## What to Delete (Specific)
 
-| Feature | Location | Action |
+### Modules to delete entirely
+
+| Module | Lines | Reason |
 |---|---|---|
-| Agent memory (remember/recall) | `src/lib/agent-memory.ts`, MCP tools | Archive — no adoption path |
-| Session tracker (catch_up) | `src/lib/session-tracker.ts`, MCP tool | Archive — nobody calls it |
-| Change pipeline | `src/lib/change-pipeline.ts` | Delete — never triggered |
-| Smart summaries | `src/lib/smart-summary.ts` | Archive — never integrated |
-| Knowledge gaps | `src/lib/knowledge-gaps.ts`, MCP tool | Archive — niche |
-| Meeting briefing | `src/lib/meeting-briefing.ts`, MCP tool | Keep lib, archive MCP tool |
-| Context compiler MCP tool | MCP compile_context | Archive — use via API only |
-| Impact scoring MCP tool | MCP get_impact | Archive — API sufficient |
-| Federation | `src/lib/federation.ts` | Deprecate |
-| Plugin marketplace | `src/lib/marketplace.ts` | Deprecate |
-| Enterprise SSO | `src/lib/sso.ts` | Deprecate |
+| `federation.ts` | ~150 | 0 users, deprecated in v5 |
+| `sharing.ts` | ~120 | 0 users, deprecated in v5 |
+| `marketplace.ts` | ~200 | 0 community plugins |
+| `context-manager.ts` | ~66 | Use workspaces instead |
+| `sso.ts` | ~87 | 0 enterprise users |
+| `plugin-sandbox.ts` | ~150 | Overly complex for 1 plugin |
+| `governance.ts` | ~100 | Enterprise scaffolding |
+| `agent-memory.ts` | ~180 | 0 invocations in production |
+| `session-tracker.ts` | ~150 | Nobody calls catch_up |
+| `change-pipeline.ts` | ~120 | Never triggered |
+| `smart-summary.ts` | ~100 | Never integrated |
+| `config-client.ts` | ~23 | Already merged into config.ts |
+| **Total** | **~1,446** | |
+
+### API routes to delete
+
+All 8 routes currently marked deprecated in `deprecation.ts`:
+- `/api/federation`, `/api/sharing`, `/api/contexts`, `/api/marketplace`
+- `/api/agent-memory`, `/api/pipeline`, `/api/gaps`, `/api/meeting-brief`
+
+Plus: `/api/sso`, `/api/proxy` (unused)
+
+### MCP archived tools to delete
+
+Remove `src/mcp/archived/` directory entirely. The 13 archived tools are dead code.
 
 ---
 
-## Architecture: v4 → v5
+## Architecture: v5 → v6
 
 ```mermaid
 flowchart TD
-    subgraph v4["v4: Agent Intelligence (69 modules)"]
-        AgentMem[Agent Memory]
-        SessionTrack[Session Tracker]
-        ChangePipeline[Change Pipeline]
-        SmartSummary[Smart Summary]
-        KnowledgeGaps[Knowledge Gaps]
-        Notifications[Notifications - no UI]
-        Digest[Digest - no schedule]
-        MeetingBrief[Meeting Brief - no calendar]
-        Plus13[+13 unused MCP tools]
+    subgraph v5["v5: Ship Less, Use More (73 modules)"]
+        Deprecated[8 deprecated routes]
+        Archived[13 archived MCP tools]
+        Dead[12+ dead modules]
+        Core5[Core: search, briefing, hygiene, MCP, watching]
     end
 
-    subgraph v5["v5: Ship Less, Use More (~45 modules)"]
-        FastSearch[Search < 50ms]
-        FastBriefing[Briefing < 500ms]
-        AutoHygiene[Auto Hygiene + Badge]
-        SlackDigest[Real Slack Digest - cron]
-        CalBriefing[Real Calendar Briefing]
-        NotifInbox[Notification Inbox]
-        CoreMCP[6 Core MCP Tools]
+    subgraph v6["v6: The Context Engine (~40 modules)"]
+        subgraph Engine["Context Engine (core)"]
+            Scanner[Smart Scanner]
+            FTS[FTS5 Search]
+            Hygiene[Quality Engine]
+            Impact[Impact Scoring]
+        end
+
+        subgraph Interfaces["Interfaces (MCP-first)"]
+            MCP8[8 Core MCP Tools]
+            Health[hub://health resource]
+            CLI[Intelligent CLI]
+            Web[Web UI - inspect + configure]
+        end
+
+        subgraph Proactive["Proactive Layer"]
+            ContextFiles[Auto-gen CLAUDE.md]
+            EditorExt[Editor Extension - hygiene, decisions, impact]
+            ScanInsights[Scan-time Insights]
+            SlackAlerts[Slack Alerts]
+        end
     end
 
-    v4 -->|cut 40%| v5
-    AgentMem -->|archive| Deleted[Archived]
-    SessionTrack -->|archive| Deleted
-    ChangePipeline -->|delete| Deleted
-    SmartSummary -->|archive| Deleted
-    KnowledgeGaps -->|archive| Deleted
-    Plus13 -->|archive| Deleted
-    Notifications -->|wire triggers| NotifInbox
-    Digest -->|add cron| SlackDigest
-    MeetingBrief -->|wire calendar| CalBriefing
+    Deprecated -->|delete| Gone[Deleted]
+    Archived -->|delete| Gone
+    Dead -->|delete| Gone
+    Core5 -->|evolve| Engine
+    Core5 -->|MCP-first| Interfaces
+    Engine -->|push| Proactive
 ```
-
-**Key shift:** From "build more" to "use what's built." Measure. Delete. Polish.
 
 ---
 
 ## Success Metrics
 
-v5 success is measured by **adoption**, not feature count:
+v6 success is measured by **context utility**, not feature count:
 
-| Metric | Current | v5 Target | How to Measure |
+| Metric | v5 | v6 Target | How to Measure |
 |---|---|---|---|
-| Search p95 latency | ~150ms | < 50ms | Benchmark suite |
-| Briefing first load | ~1s | < 500ms | Lighthouse |
-| MCP tool invocations/day | Unknown | Measurable | Session tracker (keep this one) |
-| Hygiene findings acted on | Unknown | > 50% | Track archive/delete actions |
-| Slack digest sent/week | 0 | 1 | Scheduled job success |
-| Notification delivery rate | 0% | > 80% | Notify calls / trigger events |
-| Lib modules | 69 | < 50 | File count |
-| MCP tools | 19 | 6 | Server registration |
-| Meaningful test coverage | ~20% | > 60% | Integration test ratio |
+| Lib modules | 73 | < 45 | File count |
+| API routes | 71 | < 40 | Route count |
+| MCP tools (core) | 6 | 8 | Server registration |
+| MCP invocations/day | Unknown | Trackable | Log tool calls with timestamps |
+| Codebase size | ~15K LOC | < 10K LOC | cloc |
+| Search p95 | < 50ms (target) | < 30ms | Benchmark suite |
+| Time to workspace orientation (MCP) | 4+ tool calls | 1 tool call | workspace_summary response |
+| Hygiene rules (configurable) | 7 built-in | 7 built-in + N custom | Config count |
+| Auto-generated context files | 0 | 1 per workspace | File exists + freshness |
+| Editor extension | 0 | Installed locally | Surfaces hygiene/decisions/impact in sidebar |
 
 ---
 
-## The Pitch (Updated)
+## What v6 is NOT
 
-> "The Hub is a personal workspace search engine that runs locally, keeps your docs healthy, and gives your AI tools context — all from one config file."
+- **Not a team tool.** Still personal. Multi-user is a different product.
+- **Not a Notion/Obsidian replacement.** The Hub indexes docs. It doesn't author them (except via AI write-back tools).
+- **Not a platform.** No plugins, no marketplace, no federation. Those are deleted.
+- **Not AI-dependent.** Core features (search, hygiene, file watching) work without any AI. AI enhances, doesn't gate.
 
-Not an agent memory platform. Not an enterprise tool. Not a Notion replacement. A fast, reliable search engine with hygiene intelligence and MCP access. That's the product.
+---
+
+## The Pitch (v6)
+
+> "The Hub is a local context engine for your workspace. It indexes your docs, keeps them healthy, and gives your AI tools deep understanding of your work — via MCP, CLI, or browser."
+
+The web UI is a window into the engine. The MCP server is the engine's voice. The CLI is the engine's hands. The engine itself is: scan → index → analyze → serve context.
