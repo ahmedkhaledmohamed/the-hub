@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
   type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck, Sparkles, Share2, Settings,
-  Activity, Wrench, Link2, GitBranch,
+  Activity, Wrench, Link2, GitBranch, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
@@ -100,12 +100,13 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
       >
         {[
-          { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
+          { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
           { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false, badge: hygieneCount && hygieneCount > 0 ? hygieneCount : undefined },
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
           { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
           { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
+          { href: "/notifications", label: "Inbox", Icon: Bell, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
           { href: "/integrations", label: "Integrations", Icon: Link2, needsAI: false },
           { href: "/status", label: "Status", Icon: Activity, needsAI: false },
           { href: "/setup", label: "Setup", Icon: Wrench, needsAI: false },
