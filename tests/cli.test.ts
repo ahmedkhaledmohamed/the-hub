@@ -341,7 +341,7 @@ describe("OpenAPI spec", () => {
     expect(tagNames).toContain("Hygiene");
     expect(tagNames).toContain("Intelligence");
     expect(tagNames).toContain("Platform");
-    expect(tagNames).toContain("Network");
+    // Network tag removed in v6 (federation, sharing, contexts deleted)
   });
 
   it("includes key endpoints", () => {
@@ -351,7 +351,7 @@ describe("OpenAPI spec", () => {
     expect(paths).toContain("/api/search");
     expect(paths).toContain("/api/ai/ask");
     expect(paths).toContain("/api/graph");
-    expect(paths).toContain("/api/federation");
+    expect(paths).toContain("/api/hygiene");
     expect(paths).toContain("/api/docs");
   });
 

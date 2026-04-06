@@ -1122,49 +1122,6 @@ describe("briefing page optimization", () => {
   });
 });
 
-// ── API deprecation tests ────────────────────────────────────────
-
-import { isRouteDeprecated, getDeprecatedRoutes } from "@/lib/deprecation";
-
-describe("API route deprecation", () => {
-  describe("getDeprecatedRoutes", () => {
-    it("returns list of deprecated routes", () => {
-      const routes = getDeprecatedRoutes();
-      expect(routes.length).toBeGreaterThanOrEqual(8);
-      for (const r of routes) {
-        expect(r.route).toBeTruthy();
-        expect(r.since).toBeTruthy();
-        expect(r.removeIn).toBeTruthy();
-        expect(r.reason).toBeTruthy();
-      }
-    });
-
-    it("includes federation", () => {
-      const routes = getDeprecatedRoutes();
-      expect(routes.some((r) => r.route === "/api/federation")).toBe(true);
-    });
-
-    it("includes sharing", () => {
-      const routes = getDeprecatedRoutes();
-      expect(routes.some((r) => r.route === "/api/sharing")).toBe(true);
-    });
-  });
-
-  describe("isRouteDeprecated", () => {
-    it("returns info for deprecated route", () => {
-      const info = isRouteDeprecated("/api/federation");
-      expect(info).not.toBeNull();
-      expect(info!.since).toBe("v5.0");
-      expect(info!.removeIn).toBe("v5.1");
-    });
-
-    it("returns null for active route", () => {
-      expect(isRouteDeprecated("/api/search")).toBeNull();
-      expect(isRouteDeprecated("/api/manifest")).toBeNull();
-    });
-
-    it("matches prefix", () => {
-      expect(isRouteDeprecated("/api/federation/peers")).not.toBeNull();
-    });
-  });
-});
+// ── API deprecation tests removed in v6 ──────────────────────────
+// Deprecated routes (federation, sharing, contexts, marketplace, agent-memory,
+// pipeline, gaps, meeting-brief) and deprecation.ts deleted in v6.
