@@ -115,6 +115,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* non-critical */ }
 
+      // Auto-apply lifecycle transitions based on staleness
+      try {
+        const { applyAutoTransitions } = require("./doc-lifecycle");
+        applyAutoTransitions(cachedManifest.artifacts);
+      } catch { /* non-critical */ }
+
       // Proactive Slack alerts (contradictions, decay)
       try {
         const { runProactiveAlerts } = require("./slack-alerts");
