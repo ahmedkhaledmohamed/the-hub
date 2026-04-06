@@ -89,5 +89,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ jobId, status: "pending", message: "Hygiene analysis queued" });
   }
 
-  return NextResponse.json({ error: "action must be analyze-async" }, { status: 400 });
+  if (body.action === "autofix") {
+    const { generateAutoFixes } = await import("@/lib/hygiene-autofix");
+    const manifest = getManifest();
+    const report = analyzeHygiene(manifest.artifacts, manifest.generatedAt);
+    const suggestions = await generateAutoFixes(report.findings);
+    return NextResponse.json({ suggestions, count: suggestions.length });
+  }
+
+  return NextResponse.json({ error: "action must be analyze-async or autofix" }, { status: 400 });
 }

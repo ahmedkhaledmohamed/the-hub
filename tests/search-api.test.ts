@@ -1208,3 +1208,115 @@ describe("hygiene-as-code custom rules", () => {
     });
   });
 });
+
+// ── Auto-fix suggestion tests ───────────────────────────────────
+
+import { generateDeleteSuggestion, generateAutoFixes } from "@/lib/hygiene-autofix";
+
+describe("hygiene auto-fix suggestions", () => {
+  describe("generateDeleteSuggestion", () => {
+    it("keeps most recent file, deletes rest", () => {
+      const finding: HygieneFinding = {
+        id: "dup-1",
+        type: "exact-duplicate",
+        severity: "high",
+        artifacts: [
+          { path: "a.md", title: "Old Doc", type: "md", group: "docs", modifiedAt: "2025-01-01T00:00:00Z", size: 100, staleDays: 200, snippet: "" },
+          { path: "b.md", title: "New Doc", type: "md", group: "docs", modifiedAt: "2026-04-01T00:00:00Z", size: 100, staleDays: 5, snippet: "" },
+        ],
+        similarity: 1.0,
+        suggestion: "Exact duplicate",
+      };
+      const suggestion = generateDeleteSuggestion(finding);
+      expect(suggestion).not.toBeNull();
+      expect(suggestion!.type).toBe("delete");
+      expect(suggestion!.keepPath).toBe("b.md"); // most recent
+      expect(suggestion!.deletePaths).toEqual(["a.md"]);
+    });
+
+    it("returns null for single artifact", () => {
+      const finding: HygieneFinding = {
+        id: "single",
+        type: "exact-duplicate",
+        severity: "low",
+        artifacts: [{ path: "a.md", title: "Doc", type: "md", group: "docs", modifiedAt: "", size: 100, staleDays: 0, snippet: "" }],
+        suggestion: "",
+      };
+      expect(generateDeleteSuggestion(finding)).toBeNull();
+    });
+  });
+
+  describe("generateAutoFixes", () => {
+    it("generates delete suggestions for exact duplicates", async () => {
+      const findings: HygieneFinding[] = [
+        {
+          id: "dup-auto",
+          type: "exact-duplicate",
+          severity: "high",
+          artifacts: [
+            { path: "x.md", title: "X", type: "md", group: "docs", modifiedAt: "2026-01-01", size: 100, staleDays: 30, snippet: "" },
+            { path: "y.md", title: "Y", type: "md", group: "docs", modifiedAt: "2026-04-01", size: 100, staleDays: 5, snippet: "" },
+          ],
+          similarity: 1.0,
+          suggestion: "exact dup",
+        },
+      ];
+      const fixes = await generateAutoFixes(findings);
+      expect(fixes.length).toBe(1);
+      expect(fixes[0].type).toBe("delete");
+    });
+
+    it("skips non-duplicate findings", async () => {
+      const findings: HygieneFinding[] = [
+        {
+          id: "stale-1",
+          type: "stale-orphan",
+          severity: "medium",
+          artifacts: [{ path: "old.md", title: "Old", type: "md", group: "docs", modifiedAt: "", size: 100, staleDays: 200, snippet: "" }],
+          suggestion: "stale",
+        },
+      ];
+      const fixes = await generateAutoFixes(findings);
+      expect(fixes.length).toBe(0);
+    });
+
+    it("caps at 10 suggestions", async () => {
+      const findings: HygieneFinding[] = Array.from({ length: 15 }, (_, i) => ({
+        id: `dup-${i}`,
+        type: "exact-duplicate" as const,
+        severity: "high" as const,
+        artifacts: [
+          { path: `a${i}.md`, title: `A${i}`, type: "md" as const, group: "docs", modifiedAt: "2026-01-01", size: 100, staleDays: 10, snippet: "" },
+          { path: `b${i}.md`, title: `B${i}`, type: "md" as const, group: "docs", modifiedAt: "2026-04-01", size: 100, staleDays: 5, snippet: "" },
+        ],
+        similarity: 1.0,
+        suggestion: "dup",
+      }));
+      const fixes = await generateAutoFixes(findings);
+      expect(fixes.length).toBeLessThanOrEqual(10);
+    });
+  });
+
+  describe("suggestion structure", () => {
+    it("delete suggestion has required fields", () => {
+      const finding: HygieneFinding = {
+        id: "struct-test",
+        type: "exact-duplicate",
+        severity: "high",
+        artifacts: [
+          { path: "p1.md", title: "P1", type: "md", group: "docs", modifiedAt: "2026-04-01", size: 100, staleDays: 5, snippet: "" },
+          { path: "p2.md", title: "P2", type: "md", group: "docs", modifiedAt: "2025-01-01", size: 100, staleDays: 100, snippet: "" },
+        ],
+        similarity: 1.0,
+        suggestion: "dup",
+      };
+      const s = generateDeleteSuggestion(finding)!;
+      expect(s.findingId).toBe("struct-test");
+      expect(s.type).toBe("delete");
+      expect(typeof s.description).toBe("string");
+      expect(s.keepPath).toBeTruthy();
+      expect(Array.isArray(s.deletePaths)).toBe(true);
+      expect(s.aiGenerated).toBe(false);
+    });
+  });
+});
