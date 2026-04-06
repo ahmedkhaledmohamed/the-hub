@@ -115,6 +115,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* non-critical */ }
 
+      // Proactive Slack alerts (contradictions, decay)
+      try {
+        const { runProactiveAlerts } = require("./slack-alerts");
+        runProactiveAlerts().catch(() => { /* non-blocking */ });
+      } catch { /* non-critical */ }
+
       // Auto-generate context files (.hub-context.md, .cursorrules) in workspaces
       try {
         const { writeContextFilesToAllWorkspaces } = require("./context-file-generator");

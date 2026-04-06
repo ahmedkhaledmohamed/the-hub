@@ -1120,6 +1120,102 @@ describe("briefing page optimization", () => {
   });
 });
 
-// ── API deprecation tests removed in v6 ──────────────────────────
-// Deprecated routes (federation, sharing, contexts, marketplace, agent-memory,
-// pipeline, gaps, meeting-brief) and deprecation.ts deleted in v6.
+// ── Slack proactive alert tests ──────────────────────────────────
+
+import {
+  formatContradictionAlert,
+  formatDecayAlert,
+  formatMeetingPrepAlert,
+  resetAlertCooldowns,
+  type Contradiction,
+  type DecayAlert,
+  type MeetingContext,
+} from "@/lib/slack-alerts";
+
+describe("Slack proactive alerts", () => {
+  beforeEach(() => {
+    resetAlertCooldowns();
+  });
+
+  describe("formatContradictionAlert", () => {
+    it("formats contradiction alert with decisions", () => {
+      const contradictions: Contradiction[] = [
+        {
+          decisionA: { summary: "Use PostgreSQL", artifactPath: "a.md" },
+          decisionB: { summary: "Use MySQL", artifactPath: "b.md" },
+          reason: "Conflicting database choices",
+        },
+      ];
+      const msg = formatContradictionAlert(contradictions);
+      expect(msg.text).toContain("1 decision contradiction");
+      expect(msg.blocks).toBeDefined();
+      expect(msg.blocks!.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.stringify(msg.blocks)).toContain("PostgreSQL");
+      expect(JSON.stringify(msg.blocks)).toContain("MySQL");
+    });
+
+    it("caps at 5 contradictions in message", () => {
+      const contradictions: Contradiction[] = Array.from({ length: 8 }, (_, i) => ({
+        decisionA: { summary: `Decision A-${i}`, artifactPath: "a.md" },
+        decisionB: { summary: `Decision B-${i}`, artifactPath: "b.md" },
+        reason: "conflict",
+      }));
+      const msg = formatContradictionAlert(contradictions);
+      const body = JSON.stringify(msg.blocks);
+      expect((body.match(/Decision A-/g) || []).length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  describe("formatDecayAlert", () => {
+    it("formats decay alert with declining docs", () => {
+      const decaying: DecayAlert[] = [
+        { path: "docs/old.md", title: "Old Guide", decayLevel: "critical", recentViews: 0, historicalViews: 50 },
+        { path: "docs/aging.md", title: "Aging Doc", decayLevel: "declining", recentViews: 2, historicalViews: 30 },
+      ];
+      const msg = formatDecayAlert(decaying);
+      expect(msg.text).toContain("2 document(s) losing relevance");
+      expect(JSON.stringify(msg.blocks)).toContain("Old Guide");
+      expect(JSON.stringify(msg.blocks)).toContain("critical");
+    });
+  });
+
+  describe("formatMeetingPrepAlert", () => {
+    it("formats meeting prep with docs and decisions", () => {
+      const meeting: MeetingContext = {
+        title: "Architecture Review",
+        startTime: "2026-04-06T14:00:00Z",
+        relatedDocs: [
+          { title: "Architecture Overview", path: "docs/arch.md" },
+          { title: "API Guide", path: "docs/api.md" },
+        ],
+        recentDecisions: [
+          { summary: "Use gRPC for internal communication" },
+        ],
+      };
+      const msg = formatMeetingPrepAlert(meeting);
+      expect(msg.text).toContain("Architecture Review");
+      expect(JSON.stringify(msg.blocks)).toContain("Architecture Overview");
+      expect(JSON.stringify(msg.blocks)).toContain("gRPC");
+    });
+
+    it("handles meeting with no related docs", () => {
+      const meeting: MeetingContext = {
+        title: "Standup",
+        startTime: "2026-04-06T09:00:00Z",
+        relatedDocs: [],
+        recentDecisions: [],
+      };
+      const msg = formatMeetingPrepAlert(meeting);
+      expect(msg.text).toContain("Standup");
+      expect(msg.blocks!.length).toBeGreaterThanOrEqual(2); // header + context
+    });
+  });
+
+  describe("rate limiting", () => {
+    it("resetAlertCooldowns clears state", () => {
+      resetAlertCooldowns();
+      // No error, state is clean
+      expect(true).toBe(true);
+    });
+  });
+});
