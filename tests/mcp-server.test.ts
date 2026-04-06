@@ -1059,3 +1059,70 @@ describe("MCP tool refinement", () => {
     });
   });
 });
+
+// ── Notification trigger tests ───────────────────────────────────
+
+import {
+  notify,
+  notifyReviewUpdate,
+  notifyAnnotation,
+  getNotifications,
+  getUnreadCount,
+} from "@/lib/notifications";
+import { createReviewRequest, updateReviewStatus } from "@/lib/reviews";
+import { addAnnotation } from "@/lib/annotations";
+
+describe("notification triggers", () => {
+  describe("review completion triggers notification", () => {
+    it("notifyReviewUpdate creates notification for requester", () => {
+      const recipient = `trigger-review-${Date.now()}`;
+      notifyReviewUpdate({
+        requestedBy: recipient,
+        reviewer: "bob",
+        status: "approved",
+        artifactPath: "trigger/test.md",
+      });
+      const notifs = getNotifications(recipient);
+      expect(notifs.some((n) => n.type === "review")).toBe(true);
+    });
+
+    it("notification includes reviewer name", () => {
+      const recipient = `trigger-name-${Date.now()}`;
+      notifyReviewUpdate({
+        requestedBy: recipient,
+        reviewer: "charlie",
+        status: "changes-requested",
+        artifactPath: "trigger/changes.md",
+        responseMessage: "Fix section 3",
+      });
+      const notifs = getNotifications(recipient);
+      const reviewNotif = notifs.find((n) => n.type === "review");
+      expect(reviewNotif).toBeDefined();
+      expect(reviewNotif!.message).toContain("charlie");
+    });
+  });
+
+  describe("annotation creation triggers notification", () => {
+    it("notifyAnnotation creates notification", () => {
+      const recipient = `trigger-ann-${Date.now()}`;
+      notifyAnnotation({
+        recipient,
+        author: "alice",
+        artifactPath: "trigger/annotated.md",
+        content: "This needs updating.",
+      });
+      const notifs = getNotifications(recipient);
+      expect(notifs.some((n) => n.type === "annotation")).toBe(true);
+    });
+  });
+
+  describe("unread count for badge", () => {
+    it("getUnreadCount increases after notification", () => {
+      const recipient = `trigger-unread-${Date.now()}`;
+      const before = getUnreadCount(recipient);
+      notify({ recipient, type: "system", title: "Test" });
+      const after = getUnreadCount(recipient);
+      expect(after).toBe(before + 1);
+    });
+  });
+});

@@ -65,6 +65,24 @@ export async function POST(req: NextRequest) {
       approve: "approved", "request-changes": "changes-requested", dismiss: "dismissed",
     };
     const updated = updateReviewStatus(id, statusMap[action], responseMessage as string);
+
+    // Trigger notification for the review requester
+    if (updated) {
+      try {
+        const review = getReviewRequest(id);
+        if (review) {
+          const { notifyReviewUpdate } = require("@/lib/notifications");
+          notifyReviewUpdate({
+            requestedBy: review.requestedBy,
+            reviewer: review.reviewer,
+            status: statusMap[action],
+            artifactPath: review.artifactPath,
+            responseMessage: responseMessage as string,
+          });
+        }
+      } catch { /* notification is non-critical */ }
+    }
+
     return NextResponse.json({ id, updated, status: statusMap[action] });
   }
 
