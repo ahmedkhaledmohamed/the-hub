@@ -99,7 +99,7 @@ Delete or deprecate features that aren't used. Reduce cognitive load.
 | ✅ 1 | Search result caching (< 50ms p95 target) | Excellence | Very High | Medium |
 | ✅ 2 | Briefing page first-load optimization (< 500ms) | Excellence | High | Medium |
 | ✅ 3 | Hygiene auto-run on scan with sidebar badge | Excellence | High | Low |
-| 4 | MCP core tool profiling + caching (< 100ms) | Excellence | High | Medium |
+| ✅ 4 | MCP core tool profiling + caching (< 100ms) | Excellence | High | Medium |
 | 5 | Preview keyboard navigation (j/k, Esc) | Excellence | Medium | Low |
 
 ### Phase 2: Real Automation (Wire what almost works)

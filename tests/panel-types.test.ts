@@ -989,3 +989,72 @@ describe("performance benchmarks", () => {
     });
   });
 });
+
+// ── MCP tool caching tests ───────────────────────────────────────
+
+import { cachedToolCall, invalidateMcpCache, getMcpCacheStats } from "@/lib/mcp-cache";
+
+describe("MCP tool caching", () => {
+  beforeEach(() => {
+    invalidateMcpCache();
+  });
+
+  describe("cachedToolCall", () => {
+    it("returns computed result on first call", async () => {
+      const { result, cached, durationMs } = await cachedToolCall("test", "key1", () => "hello");
+      expect(result).toBe("hello");
+      expect(cached).toBe(false);
+      expect(durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("returns cached result on second call", async () => {
+      await cachedToolCall("test", "key2", () => "first");
+      const { result, cached } = await cachedToolCall("test", "key2", () => "second");
+      expect(result).toBe("first"); // cached, not recomputed
+      expect(cached).toBe(true);
+    });
+
+    it("caches async functions", async () => {
+      const { result } = await cachedToolCall("test", "async-key", async () => {
+        return { count: 42 };
+      });
+      expect((result as { count: number }).count).toBe(42);
+    });
+
+    it("different keys cache independently", async () => {
+      await cachedToolCall("test", "a", () => "value-a");
+      await cachedToolCall("test", "b", () => "value-b");
+      const { result: ra } = await cachedToolCall("test", "a", () => "stale");
+      const { result: rb } = await cachedToolCall("test", "b", () => "stale");
+      expect(ra).toBe("value-a");
+      expect(rb).toBe("value-b");
+    });
+  });
+
+  describe("invalidateMcpCache", () => {
+    it("clears all cached entries", async () => {
+      await cachedToolCall("test", "clear-test", () => "cached");
+      invalidateMcpCache();
+      const { cached } = await cachedToolCall("test", "clear-test", () => "new");
+      expect(cached).toBe(false);
+    });
+  });
+
+  describe("getMcpCacheStats", () => {
+    it("returns stats structure", () => {
+      const stats = getMcpCacheStats();
+      expect(typeof stats.size).toBe("number");
+      expect(typeof stats.hits).toBe("number");
+      expect(typeof stats.misses).toBe("number");
+      expect(typeof stats.hitRate).toBe("number");
+    });
+
+    it("tracks hits after cached calls", async () => {
+      invalidateMcpCache();
+      await cachedToolCall("test", "stats-key", () => "val");
+      await cachedToolCall("test", "stats-key", () => "val"); // hit
+      const stats = getMcpCacheStats();
+      expect(stats.hits).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
