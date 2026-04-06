@@ -1,4 +1,4 @@
-import { getClientConfig } from "@/lib/config-client";
+import { getClientConfig } from "@/lib/config";
 import { getManifest } from "@/lib/manifest-store";
 import { loadFrameworkCatalog } from "@/lib/framework";
 import { loadConfig } from "@/lib/config";

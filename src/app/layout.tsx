@@ -5,7 +5,7 @@ import { CommandPalette } from "@/components/layout/command-palette";
 import { HubProvider } from "@/components/providers/hub-provider";
 import { HubShell } from "@/components/layout/hub-shell";
 import { PwaRegister } from "@/components/pwa-register";
-import { getClientConfig } from "@/lib/config-client";
+import { getClientConfig } from "@/lib/config";
 
 export const viewport: Viewport = {
   width: "device-width",
