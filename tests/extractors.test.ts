@@ -822,7 +822,7 @@ describe("mobile-responsive briefing", () => {
 
 // ── Hygiene auto-run badge tests ─────────────────────────────────
 
-import { getCachedHygieneFindingCount, getCachedHygieneSummary, analyzeHygiene } from "@/lib/hygiene-analyzer";
+import { getCachedHygieneFindingCount, getCachedHygieneSummary, analyzeHygiene, invalidateHygieneCache } from "@/lib/hygiene-analyzer";
 
 describe("hygiene auto-run badge", () => {
   describe("getCachedHygieneFindingCount", () => {
@@ -869,6 +869,25 @@ describe("hygiene auto-run badge", () => {
       const count: number | null = null;
       const badge = count && count > 0 ? count : undefined;
       expect(badge).toBeUndefined();
+    });
+  });
+
+  describe("auto-run on scan", () => {
+    it("analyzeHygiene populates cache on call", () => {
+      invalidateHygieneCache();
+      expect(getCachedHygieneFindingCount()).toBeNull();
+
+      analyzeHygiene([], new Date().toISOString());
+      expect(getCachedHygieneFindingCount()).not.toBeNull();
+      expect(typeof getCachedHygieneFindingCount()).toBe("number");
+    });
+
+    it("invalidateHygieneCache clears the cache", () => {
+      analyzeHygiene([], new Date().toISOString());
+      expect(getCachedHygieneFindingCount()).not.toBeNull();
+
+      invalidateHygieneCache();
+      expect(getCachedHygieneFindingCount()).toBeNull();
     });
   });
 });
