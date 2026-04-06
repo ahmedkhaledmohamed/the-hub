@@ -42,3 +42,4 @@ certs/
 extension/*.vsix
 extension/out/
 extension/node_modules/
+tsconfig.tsbuildinfo
