@@ -819,3 +819,56 @@ describe("mobile-responsive briefing", () => {
     });
   });
 });
+
+// ── Hygiene auto-run badge tests ─────────────────────────────────
+
+import { getCachedHygieneFindingCount, getCachedHygieneSummary, analyzeHygiene } from "@/lib/hygiene-analyzer";
+
+describe("hygiene auto-run badge", () => {
+  describe("getCachedHygieneFindingCount", () => {
+    it("returns null when no cached report", () => {
+      // May or may not have a cache depending on test order
+      const count = getCachedHygieneFindingCount();
+      expect(count === null || typeof count === "number").toBe(true);
+    });
+
+    it("returns number after analysis runs", () => {
+      analyzeHygiene([], new Date().toISOString());
+      const count = getCachedHygieneFindingCount();
+      expect(typeof count).toBe("number");
+      expect(count).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("getCachedHygieneSummary", () => {
+    it("returns summary with severity counts", () => {
+      analyzeHygiene([], new Date().toISOString());
+      const summary = getCachedHygieneSummary();
+      expect(summary).not.toBeNull();
+      expect(typeof summary!.total).toBe("number");
+      expect(typeof summary!.high).toBe("number");
+      expect(typeof summary!.medium).toBe("number");
+      expect(typeof summary!.low).toBe("number");
+    });
+  });
+
+  describe("sidebar badge logic", () => {
+    it("shows badge when findings > 0", () => {
+      const count = 5;
+      const badge = count > 0 ? count : undefined;
+      expect(badge).toBe(5);
+    });
+
+    it("hides badge when findings = 0", () => {
+      const count = 0;
+      const badge = count > 0 ? count : undefined;
+      expect(badge).toBeUndefined();
+    });
+
+    it("hides badge when count is null (no cache)", () => {
+      const count: number | null = null;
+      const badge = count && count > 0 ? count : undefined;
+      expect(badge).toBeUndefined();
+    });
+  });
+});

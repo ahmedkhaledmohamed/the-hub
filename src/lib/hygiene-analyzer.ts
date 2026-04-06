@@ -433,4 +433,25 @@ export function invalidateHygieneCache(): void {
   cachedManifestSignature = "";
 }
 
+/**
+ * Get the cached hygiene finding count (without re-running analysis).
+ * Returns null if no cached report exists.
+ */
+export function getCachedHygieneFindingCount(): number | null {
+  return cachedReport ? cachedReport.stats.totalFindings : null;
+}
+
+/**
+ * Get a summary of cached hygiene findings by severity.
+ */
+export function getCachedHygieneSummary(): { total: number; high: number; medium: number; low: number } | null {
+  if (!cachedReport) return null;
+  return {
+    total: cachedReport.stats.totalFindings,
+    high: cachedReport.stats.bySeverity.high || 0,
+    medium: cachedReport.stats.bySeverity.medium || 0,
+    low: cachedReport.stats.bySeverity.low || 0,
+  };
+}
+
 export { resolveFullPath };

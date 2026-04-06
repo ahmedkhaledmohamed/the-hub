@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
@@ -33,8 +33,17 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
   const { aiConfigured, loading: featureLoading } = useFeatureStatus();
+  const [hygieneCount, setHygieneCount] = useState<number | null>(null);
 
   const activeTab = pathname === "/" ? defaultTab : pathname.replace("/", "");
+
+  // Fetch hygiene finding count for sidebar badge
+  useEffect(() => {
+    fetch("/api/hygiene?count=true")
+      .then((r) => r.json())
+      .then((data) => setHygieneCount(data.total || 0))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -88,7 +97,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         {[
           { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
           { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
-          { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false },
+          { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false, badge: hygieneCount && hygieneCount > 0 ? hygieneCount : undefined },
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
           { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
           { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
@@ -96,7 +105,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/status", label: "Status", Icon: Activity, needsAI: false },
           { href: "/setup", label: "Setup", Icon: Wrench, needsAI: false },
           { href: "/settings", label: "Settings", Icon: Settings, needsAI: false },
-        ].map(({ href, label, Icon, needsAI }) => {
+        ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
           const degraded = needsAI && !aiConfigured && !featureLoading;
           return (
             <Link
@@ -120,6 +129,11 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
                   {degraded && (
                     <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-900/40 text-yellow-500 font-medium">
                       AI
+                    </span>
+                  )}
+                  {badge && !degraded && (
+                    <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-orange-900/40 text-orange-400 font-medium">
+                      {badge}
                     </span>
                   )}
                 </span>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getManifest } from "@/lib/manifest-store";
-import { analyzeHygiene, invalidateHygieneCache } from "@/lib/hygiene-analyzer";
+import { analyzeHygiene, invalidateHygieneCache, getCachedHygieneSummary } from "@/lib/hygiene-analyzer";
 import { readPreferences } from "@/lib/preferences";
 import { enqueueJob, getJob, registerJobHandler } from "@/lib/job-queue";
 
@@ -28,6 +28,22 @@ registerJobHandler("hygiene-analysis", async (payload) => {
  * GET /api/hygiene?job=<id>     — check async job status
  */
 export async function GET(req: NextRequest) {
+  // Lightweight count endpoint for sidebar badge
+  const countOnly = req.nextUrl.searchParams.get("count");
+  if (countOnly === "true") {
+    const summary = getCachedHygieneSummary();
+    if (summary) return NextResponse.json(summary);
+    // No cache — run quick analysis
+    const manifest = getManifest();
+    const report = analyzeHygiene(manifest.artifacts, manifest.generatedAt);
+    return NextResponse.json({
+      total: report.stats.totalFindings,
+      high: report.stats.bySeverity.high || 0,
+      medium: report.stats.bySeverity.medium || 0,
+      low: report.stats.bySeverity.low || 0,
+    });
+  }
+
   // Check async job status
   const jobId = req.nextUrl.searchParams.get("job");
   if (jobId) {
