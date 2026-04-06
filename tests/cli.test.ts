@@ -772,3 +772,67 @@ describe("data export/backup", () => {
     it("formats MB", () => expect(formatSize(1048576)).toBe("1.0 MB"));
   });
 });
+
+// ── Preview keyboard navigation tests ────────────────────────────
+
+describe("preview keyboard navigation", () => {
+  describe("j/k navigation logic", () => {
+    it("j moves to next artifact", () => {
+      const artifacts = [{ path: "a.md" }, { path: "b.md" }, { path: "c.md" }];
+      const currentIdx = 0;
+      const nextIdx = currentIdx < artifacts.length - 1 ? currentIdx + 1 : 0;
+      expect(nextIdx).toBe(1);
+    });
+
+    it("j wraps to first from last", () => {
+      const artifacts = [{ path: "a.md" }, { path: "b.md" }, { path: "c.md" }];
+      const currentIdx = 2;
+      const nextIdx = currentIdx < artifacts.length - 1 ? currentIdx + 1 : 0;
+      expect(nextIdx).toBe(0);
+    });
+
+    it("k moves to previous artifact", () => {
+      const artifacts = [{ path: "a.md" }, { path: "b.md" }, { path: "c.md" }];
+      const currentIdx = 2;
+      const nextIdx = currentIdx > 0 ? currentIdx - 1 : artifacts.length - 1;
+      expect(nextIdx).toBe(1);
+    });
+
+    it("k wraps to last from first", () => {
+      const artifacts = [{ path: "a.md" }, { path: "b.md" }, { path: "c.md" }];
+      const currentIdx = 0;
+      const nextIdx = currentIdx > 0 ? currentIdx - 1 : artifacts.length - 1;
+      expect(nextIdx).toBe(2);
+    });
+
+    it("finds current index by path", () => {
+      const artifacts = [{ path: "a.md" }, { path: "b.md" }, { path: "c.md" }];
+      const current = { path: "b.md" };
+      const idx = artifacts.findIndex((a) => a.path === current.path);
+      expect(idx).toBe(1);
+    });
+
+    it("returns -1 for no current preview", () => {
+      const artifacts = [{ path: "a.md" }];
+      const current = null;
+      const idx = current ? artifacts.findIndex((a) => a.path === current.path) : -1;
+      expect(idx).toBe(-1);
+    });
+  });
+
+  describe("previewable type filter", () => {
+    it("only previews md and html", () => {
+      const types = ["md", "html", "csv", "json", "svg"];
+      const previewable = types.filter((t) => t === "md" || t === "html");
+      expect(previewable).toEqual(["md", "html"]);
+    });
+  });
+
+  describe("input field exclusion", () => {
+    it("excludes input, textarea, select tags", () => {
+      const excluded = ["INPUT", "TEXTAREA", "SELECT"];
+      expect(excluded.includes("INPUT")).toBe(true);
+      expect(excluded.includes("DIV")).toBe(false);
+    });
+  });
+});

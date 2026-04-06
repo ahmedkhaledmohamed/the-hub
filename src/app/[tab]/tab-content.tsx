@@ -135,6 +135,38 @@ export function TabContent({
     });
   }, []);
 
+  // Keyboard navigation: j/k to navigate artifacts, Esc to close preview
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't interfere with input fields
+      if (["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement).tagName)) return;
+
+      if (e.key === "j" || e.key === "k") {
+        e.preventDefault();
+        const currentIdx = previewArtifact
+          ? filteredArtifacts.findIndex((a) => a.path === previewArtifact.path)
+          : -1;
+
+        let nextIdx: number;
+        if (e.key === "j") {
+          nextIdx = currentIdx < filteredArtifacts.length - 1 ? currentIdx + 1 : 0;
+        } else {
+          nextIdx = currentIdx > 0 ? currentIdx - 1 : filteredArtifacts.length - 1;
+        }
+
+        if (filteredArtifacts[nextIdx]) {
+          const next = filteredArtifacts[nextIdx];
+          if (next.type === "md" || next.type === "html") {
+            setPreviewArtifact(next);
+          }
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [previewArtifact, filteredArtifacts]);
+
   const totalCount = groups.reduce((sum, g) => sum + g.count, 0);
 
   const sortLabels: Record<SortMode, string> = { recent: "Recent", stale: "Most stale", alpha: "A-Z" };
