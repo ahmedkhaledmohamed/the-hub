@@ -1036,3 +1036,82 @@ describe("search source indicators", () => {
     });
   });
 });
+
+// ── Scheduled Slack digest tests ─────────────────────────────────
+
+import {
+  startDigestScheduler,
+  stopDigestScheduler,
+  isDigestEnabled,
+  isDigestSchedulerActive,
+  getDigestScheduleStatus,
+  runDigest,
+  resetDigestScheduler,
+} from "@/lib/digest-scheduler";
+
+describe("scheduled Slack digest", () => {
+  afterEach(() => {
+    resetDigestScheduler();
+  });
+
+  describe("isDigestEnabled", () => {
+    it("defaults to disabled", () => {
+      delete process.env.HUB_DIGEST_ENABLED;
+      expect(isDigestEnabled()).toBe(false);
+    });
+
+    it("enabled when HUB_DIGEST_ENABLED=true", () => {
+      process.env.HUB_DIGEST_ENABLED = "true";
+      expect(isDigestEnabled()).toBe(true);
+      delete process.env.HUB_DIGEST_ENABLED;
+    });
+  });
+
+  describe("scheduler lifecycle", () => {
+    it("starts and becomes active", () => {
+      startDigestScheduler({ intervalMs: 60000 });
+      expect(isDigestSchedulerActive()).toBe(true);
+      stopDigestScheduler();
+    });
+
+    it("stops and becomes inactive", () => {
+      startDigestScheduler({ intervalMs: 60000 });
+      stopDigestScheduler();
+      expect(isDigestSchedulerActive()).toBe(false);
+    });
+
+    it("prevents double-start", () => {
+      startDigestScheduler({ intervalMs: 60000 });
+      startDigestScheduler({ intervalMs: 60000 }); // should not create second interval
+      expect(isDigestSchedulerActive()).toBe(true);
+      stopDigestScheduler();
+    });
+  });
+
+  describe("runDigest", () => {
+    it("generates a digest result", async () => {
+      const result = await runDigest();
+      expect(typeof result.sent).toBe("boolean");
+      expect(result.digest).toBeDefined();
+      expect(typeof result.digest.changes.modified).toBe("number");
+    });
+  });
+
+  describe("getDigestScheduleStatus", () => {
+    it("returns status structure", () => {
+      const status = getDigestScheduleStatus();
+      expect(typeof status.enabled).toBe("boolean");
+      expect(typeof status.running).toBe("boolean");
+      expect(typeof status.intervalMs).toBe("number");
+      expect(typeof status.runCount).toBe("number");
+    });
+
+    it("tracks runCount after runDigest", async () => {
+      resetDigestScheduler();
+      await runDigest();
+      const status = getDigestScheduleStatus();
+      expect(status.runCount).toBeGreaterThanOrEqual(1);
+      expect(status.lastRun).toBeTruthy();
+    });
+  });
+});
