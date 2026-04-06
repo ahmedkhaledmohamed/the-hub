@@ -230,7 +230,7 @@ v6 deleted 5,000+ lines of dead code and rebuilt The Hub as an MCP-first context
 | Interface | Description |
 |---|---|
 | **Web UI** | 14 pages: briefing, tabs, repos, hygiene, ask, graph, decisions, integrations, status, setup, settings |
-| **MCP Server** | 13 core tools (workspace_summary, search, read, ask, context, decisions, hygiene, trends, create_doc, update_artifact, mark_reviewed, manifest, groups), 4 resources, 5 prompts |
+| **MCP Server** | 23 core tools (workspace intelligence, search, read/write, decisions, hygiene, context compilation, memory, and more), 4 resources, 5 prompts |
 | **CLI** | `hub search`, `hub context <topic>`, `hub stale`, `hub status`, `hub open` |
 | **REST API** | 60 endpoints |
 | **SSE Stream** | Real-time workspace events at `/api/events/stream` |
@@ -275,7 +275,7 @@ npm run build && npm start
 }
 ```
 
-**Available MCP tools:** workspace_summary, search, read_artifact, list_groups, get_manifest, ask_question, get_context, get_decisions, get_hygiene, get_trends, create_doc, update_artifact, mark_reviewed
+**Available MCP tools:** workspace_summary, search, read_artifact, list_groups, get_manifest, ask_question, get_context, get_decisions, get_hygiene, get_trends, create_doc, update_artifact, mark_reviewed, generate_content, list_repos, detect_gaps, compile_context, meeting_brief, get_impact, get_errors, remember, recall, catch_up
 
 **Available MCP prompts:** summarize_group, draft_status_update, find_conflicts, review_artifact, onboarding_brief
 
@@ -322,7 +322,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 - **MCP SDK** (@modelcontextprotocol/sdk) for AI tool integration
 - **marked** + **highlight.js** for markdown rendering
 - **chokidar** for filesystem watching
-- **vitest** for testing (1,093 tests across 11 suites)
+- **vitest** for testing (1,099 tests across 11 suites)
 
 ## Commands
 
@@ -330,8 +330,8 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 npm run dev        # Dev server with Turbopack
 npm run build      # Production build
 npm start          # Production server (HTTPS :9001 + HTTP :9002)
-npm test           # Run all 1,093 tests
-npm run mcp        # Start MCP server (13 tools)
+npm test           # Run all 1,099 tests
+npm run mcp        # Start MCP server (23 tools)
 hub search <query> # CLI search with freshness
 hub context <topic> # Smart context for a topic
 hub stale          # Show stale docs (>90 days)
@@ -362,16 +362,17 @@ the-hub/
 │   ├── app/                  # Next.js 15 pages + 60 API routes
 │   ├── components/           # 40+ React components
 │   ├── hooks/                # Client-side hooks (feature status, impact, search)
-│   ├── mcp/                  # MCP server (13 core tools, 4 resources, 5 prompts)
-│   ├── lib/                  # 65 library modules
+│   ├── mcp/                  # MCP server (23 core tools, 4 resources, 5 prompts)
+│   ├── lib/                  # 67 library modules
 │   └── middleware.ts         # Rate limiting + API authentication
-└── tests/                    # 1,093 tests across 11 suites
+└── tests/                    # 1,099 tests across 11 suites
 ```
 
 ## Links
 
 - [Landing Page](https://ahmedkhaledmohamed.github.io/the-hub/)
 - [Future Developments](docs/future-developments.md)
+- [Release v6.1.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v6.1.0)
 - [Release v6.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v6.0.0)
 - [Release v5.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v5.0.0)
 - [Release v4.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v4.0.0)
