@@ -100,6 +100,12 @@ export function regenerate(reason: string = "manual"): Manifest {
       try { const { invalidateMcpCache } = require("./mcp-cache"); invalidateMcpCache(); } catch { /* non-critical */ }
       // Auto-start digest scheduler if enabled
       try { const { autoStartDigest } = require("./digest-scheduler"); autoStartDigest(); } catch { /* non-critical */ }
+      // Auto-run hygiene analysis to populate sidebar badge
+      try {
+        const { analyzeHygiene, invalidateHygieneCache } = require("./hygiene-analyzer");
+        invalidateHygieneCache();
+        analyzeHygiene(cachedManifest.artifacts, cachedManifest.generatedAt);
+      } catch { /* non-critical — hygiene is advisory */ }
 
       // Trigger embedding auto-generation after scan (non-blocking)
       try {
