@@ -1,7 +1,7 @@
 /**
  * OpenAPI 3.1 specification for The Hub API.
  *
- * Hand-crafted spec covering all 36+ endpoints.
+ * Hand-crafted spec covering all core endpoints.
  * Served at /api/docs as JSON.
  */
 
@@ -90,7 +90,6 @@ export function generateOpenApiSpec() {
         get: { summary: "List document templates", tags: ["Core"], responses: { "200": { description: "Templates" } } },
         post: { summary: "Create new document from template", tags: ["Core"], responses: { "200": { description: "Created" } } },
       },
-      "/api/proxy": { get: { summary: "Proxy external URLs", tags: ["Core"], responses: { "200": { description: "Proxied content" } } } },
 
       // ── AI ──
       "/api/ai/complete": {
@@ -155,10 +154,6 @@ export function generateOpenApiSpec() {
 
       // ── Platform ──
       "/api/plugins": { get: { summary: "List loaded plugins", tags: ["Platform"], responses: { "200": { description: "Plugin list" } } } },
-      "/api/marketplace": {
-        get: { summary: "Browse plugin marketplace", tags: ["Platform"], responses: { "200": { description: "Available plugins" } } },
-        post: { summary: "Install or uninstall plugin", tags: ["Platform"], responses: { "200": { description: "Install result" } } },
-      },
       "/api/agents": {
         get: { summary: "List configured agents", tags: ["Platform"], responses: { "200": { description: "Agent statuses" } } },
         post: { summary: "Run agent(s)", tags: ["Platform"], responses: { "200": { description: "Agent results" } } },
@@ -176,18 +171,6 @@ export function generateOpenApiSpec() {
         put: { summary: "Update user preferences", tags: ["Platform"], responses: { "200": { description: "Updated" } } },
       },
 
-      // ── Network ──
-      "/api/federation": {
-        get: { summary: "Federated search or peer health", tags: ["Network"], responses: { "200": { description: "Federation data" } } },
-      },
-      "/api/sharing": {
-        get: { summary: "Sharing status and user roles", tags: ["Network"], responses: { "200": { description: "Sharing info" } } },
-        post: { summary: "Track shared user action", tags: ["Network"], responses: { "200": { description: "Tracked" } } },
-      },
-      "/api/contexts": {
-        get: { summary: "List workspace contexts", tags: ["Network"], responses: { "200": { description: "Contexts" } } },
-        post: { summary: "Switch active context", tags: ["Network"], responses: { "200": { description: "Switched" } } },
-      },
       "/api/docs": {
         get: { summary: "This OpenAPI specification", tags: ["Meta"], responses: { "200": { description: "OpenAPI 3.1 JSON" } } },
       },
@@ -198,7 +181,6 @@ export function generateOpenApiSpec() {
       { name: "Hygiene", description: "Document hygiene and duplicate detection" },
       { name: "Intelligence", description: "Knowledge graph, trends, activity, governance" },
       { name: "Platform", description: "Plugins, agents, webhooks, auth, settings" },
-      { name: "Network", description: "Federation, sharing, contexts" },
       { name: "Meta", description: "API documentation" },
     ],
   };
