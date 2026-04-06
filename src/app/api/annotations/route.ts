@@ -68,6 +68,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "artifactPath and content required" }, { status: 400 });
     }
     const id = addAnnotation({ artifactPath, content, author: author as string, lineStart, lineEnd, parentId });
+
+    // Trigger notification for annotation (notify artifact "owner" — use "default" for now)
+    try {
+      const { notifyAnnotation } = require("@/lib/notifications");
+      notifyAnnotation({
+        recipient: "default",
+        author: (author as string) || "anonymous",
+        artifactPath,
+        content,
+      });
+    } catch { /* notification is non-critical */ }
+
     return NextResponse.json({ id, created: true });
   }
 

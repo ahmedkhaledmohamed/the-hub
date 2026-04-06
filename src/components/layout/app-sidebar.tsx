@@ -34,14 +34,19 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   const [collapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
   const { aiConfigured, loading: featureLoading } = useFeatureStatus();
   const [hygieneCount, setHygieneCount] = useState<number | null>(null);
+  const [notifCount, setNotifCount] = useState<number | null>(null);
 
   const activeTab = pathname === "/" ? defaultTab : pathname.replace("/", "");
 
-  // Fetch hygiene finding count for sidebar badge
+  // Fetch hygiene finding count + notification count for sidebar badges
   useEffect(() => {
     fetch("/api/hygiene?count=true")
       .then((r) => r.json())
       .then((data) => setHygieneCount(data.total || 0))
+      .catch(() => {});
+    fetch("/api/notifications?recipient=default&count=true")
+      .then((r) => r.json())
+      .then((data) => setNotifCount(data.unreadCount || 0))
       .catch(() => {});
   }, []);
 
@@ -95,7 +100,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
       >
         {[
-          { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
+          { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
           { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false, badge: hygieneCount && hygieneCount > 0 ? hygieneCount : undefined },
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
