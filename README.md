@@ -200,49 +200,42 @@ flowchart TD
 - **Progressive Web App** — installable on mobile, offline-capable with service worker
 - **Docker deployment** — Dockerfile + docker-compose for containerized hosting
 
-> **Deprecated in v5** (still functional, will be removed in v5.1): Hub-to-Hub federation, shared instances, multi-workspace contexts, Enterprise SSO/SAML, plugin marketplace. See `/api/deprecated` for details.
+### v6: The Context Engine
 
-### Agent Intelligence (v4)
+v6 deleted 5,000+ lines of dead code and rebuilt The Hub as an MCP-first context engine.
 
-- **Agent memory** — AI agents write observations back to The Hub via `remember` MCP tool. Persists across sessions. Query with `recall`.
-- **Decision queries** — "What was decided about authentication?" via `ask_decisions` — returns matching decisions with contradiction detection
-- **Context compilation** — Auto-generate meeting prep packets: related docs, decisions, changes, conflicts via `compile_context`
-- **Knowledge gap detection** — Find topics your workspace lacks docs for based on search patterns via `detect_gaps`
-- **Session tracking** — Track what agents query, surface what changed since last session via `catch_up`
-- **Change pipeline** — File change → decision extraction → impact scoring → notification, fully automatic
-- **Smart summaries** — Semantic change descriptions: "Enterprise pricing changed from $80 to $60/user" instead of "pricing.md modified"
-- **Notifications** — Persistent alerts for review completions, annotations, and high-impact changes
-- **Meeting briefings** — Calendar-aware pre-meeting prep with action items, priority scoring via `meeting_brief`
-- **Performance monitoring** — Benchmark suite with threshold-based regression detection, query plan auditing
+**Phase 1 — The Great Deletion:** Removed 11 deprecated API routes, 11 unused lib modules, 13 archived MCP tools, and 4 agent intelligence modules. Consolidated 73 → 59 modules.
 
-### v5: Ship Less, Use More
+**Phase 2 — MCP-First:**
+- **Workspace summary** — Single-call workspace orientation via `workspace_summary` MCP tool
+- **Write-back tools** — `create_doc`, `update_artifact`, `mark_reviewed` — AI assistants can now modify the workspace
+- **Smart context windows** — Impact-scored context: critical docs get 2.5x token budget, low-impact docs get 0.5x
+- **Quality health resource** — `hub://health` with staleness distribution, hygiene counts, trend alerts
 
-- **Search caching** — LRU cache with TTL for < 50ms p95 search latency
-- **Briefing optimization** — First-load < 500ms with server-side data prefetch
-- **MCP tool caching** — Core tool responses cached for < 100ms response times
-- **Keyboard navigation** — j/k keys for artifact preview, Esc to close
-- **Scheduled Slack digest** — Real cron-based weekly digest (not manual API call)
-- **Calendar-driven briefings** — iCal parsing wired to briefing page with today's events
-- **Notification triggers** — Review/annotation events fire real notifications with badge count
-- **Notification inbox** — Dedicated page for viewing and managing notifications
-- **Auto-hygiene on scan** — Hygiene analysis runs on every scan, badge on sidebar
-- **MCP tool archival** — 13 unused tools archived, 6 core tools by default (`HUB_MCP_ALL_TOOLS=true` for all 19)
-- **API deprecation** — 8 unused routes marked with `X-Deprecated` headers for removal in v5.1
-- **Module consolidation** — Inventory of 73 modules with merge targets identified
-- **Integration tests** — 8 real user-flow integration tests replacing existence checks
-- **Honest marketing** — Removed dead features (federation, SSO, marketplace) from README and landing page
+**Phase 3 — Proactive Intelligence:**
+- **Auto-generated context files** — `.hub-context.md` and `.cursorrules` written on every scan. AI tools read these natively.
+- **VS Code extension** — Sidebar with workspace health, hygiene issues, decisions, recent changes (only things Cursor doesn't have)
+- **Scan-time insights** — Eager decision extraction + impact scoring on every file change
+- **Slack proactive alerts** — Contradiction detection, knowledge decay, meeting prep pushed to Slack
+- **CLI upgrade** — `hub context <topic>`, `hub stale`, enhanced `hub search` with freshness indicators
+
+**Phase 4 — Quality Engine:**
+- **Hygiene-as-code** — Custom rules in `hub.config.ts` (max-staleness, no-duplicates, required-field, max-similarity)
+- **Auto-fix suggestions** — AI-generated merge diffs for duplicate/near-duplicate documents
+- **Doc lifecycle** — Formal states (draft → active → stale → archived) with automatic transitions
+- **Quality scores** — Per-artifact scoring (freshness, completeness, structure, metadata, consistency) with A-F grades
 
 ### Interfaces
 
 | Interface | Description |
 |---|---|
-| **Web UI** | 14 pages: briefing, tabs, repos, hygiene, ask, graph, decisions, integrations, status, setup, settings, admin |
-| **MCP Server** | 6 core tools (search, read, ask, manifest, groups, decisions), 3 resources, 5 prompts. 19 total with `HUB_MCP_ALL_TOOLS=true` |
-| **CLI** | `hub search`, `hub status`, `hub open`, `hub plugin install`, `hub context compile` |
-| **REST API** | 70 endpoints covering every feature |
+| **Web UI** | 14 pages: briefing, tabs, repos, hygiene, ask, graph, decisions, integrations, status, setup, settings |
+| **MCP Server** | 13 core tools (workspace_summary, search, read, ask, context, decisions, hygiene, trends, create_doc, update_artifact, mark_reviewed, manifest, groups), 4 resources, 5 prompts |
+| **CLI** | `hub search`, `hub context <topic>`, `hub stale`, `hub status`, `hub open` |
+| **REST API** | 60 endpoints |
 | **SSE Stream** | Real-time workspace events at `/api/events/stream` |
 | **PWA** | Installable on mobile home screens, offline-capable |
-| **Cursor Extension** | Hub as an editor tab (Cmd+Shift+H) |
+| **VS Code Extension** | Sidebar: workspace health, hygiene, decisions, recent changes, cross-workspace search |
 
 ## Install
 
@@ -282,11 +275,11 @@ npm run build && npm start
 }
 ```
 
-**Available MCP tools:** search, read_artifact, list_groups, get_manifest, ask_question, generate_content, get_hygiene, get_trends, list_repos, get_decisions, get_impact, get_errors, remember, recall, ask_decisions, compile_context, detect_gaps, catch_up, meeting_brief
+**Available MCP tools:** workspace_summary, search, read_artifact, list_groups, get_manifest, ask_question, get_context, get_decisions, get_hygiene, get_trends, create_doc, update_artifact, mark_reviewed
 
 **Available MCP prompts:** summarize_group, draft_status_update, find_conflicts, review_artifact, onboarding_brief
 
-**Available MCP resources:** `hub://artifact/{path}`, `hub://manifest`, `hub://status`
+**Available MCP resources:** `hub://artifact/{path}`, `hub://manifest`, `hub://status`, `hub://health`
 
 ## Configuration
 
@@ -301,23 +294,23 @@ const config: HubConfig = {
   panels: { knowledge: [{ type: "links", title: "Quick Links", items: [...] }] },
 
   // Optional: AI (auto-detects Ollama, or set AI_GATEWAY_URL in .env.local)
-  // Optional: agents, webhooks, sharing, federation, governance, contexts
+  // Optional: hygieneRules, agents, webhooks, staleness thresholds
 };
 ```
 
-## API (70 endpoints)
+## API (60 endpoints)
 
 Full OpenAPI 3.1 spec available at `/api/docs` when running.
 
 | Category | Endpoints |
 |---|---|
-| **Core** | `/api/manifest`, `/api/regenerate`, `/api/file/[...path]`, `/api/resolve`, `/api/search`, `/api/repos`, `/api/changes`, `/api/export`, `/api/compile-context`, `/api/notes`, `/api/new-doc`, `/api/proxy` |
+| **Core** | `/api/manifest`, `/api/regenerate`, `/api/file/[...path]`, `/api/resolve`, `/api/search`, `/api/repos`, `/api/changes`, `/api/export`, `/api/compile-context`, `/api/notes`, `/api/new-doc` |
 | **AI** | `/api/ai/complete`, `/api/ai/ask`, `/api/ai/generate`, `/api/ai/summarize`, `/api/ai/models` |
 | **Hygiene** | `/api/hygiene`, `/api/hygiene/action`, `/api/hygiene/review`, `/api/hygiene/open` |
-| **Intelligence** | `/api/graph`, `/api/trends`, `/api/activity`, `/api/admin`, `/api/decisions`, `/api/impact`, `/api/decay`, `/api/briefing`, `/api/annotations`, `/api/reviews`, `/api/conflicts`, `/api/onboarding` |
-| **Platform** | `/api/plugins`, `/api/marketplace`, `/api/agents`, `/api/webhooks`, `/api/webhooks/test`, `/api/auth/session`, `/api/framework`, `/api/jobs`, `/api/logs`, `/api/errors`, `/api/migrations` |
-| **Network** | `/api/federation`, `/api/sharing`, `/api/contexts`, `/api/google-docs`, `/api/notion`, `/api/slack`, `/api/calendar`, `/api/sso` |
-| **Agent** | `/api/agent-memory`, `/api/context`, `/api/gaps`, `/api/pipeline`, `/api/digest`, `/api/notifications`, `/api/meeting-brief`, `/api/embeddings`, `/api/backup` |
+| **Intelligence** | `/api/graph`, `/api/trends`, `/api/activity`, `/api/decisions`, `/api/impact`, `/api/decay`, `/api/briefing`, `/api/annotations`, `/api/reviews`, `/api/conflicts`, `/api/onboarding`, `/api/quality` |
+| **Platform** | `/api/plugins`, `/api/agents`, `/api/webhooks`, `/api/webhooks/test`, `/api/auth/session`, `/api/framework`, `/api/jobs`, `/api/logs`, `/api/errors`, `/api/migrations` |
+| **Integrations** | `/api/google-docs`, `/api/notion`, `/api/slack`, `/api/calendar` |
+| **Agent** | `/api/context`, `/api/digest`, `/api/notifications`, `/api/embeddings`, `/api/backup` |
 | **System** | `/api/status`, `/api/setup`, `/api/settings`, `/api/preferences`, `/api/integrations`, `/api/events/stream`, `/api/benchmarks`, `/api/query-audit` |
 
 ## Tech Stack
@@ -329,7 +322,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 - **MCP SDK** (@modelcontextprotocol/sdk) for AI tool integration
 - **marked** + **highlight.js** for markdown rendering
 - **chokidar** for filesystem watching
-- **vitest** for testing (1,152 tests across 11 suites)
+- **vitest** for testing (1,093 tests across 11 suites)
 
 ## Commands
 
@@ -337,11 +330,12 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 npm run dev        # Dev server with Turbopack
 npm run build      # Production build
 npm start          # Production server (HTTPS :9001 + HTTP :9002)
-npm test           # Run all 1,152 tests
-npm run mcp        # Start MCP server
-hub search <query> # CLI search
+npm test           # Run all 1,093 tests
+npm run mcp        # Start MCP server (13 tools)
+hub search <query> # CLI search with freshness
+hub context <topic> # Smart context for a topic
+hub stale          # Show stale docs (>90 days)
 hub status         # Workspace status
-hub plugin list    # Browse marketplace
 bash setup.sh      # Interactive setup
 ```
 
@@ -362,21 +356,23 @@ the-hub/
 ├── public/
 │   ├── manifest.json         # PWA manifest
 │   └── sw.js                 # Service worker
+├── extensions/
+│   └── vscode/               # VS Code extension (workspace health sidebar)
 ├── src/
-│   ├── app/                  # Next.js 14 pages + 70 API routes
+│   ├── app/                  # Next.js 15 pages + 60 API routes
 │   ├── components/           # 40+ React components
 │   ├── hooks/                # Client-side hooks (feature status, impact, search)
-│   ├── hooks/                # Client-side hooks (feature status, impact, search)
-│   ├── mcp/                  # MCP server (6 core + 13 archived tools, 3 resources, 5 prompts)
-│   ├── lib/                  # 73 library modules
+│   ├── mcp/                  # MCP server (13 core tools, 4 resources, 5 prompts)
+│   ├── lib/                  # 65 library modules
 │   └── middleware.ts         # Rate limiting + API authentication
-└── tests/                    # 1,152 tests across 11 suites
+└── tests/                    # 1,093 tests across 11 suites
 ```
 
 ## Links
 
 - [Landing Page](https://ahmedkhaledmohamed.github.io/the-hub/)
 - [Future Developments](docs/future-developments.md)
+- [Release v6.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v6.0.0)
 - [Release v5.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v5.0.0)
 - [Release v4.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v4.0.0)
 - [Release v3.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v3.0.0)
