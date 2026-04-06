@@ -1026,3 +1026,111 @@ describe("vector index wired to search", () => {
     });
   });
 });
+
+// ── Quality score tests ─────────────────────────────────────────
+
+import { computeArtifactQuality, computeWorkspaceHealth } from "@/lib/quality-score";
+
+describe("quality scores", () => {
+  describe("computeArtifactQuality", () => {
+    it("scores a fresh, complete artifact highly", () => {
+      // Seed a well-structured artifact
+      persistArtifacts([{
+        path: "quality/good.md", title: "Well Written Doc", type: "md", group: "docs",
+        modifiedAt: new Date().toISOString(), size: 500, staleDays: 1, snippet: "Good doc",
+      }], new Map([
+        ["quality/good.md", "# Well Written Doc\n\nThis is a well-structured document.\n\n## Section 1\n\nDetailed content here with enough text to be meaningful.\n\n## Section 2\n\nMore detailed content about another topic."],
+      ]), { deleteStale: false });
+
+      const score = computeArtifactQuality({
+        path: "quality/good.md", title: "Well Written Doc", type: "md", group: "docs",
+        modifiedAt: new Date().toISOString(), size: 500, staleDays: 1, snippet: "Good doc",
+      });
+
+      expect(score.score).toBeGreaterThanOrEqual(70);
+      expect(["A", "B"]).toContain(score.grade);
+      expect(score.breakdown.freshness).toBe(30);
+      expect(score.breakdown.completeness).toBeGreaterThanOrEqual(20);
+      expect(score.breakdown.structure).toBeGreaterThanOrEqual(10);
+    });
+
+    it("scores a stale, minimal artifact poorly", () => {
+      const score = computeArtifactQuality({
+        path: "quality/bad.md", title: "", type: "md", group: "ungrouped",
+        modifiedAt: "2024-01-01", size: 10, staleDays: 200, snippet: "",
+      });
+
+      expect(score.score).toBeLessThanOrEqual(30);
+      expect(["D", "F"]).toContain(score.grade);
+      expect(score.breakdown.freshness).toBe(0);
+    });
+
+    it("deducts consistency for hygiene-flagged artifacts", () => {
+      const flags = new Set(["quality/flagged.md"]);
+      const clean = computeArtifactQuality({
+        path: "quality/clean.md", title: "Clean", type: "md", group: "docs",
+        modifiedAt: new Date().toISOString(), size: 100, staleDays: 1, snippet: "",
+      }, flags);
+      const flagged = computeArtifactQuality({
+        path: "quality/flagged.md", title: "Flagged", type: "md", group: "docs",
+        modifiedAt: new Date().toISOString(), size: 100, staleDays: 1, snippet: "",
+      }, flags);
+
+      expect(clean.breakdown.consistency).toBe(10);
+      expect(flagged.breakdown.consistency).toBe(0);
+    });
+
+    it("returns valid grade for all score ranges", () => {
+      const artifacts = [
+        { staleDays: 1, title: "A", type: "md", group: "docs" },
+        { staleDays: 50, title: "C", type: "md", group: "docs" },
+        { staleDays: 200, title: "", type: "md", group: "ungrouped" },
+      ];
+      for (const a of artifacts) {
+        const score = computeArtifactQuality(a as any);
+        expect(["A", "B", "C", "D", "F"]).toContain(score.grade);
+        expect(score.score).toBeGreaterThanOrEqual(0);
+        expect(score.score).toBeLessThanOrEqual(100);
+      }
+    });
+  });
+
+  describe("computeWorkspaceHealth", () => {
+    it("computes average score and distribution", () => {
+      const artifacts = [
+        { path: "q/a.md", title: "A", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 1, snippet: "a" },
+        { path: "q/b.md", title: "B", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 50, snippet: "b" },
+        { path: "q/c.md", title: "", type: "md", group: "ungrouped", modifiedAt: "2024-01-01", size: 10, staleDays: 200, snippet: "" },
+      ];
+
+      const health = computeWorkspaceHealth(artifacts as any);
+      expect(health.totalArtifacts).toBe(3);
+      expect(health.averageScore).toBeGreaterThan(0);
+      expect(health.averageScore).toBeLessThanOrEqual(100);
+      expect(["A", "B", "C", "D", "F"]).toContain(health.grade);
+      expect(health.distribution.A + health.distribution.B + health.distribution.C + health.distribution.D + health.distribution.F).toBe(3);
+    });
+
+    it("returns top and bottom artifacts", () => {
+      const artifacts = Array.from({ length: 10 }, (_, i) => ({
+        path: `q/doc-${i}.md`, title: `Doc ${i}`, type: "md", group: "docs",
+        modifiedAt: new Date().toISOString(), size: 100, staleDays: i * 20, snippet: `doc ${i}`,
+      }));
+
+      const health = computeWorkspaceHealth(artifacts as any);
+      expect(health.topArtifacts.length).toBeLessThanOrEqual(5);
+      expect(health.bottomArtifacts.length).toBeLessThanOrEqual(5);
+      // Top should have higher scores than bottom
+      if (health.topArtifacts.length > 0 && health.bottomArtifacts.length > 0) {
+        expect(health.topArtifacts[0].score).toBeGreaterThanOrEqual(health.bottomArtifacts[0].score);
+      }
+    });
+
+    it("handles empty artifact list", () => {
+      const health = computeWorkspaceHealth([]);
+      expect(health.averageScore).toBe(0);
+      expect(health.totalArtifacts).toBe(0);
+      expect(health.grade).toBe("F");
+    });
+  });
+});
