@@ -69,7 +69,7 @@ async function main() {
       let fromCache = false;
 
       try {
-        const { cachedToolCall } = await import("../lib/mcp-cache.js");
+        const { cachedToolCall } = await import("../lib/search-cache.js");
         const { result, cached } = await cachedToolCall("search", `mcp:search:${query}:${limit}`, async () => {
           const db = await getDb();
           return db.searchArtifacts(query, limit);

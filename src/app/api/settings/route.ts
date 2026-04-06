@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { readdirSync, statSync } from "fs";
 import { join, resolve, basename } from "path";
-import { loadConfig } from "@/lib/config";
-import { readPreferences } from "@/lib/preferences";
+import { loadConfig, readPreferences } from "@/lib/config";
 import { getManifest } from "@/lib/manifest-store";
 
 export const dynamic = "force-dynamic";

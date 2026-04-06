@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getManifest } from "@/lib/manifest-store";
 import { analyzeHygiene, invalidateHygieneCache, getCachedHygieneSummary } from "@/lib/hygiene-analyzer";
-import { readPreferences } from "@/lib/preferences";
+import { readPreferences } from "@/lib/config";
 import { enqueueJob, getJob, registerJobHandler } from "@/lib/job-queue";
 
 export const dynamic = "force-dynamic";
