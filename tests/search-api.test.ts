@@ -1021,3 +1021,95 @@ describe("streaming manifest", () => {
     });
   });
 });
+
+// ── Search caching tests ─────────────────────────────────────────
+
+import { SearchCache, buildSearchCacheKey, getSearchCache, invalidateSearchCache } from "@/lib/search-cache";
+
+describe("search result caching", () => {
+  describe("SearchCache", () => {
+    it("stores and retrieves values", () => {
+      const cache = new SearchCache<string>();
+      cache.set("key1", "value1");
+      expect(cache.get("key1")).toBe("value1");
+    });
+
+    it("returns undefined for misses", () => {
+      const cache = new SearchCache<string>();
+      expect(cache.get("nonexistent")).toBeUndefined();
+    });
+
+    it("evicts oldest entries at max size", () => {
+      const cache = new SearchCache<number>({ maxSize: 3 });
+      cache.set("a", 1);
+      cache.set("b", 2);
+      cache.set("c", 3);
+      cache.set("d", 4); // should evict "a"
+      expect(cache.get("a")).toBeUndefined();
+      expect(cache.get("d")).toBe(4);
+    });
+
+    it("expires entries after TTL", async () => {
+      const cache = new SearchCache<string>({ ttlMs: 50 });
+      cache.set("fast", "value");
+      expect(cache.get("fast")).toBe("value");
+      await new Promise((r) => setTimeout(r, 60));
+      expect(cache.get("fast")).toBeUndefined();
+    });
+
+    it("tracks hit/miss stats", () => {
+      const cache = new SearchCache<string>();
+      cache.set("x", "y");
+      cache.get("x"); // hit
+      cache.get("z"); // miss
+      const stats = cache.getStats();
+      expect(stats.hits).toBe(1);
+      expect(stats.misses).toBe(1);
+      expect(stats.hitRate).toBeCloseTo(0.5);
+    });
+
+    it("clear empties the cache", () => {
+      const cache = new SearchCache<string>();
+      cache.set("a", "1");
+      cache.set("b", "2");
+      cache.clear();
+      expect(cache.get("a")).toBeUndefined();
+      expect(cache.getStats().size).toBe(0);
+    });
+  });
+
+  describe("buildSearchCacheKey", () => {
+    it("includes query, limit, offset, mode", () => {
+      const key = buildSearchCacheKey("auth", 20, 0, "fts");
+      expect(key).toBe("fts:auth:20:0");
+    });
+
+    it("different params produce different keys", () => {
+      const k1 = buildSearchCacheKey("auth", 20, 0, "fts");
+      const k2 = buildSearchCacheKey("auth", 20, 0, "hybrid");
+      expect(k1).not.toBe(k2);
+    });
+  });
+
+  describe("global search cache", () => {
+    it("getSearchCache returns singleton", () => {
+      const c1 = getSearchCache();
+      const c2 = getSearchCache();
+      expect(c1).toBe(c2);
+    });
+
+    it("invalidateSearchCache clears the cache", () => {
+      const cache = getSearchCache();
+      cache.set("test-key", { results: [] });
+      invalidateSearchCache();
+      expect(cache.get("test-key")).toBeUndefined();
+    });
+  });
+
+  describe("cached search response", () => {
+    it("cached flag is added to response", () => {
+      const response = { query: "test", results: [], cached: true };
+      expect(response.cached).toBe(true);
+    });
+  });
+});

@@ -96,7 +96,7 @@ Delete or deprecate features that aren't used. Reduce cognitive load.
 
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
-| 1 | Search result caching (< 50ms p95 target) | Excellence | Very High | Medium |
+| ✅ 1 | Search result caching (< 50ms p95 target) | Excellence | Very High | Medium |
 | 2 | Briefing page first-load optimization (< 500ms) | Excellence | High | Medium |
 | 3 | Hygiene auto-run on scan with sidebar badge | Excellence | High | Low |
 | 4 | MCP core tool profiling + caching (< 100ms) | Excellence | High | Medium |
