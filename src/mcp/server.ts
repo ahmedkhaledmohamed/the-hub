@@ -60,10 +60,15 @@ async function getTrendsLib() {
 async function main() {
   const server = new McpServer({
     name: "the-hub",
-    version: "2.0.0",
+    version: "5.0.0",
   });
 
-  // ── Tool: search ────────────────────────────────────────────────
+  // v5: Only register core tools by default.
+  // Set HUB_MCP_ALL_TOOLS=true to register all 19 tools.
+  const allTools = process.env.HUB_MCP_ALL_TOOLS === "true";
+  const coreToolCount = allTools ? 19 : 6;
+
+  // ── Tool: search ──────────────────────────────────────── [CORE]
 
   server.tool(
     "search",
@@ -185,6 +190,9 @@ async function main() {
       return { content: [{ type: "text" as const, text }] };
     },
   );
+
+  // ── Non-core tools (registered when HUB_MCP_ALL_TOOLS=true) ────
+  if (allTools) {
 
   // ── Tool: generate_content ──────────────────────────────────────
 
@@ -309,7 +317,9 @@ async function main() {
     },
   );
 
-  // ── Tool: get_decisions ──────────────────────────────────────────
+  } // end non-core tools block 1
+
+  // ── Tool: get_decisions ────────────────────────────────── [CORE]
 
   server.tool(
     "get_decisions",
@@ -347,6 +357,8 @@ async function main() {
       }
     },
   );
+
+  if (allTools) { // non-core tools block 2
 
   // ── Tool: ask_decisions ─────────────────────────────────────────
 
@@ -633,6 +645,8 @@ async function main() {
     },
   );
 
+  } // end non-core tools block 2
+
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
   server.resource(
@@ -782,7 +796,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 19,
+          tools: coreToolCount,
           resources: 3,
           prompts: 5,
         },

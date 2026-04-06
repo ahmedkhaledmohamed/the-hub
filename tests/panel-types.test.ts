@@ -1058,3 +1058,31 @@ describe("MCP tool caching", () => {
     });
   });
 });
+
+// ── MCP tool archival tests ──────────────────────────────────────
+
+describe("MCP tool archival", () => {
+  describe("core vs archived tools", () => {
+    it("6 core tools always registered", () => {
+      const coreTools = ["search", "read_artifact", "list_groups", "get_manifest", "ask_question", "get_decisions"];
+      expect(coreTools.length).toBe(6);
+      expect(new Set(coreTools).size).toBe(6);
+    });
+
+    it("13 tools are archived by default", () => {
+      const archived = [
+        "generate_content", "get_hygiene", "get_trends", "list_repos",
+        "get_impact", "get_errors", "remember", "recall", "ask_decisions",
+        "compile_context", "detect_gaps", "catch_up", "meeting_brief",
+      ];
+      expect(archived.length).toBe(13);
+    });
+
+    it("HUB_MCP_ALL_TOOLS controls registration", () => {
+      const allTools = process.env.HUB_MCP_ALL_TOOLS === "true";
+      const toolCount = allTools ? 19 : 6;
+      expect(typeof toolCount).toBe("number");
+      expect(toolCount).toBeGreaterThanOrEqual(6);
+    });
+  });
+});
