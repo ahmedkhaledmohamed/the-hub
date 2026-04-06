@@ -117,7 +117,7 @@ Delete or deprecate features that aren't used. Reduce cognitive load.
 | # | Feature | Pillar | Impact | Effort |
 |---|---|---|---|---|
 | ✅ 11 | Archive 13 unused MCP tools to archived/ | Cleanup | Medium | Low |
-| 12 | Deprecate unused API routes (X-Deprecated header) | Cleanup | Low | Low |
+| ✅ 12 | Deprecate unused API routes (X-Deprecated header) | Cleanup | Low | Low |
 | 13 | Consolidate lib modules (69 → 45 target) | Cleanup | Medium | High |
 | 14 | Upgrade 100 weak tests to 20 integration tests | Cleanup | High | High |
 | 15 | Remove dead features from README/landing page | Cleanup | Medium | Low |
