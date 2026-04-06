@@ -11,6 +11,7 @@ export interface HubConfig {
   scanner?: ScannerConfig;
   framework?: FrameworkConfig;
   staleness?: { fresh?: number; aging?: number; stale?: number };
+  hygieneRules?: HygieneRule[];
   templates?: DocTemplate[];
   agents?: AgentConfig[];
   webhooks?: WebhookConfig[];
@@ -18,6 +19,32 @@ export interface HubConfig {
   sharing?: SharingConfig;
   federation?: FederationConfig;
   governance?: GovernanceConfig;
+}
+
+export interface HygieneRule {
+  /** Unique rule ID (e.g., "max-stale-decisions") */
+  id: string;
+  /** Human-readable rule name */
+  name: string;
+  /** Rule type determines evaluation logic */
+  type: "max-staleness" | "no-duplicates" | "required-field" | "max-similarity" | "custom";
+  /** Severity when rule is violated */
+  severity: "high" | "medium" | "low";
+  /** Glob pattern to match artifacts (e.g., "decisions/**") */
+  match?: string;
+  /** Group ID to scope rule to (alternative to match) */
+  group?: string;
+  /** Configuration specific to rule type */
+  config: {
+    /** max-staleness: max days before flagging */
+    maxDays?: number;
+    /** max-similarity: max similarity % (0-100) before flagging */
+    maxSimilarity?: number;
+    /** required-field: field name to check in content (e.g., "last-reviewed") */
+    field?: string;
+    /** custom: custom check function description */
+    description?: string;
+  };
 }
 
 export interface GovernanceConfig {
