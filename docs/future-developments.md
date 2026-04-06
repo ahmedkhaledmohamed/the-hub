@@ -1,284 +1,209 @@
-# Future Developments — v4: Agent-Ready Knowledge Infrastructure
+# Future Developments — v5: Ship Less, Use More
 
-Three versions shipped. 95 PRs merged. 875 tests passing. The Hub went from file browser (v1) to feature explosion (v2) to polished depth (v3). This document charts the next evolution: making The Hub the persistent memory layer that AI coding assistants lack.
-
----
-
-## Where We Are (Post-v3)
-
-### Inventory
-
-| Category | Count |
-|---|---|
-| **Lib modules** | 57 |
-| **API routes** | 59 |
-| **Frontend pages** | 14 (briefing, ask, graph, hygiene, repos, settings, admin, status, setup, decisions, integrations, [tab] browser) |
-| **React components** | 46 |
-| **Client hooks** | 7 |
-| **MCP tools** | 12 |
-| **MCP resources** | 3 (artifact, manifest, status) |
-| **MCP prompts** | 5 (summarize, status update, conflicts, review, onboarding) |
-| **Database tables** | 26 |
-| **Test cases** | 875 across 11 suites |
-| **Total PRs** | 95 |
-
-### v3 Retrospective
-
-**What worked:**
-- Setup wizard + status page — highest-impact v3 features. Users actually complete configuration now.
-- MCP prompts + SSE subscriptions — Claude Code users get real-time workspace awareness.
-- Circuit breaker + structured logging — AI calls no longer hang forever. Errors are queryable.
-- Enhanced search with filters — group/type dropdowns and recent searches made search usable.
-- Graph interactivity — zoom, pan, search, node inspector transformed a static canvas into a useful tool.
-- Hygiene batch actions — one-click archive/delete instead of manual file management.
-
-**What underperformed:**
-- Annotation layer — DB supports full threading, but the preview panel rendering is minimal. Low usage.
-- Review request panel — API works, but without notifications nobody checks for pending reviews.
-- Integration connection testers — useful for debugging, but users still need to edit `.env.local` manually. No guided config flow.
-- Semantic search — vector index wired but rarely activates without embeddings being generated first. Most queries fall through to FTS5.
-- Share button — exists but no expiry picker, no link management page.
-
-**What we learned:**
-1. Building the API is 30% of the work. Wiring it to UI is another 30%. Making it *discoverable and useful* is the remaining 40%.
-2. MCP is the real product. Web UI is the discovery/debugging layer.
-3. Intelligence features (decisions, conflicts, impact) have the most defensible value — but only if agents can query them.
+Four versions shipped. 118 PRs. 1,048 tests. 69 lib modules. 19 MCP tools. The Hub went from file browser (v1) to feature explosion (v2) to polish (v3) to agent intelligence (v4). This document is about what we learned — and the uncomfortable truth about what to do next.
 
 ---
 
-## The Strategic Insight
+## The Honest Retrospective
 
-v1 was a file browser. v2 added every feature imaginable. v3 polished and surfaced them. But The Hub is still fundamentally **a tool humans use to find files**.
+### What survived four versions
 
-The 10x evolution: The Hub becomes **the persistent memory layer for AI agents**.
+After building everything, **five things actually matter**:
 
-### Why This Matters
+1. **Fast search** (Cmd+K) — FTS5 indexing works. Users find docs. This is the core value.
+2. **Morning briefing** — The daily entry point. Change feed, stale detection, pinned artifacts.
+3. **Hygiene reports** — Duplicate detection, staleness. Catches documentation debt.
+4. **MCP core tools** — `search`, `read_artifact`, `ask_question`, `get_manifest`, `list_groups`. Agents use these.
+5. **File watching + config simplicity** — One config file, auto-updates. It just works.
 
-Claude Code, Cursor, and ChatGPT are stateless. Every session starts fresh. They can't:
-- Remember what was decided in a previous session
-- Know when a doc they referenced has changed
-- Detect that two docs contradict each other
-- Track who depends on a document that just got updated
-- Compile context for a meeting automatically
+### What didn't survive
 
-The Hub already has all the infrastructure to do this — decisions, conflicts, impact scoring, change subscriptions, knowledge decay. v4 connects these into a coherent agent-facing knowledge layer.
+| Feature | Shipped | Used | Verdict |
+|---|---|---|---|
+| Agent memory (remember/recall) | v4 | Never invoked in production | Dead infrastructure |
+| Session tracking (catch_up) | v4 | Tool exists, nobody calls it | Theoretical |
+| Change pipeline | v4 | Code exists, never triggered | Dead code |
+| Notifications | v4 | DB table exists, no UI, no triggers | Scaffolding |
+| Weekly digest / Slack | v4 | API-only, no scheduling | On-demand only |
+| Meeting briefings | v4 | No calendar wired, no schedule | Half-built |
+| Knowledge gap detection | v4 | Tool exists, low usage | Niche |
+| Smart change summaries | v4 | Never integrated into briefing | Orphaned |
+| Impact scoring | v2 | API exists, no UI surfaces it meaningfully | Invisible |
+| Federation | v2 | 0 users linking Hubs | Dead |
+| Plugin marketplace | v2 | 0 community plugins | Dead |
+| Enterprise SSO | v2 | 0 enterprise users | Over-built |
+| 13 of 19 MCP tools | v3-v4 | Only 5-6 are invoked by agents | Feature bloat |
 
-### Why This Is Defensible
+### What the numbers really mean
 
-- IDEs reset every session — only a dedicated indexer persists across sessions
-- Decisions, conflicts, and impact scoring are *intelligence* that file indexing alone can't replicate
-- MCP is the delivery mechanism, but the intelligence is the moat
-- A well-maintained knowledge graph compounds in value over time
+| Metric | Count | Meaningful |
+|---|---|---|
+| Lib modules | 69 | ~40 carry weight, ~29 are scaffolding |
+| API routes | 70 | ~35 are used, ~35 are undiscoverable |
+| MCP tools | 19 | 5-6 are valuable, rest are noise |
+| Tests | 1,048 | ~200 are integration-level, rest are existence checks |
+| PRs | 118 | ~50 delivered lasting value |
 
 ---
 
-## v4 Evolution: 5 Pillars
+## The v5 Thesis
 
-### Pillar 1: Agent-Ready Knowledge
+> **Stop building. Start using. Measure what matters. Delete what doesn't.**
 
-Make The Hub the best backend for AI agent workflows.
+v5 is not a feature roadmap. It's a **quality and adoption** roadmap. The goal: make the 5 things that work into a 10/10 product, wire the 3 things that almost work into real automation, and delete the rest.
 
-```mermaid
-flowchart LR
-    Agent[AI Agent] -->|"what was decided about auth?"| Hub[(The Hub)]
-    Hub -->|decisions + sources| Agent
-    Agent -->|"write: chose JWT over sessions"| Hub
-    Hub -->|stored in decision log| DB[(SQLite)]
-    
-    FileChange[File Change] --> Hub
-    Hub -->|extract decisions| Decisions[Decision Tracker]
-    Hub -->|score impact| Impact[Impact Scorer]
-    Hub -->|notify via SSE| Agent
-    Hub -->|digest via Slack| Slack[Slack]
-```
+---
+
+## v5 Evolution: 3 Pillars
+
+### Pillar 1: Make What Works Exceptional
+
+The core 5 features work. Make them undeniably great.
 
 **Features:**
-- **Agent memory API** — Agents write observations back to The Hub. "I noticed the pricing doc contradicts the roadmap." Stored, queryable, attributed.
-- **Decision query tool** — MCP tool: "what was decided about authentication?" Returns decisions with source docs, actors, dates, and whether any have been superseded.
-- **Context compilation** — Auto-generate context packets: "For your 2pm planning meeting, here are the 5 docs that changed since your last meeting, 2 new decisions, and 1 conflict to resolve."
-- **Knowledge gap detection** — "You search for 'deployment process' frequently but have no doc about it. Create one?"
-- **Agent session tracking** — Track what agents asked about. Surface "you asked about this 3 days ago — it's changed since."
+- **Search speed target: < 50ms p95** — Profile FTS5 queries, add result caching, optimize for common patterns
+- **Briefing page as the home screen** — First load < 500ms, show everything important in one glance (no click-to-expand)
+- **Hygiene auto-run on scan** — Don't wait for user to visit /hygiene. Run on every scan, badge count on sidebar
+- **MCP tool response time < 100ms** — Profile the 5 core tools, pre-cache common queries
+- **Preview panel polish** — Instant content loading, keyboard navigation (j/k for next/prev artifact)
+- **Offline-capable PWA** — Cache manifest + recent searches for offline browsing
 
-### Pillar 2: Cross-Session Intelligence
+### Pillar 2: Wire the Automation (For Real This Time)
 
-Things only a persistent index can do that stateless AI tools cannot.
+Three v4 features almost work but lack triggers. Wire them properly.
 
 **Features:**
-- **Knowledge timeline** — Not just file changes, but understanding changes. "The team's approach to auth evolved: JWT (March) → OAuth2 (April) → back to JWT with refresh tokens (May)."
-- **Stale context detection** — When an agent cites a doc that's since been superseded, flag it: "This doc was superseded by [newer version] 2 weeks ago."
-- **Cross-session continuity** — Agent asks "what was I working on yesterday?" Hub answers from activity logs + decision trail.
-- **Personal knowledge score** — How well-documented is your workspace? Score by group: "Strategy: 85% covered, Code: 60%, Ops: 20% — gap in deployment docs."
+- **Scheduled weekly digest** — Cron job (not manual API call) that generates and posts to Slack. Actually wire `SLACK_WEBHOOK_URL` → `postWeeklyDigest()`. Test with real Slack workspace.
+- **Calendar-driven briefings** — Wire `CALENDAR_URL` → `fetchCalendarEvents()` → `compileContext()` → show on briefing page. Actually parse iCal and display today's meetings.
+- **Notification delivery** — When a review is completed or annotation added, actually call `notify()`. Show notification count badge on sidebar. Simple inbox page.
 
-### Pillar 3: Real-Time Awareness
+### Pillar 3: Cut the Dead Weight
 
-The SSE foundation from v3, fully realized as an end-to-end intelligence pipeline.
+Delete or deprecate features that aren't used. Reduce cognitive load.
+
+**Actions:**
+- **Archive 13 unused MCP tools** — Keep: search, read_artifact, ask_question, get_manifest, list_groups, get_decisions. Archive the rest to `src/mcp/archived/`.
+- **Mark dead API routes as deprecated** — Add `X-Deprecated` header to routes nobody hits. Remove in v5.1.
+- **Consolidate lib modules** — 69 modules → target 45. Merge small single-function modules.
+- **Upgrade test quality** — Replace 100 existence-check tests with 20 integration tests that test real user flows.
+- **Remove from marketing**: Federation, SSO, plugin marketplace, enterprise tiers.
+
+---
+
+## v5 Technical Roadmap
+
+### Phase 1: Core Excellence (Make the 5 great things exceptional)
+
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 1 | Search result caching (< 50ms p95 target) | Excellence | Very High | Medium |
+| 2 | Briefing page first-load optimization (< 500ms) | Excellence | High | Medium |
+| 3 | Hygiene auto-run on scan with sidebar badge | Excellence | High | Low |
+| 4 | MCP core tool profiling + caching (< 100ms) | Excellence | High | Medium |
+| 5 | Preview keyboard navigation (j/k, Esc) | Excellence | Medium | Low |
+
+### Phase 2: Real Automation (Wire what almost works)
+
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 6 | Scheduled Slack weekly digest (actual cron) | Automation | High | Medium |
+| 7 | Calendar-driven briefings (wire iCal → briefing page) | Automation | High | Medium |
+| 8 | Notification triggers (review/annotation → notify → badge) | Automation | Medium | Medium |
+| 9 | Notification inbox page | Automation | Medium | Low |
+| 10 | Auto-hygiene badge on sidebar (run on every scan) | Automation | Medium | Low |
+
+### Phase 3: Cleanup (Delete what doesn't work)
+
+| # | Feature | Pillar | Impact | Effort |
+|---|---|---|---|---|
+| 11 | Archive 13 unused MCP tools to archived/ | Cleanup | Medium | Low |
+| 12 | Deprecate unused API routes (X-Deprecated header) | Cleanup | Low | Low |
+| 13 | Consolidate lib modules (69 → 45 target) | Cleanup | Medium | High |
+| 14 | Upgrade 100 weak tests to 20 integration tests | Cleanup | High | High |
+| 15 | Remove dead features from README/landing page | Cleanup | Medium | Low |
+
+---
+
+## What to Delete
+
+| Feature | Location | Action |
+|---|---|---|
+| Agent memory (remember/recall) | `src/lib/agent-memory.ts`, MCP tools | Archive — no adoption path |
+| Session tracker (catch_up) | `src/lib/session-tracker.ts`, MCP tool | Archive — nobody calls it |
+| Change pipeline | `src/lib/change-pipeline.ts` | Delete — never triggered |
+| Smart summaries | `src/lib/smart-summary.ts` | Archive — never integrated |
+| Knowledge gaps | `src/lib/knowledge-gaps.ts`, MCP tool | Archive — niche |
+| Meeting briefing | `src/lib/meeting-briefing.ts`, MCP tool | Keep lib, archive MCP tool |
+| Context compiler MCP tool | MCP compile_context | Archive — use via API only |
+| Impact scoring MCP tool | MCP get_impact | Archive — API sufficient |
+| Federation | `src/lib/federation.ts` | Deprecate |
+| Plugin marketplace | `src/lib/marketplace.ts` | Deprecate |
+| Enterprise SSO | `src/lib/sso.ts` | Deprecate |
+
+---
+
+## Architecture: v4 → v5
 
 ```mermaid
 flowchart TD
-    FileChange[File Changed] --> Scanner[Scanner]
-    Scanner --> Extract[Extract Decisions]
-    Extract --> Score[Score Impact]
-    Score --> Notify{Who needs to know?}
-    Notify -->|stakeholders| SSE[SSE Stream]
-    Notify -->|weekly digest| Slack[Slack Digest]
-    Notify -->|pre-meeting| Calendar[Calendar Brief]
-    SSE --> Agent[AI Agents]
-    SSE --> Browser[Web UI]
-```
-
-**Features:**
-- **End-to-end change pipeline** — File change → decision extraction → impact scoring → stakeholder notification → agent alert. Fully automatic.
-- **Smart change summaries** — Not "pricing.md was modified" but "Enterprise tier pricing changed from $80/user to $60/user. This affects 3 active proposals."
-- **Slack weekly digest** — Auto-generated summary: what changed, what decisions were made, what's stale, what conflicts emerged.
-- **Calendar-aware briefings** — "Before your 2pm meeting: review these 3 docs that changed. Key decision: team chose PostgreSQL over MongoDB."
-- **Notification system** — When someone completes a review or resolves an annotation, notify the requester.
-
-### Pillar 4: Quality Completion
-
-Finish the remaining 10% of v3 features that underperformed.
-
-**Features:**
-- **Inline annotation rendering** — Comments actually display in the artifact preview, not just in the DB.
-- **Wire remaining silent catches** — Replace the 24 remaining `catch {}` blocks with `reportError()`.
-- **Data export/backup** — One-click SQLite snapshot download from `/status` page.
-- **Mobile-responsive briefing** — PWA briefing page that's usable on phones.
-- **Search source indicators** — Show whether a result came from FTS5 or semantic search.
-- **Embedding auto-generation** — On first scan, automatically generate embeddings for key docs (if AI is configured).
-
-### Pillar 5: Scale & Reliability
-
-Production-ready for larger workspaces (10K+ artifacts).
-
-**Features:**
-- **Streaming manifest** — NDJSON streaming for large artifact sets instead of one giant JSON blob.
-- **Embedding pruning** — Cleanup stale vectors from re-indexed docs. Auto-prune on scan.
-- **Query plan auditing** — `EXPLAIN QUERY PLAN` for slow queries, logged to structured logger.
-- **Performance benchmark suite** — CI test that measures search latency, scan duration, manifest size.
-
----
-
-## What to Keep, Defer, Remove
-
-| Category | Decision | Reason |
-|---|---|---|
-| **MCP server + tools + prompts** | KEEP — core product | The primary interface for AI agents |
-| **Decision tracking + conflicts** | KEEP — intelligence moat | Defensible value that IDEs can't replicate |
-| **Search + hygiene + graph** | KEEP — proven value | Core user loop that works |
-| **Setup wizard + status page** | KEEP — v3 wins | Highest-impact onboarding features |
-| **Structured logging + errors** | KEEP — observability | Essential for debugging and trust |
-| **Federation** | DEFER | 0 users linking Hubs in production |
-| **Plugin marketplace** | DEFER | 0 community traction |
-| **Enterprise SSO/SAML** | DEFER | 0 enterprise users |
-| **Multi-model routing** | DEFER | Infrastructure works, no user demand |
-| **"Team" and "Enterprise" tiers** | REMOVE from roadmap | This is a personal tool, not a business |
-| **Revenue projections** | REMOVE | Portfolio project — optimize for utility, not revenue |
-
----
-
-## v4 Technical Roadmap
-
-Ordered by strategic value. Each item is a PR-sized unit of work.
-
-### Phase 1: Agent-Ready Foundation
-
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 1 | Agent memory API (write observations back) | Agent | Very High | Medium |
-| ✅ 2 | Decision query MCP tool ("what was decided about X?") | Agent | Very High | Low |
-| ✅ 3 | Auto-context compilation for meetings | Agent | High | Medium |
-| ✅ 4 | Knowledge gap detection from search patterns | Agent | High | Medium |
-| ✅ 5 | Agent session tracking (what was asked, what changed) | Agent | High | High |
-
-### Phase 2: Real-Time Intelligence
-
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 6 | End-to-end change pipeline (change → extract → score → notify) | Realtime | Very High | High |
-| ✅ 7 | Smart change summaries (semantic, not file-level) | Realtime | High | Medium |
-| ✅ 8 | Slack weekly digest generation | Realtime | High | Medium |
-| ✅ 9 | Notification system (review/annotation alerts) | Realtime | Medium | Medium |
-| ✅ 10 | Calendar-aware pre-meeting briefings | Realtime | Medium | Medium |
-
-### Phase 3: Quality & Completeness
-
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 11 | Inline annotation rendering in preview | Quality | High | Medium |
-| ✅ 12 | Wire remaining 24 silent catches to error reporter | Quality | Medium | Low |
-| ✅ 13 | Data export/backup (SQLite snapshot download) | Quality | Medium | Low |
-| ✅ 14 | Embedding auto-generation on first scan | Quality | High | Medium |
-| ✅ 15 | Mobile-responsive briefing page | Quality | Medium | Medium |
-| ✅ 16 | Search result source indicators (FTS5 vs semantic) | Quality | Low | Low |
-
-### Phase 4: Scale & Performance
-
-| # | Feature | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| ✅ 17 | Streaming manifest for 10K+ artifacts | Scale | High | Medium |
-| ✅ 18 | Embedding pruning on scan | Scale | Medium | Low |
-| ✅ 19 | Performance benchmark suite in CI | Scale | Medium | Medium |
-| ✅ 20 | Query plan audit + index optimization | Scale | Medium | Low |
-
----
-
-## Architecture: v3 → v4
-
-```mermaid
-flowchart TD
-    subgraph v3["v3: Polished Product"]
-        UI[14 Pages with Full UX]
-        MCP12[12 MCP Tools]
-        Obs[Observability + Logging]
-        CB[Circuit Breaker]
+    subgraph v4["v4: Agent Intelligence (69 modules)"]
+        AgentMem[Agent Memory]
+        SessionTrack[Session Tracker]
+        ChangePipeline[Change Pipeline]
+        SmartSummary[Smart Summary]
+        KnowledgeGaps[Knowledge Gaps]
+        Notifications[Notifications - no UI]
+        Digest[Digest - no schedule]
+        MeetingBrief[Meeting Brief - no calendar]
+        Plus13[+13 unused MCP tools]
     end
 
-    subgraph v4["v4: Agent-Ready"]
-        Memory[Agent Memory API]
-        Pipeline[Change → Extract → Score → Notify]
-        Sessions[Cross-Session Intelligence]
-        Digest[Automated Digests]
-        Scale[10K+ Artifact Support]
+    subgraph v5["v5: Ship Less, Use More (~45 modules)"]
+        FastSearch[Search < 50ms]
+        FastBriefing[Briefing < 500ms]
+        AutoHygiene[Auto Hygiene + Badge]
+        SlackDigest[Real Slack Digest - cron]
+        CalBriefing[Real Calendar Briefing]
+        NotifInbox[Notification Inbox]
+        CoreMCP[6 Core MCP Tools]
     end
 
-    v3 --> v4
-    UI --> Memory
-    MCP12 --> Pipeline
-    Obs --> Sessions
-    CB --> Digest
+    v4 -->|cut 40%| v5
+    AgentMem -->|archive| Deleted[Archived]
+    SessionTrack -->|archive| Deleted
+    ChangePipeline -->|delete| Deleted
+    SmartSummary -->|archive| Deleted
+    KnowledgeGaps -->|archive| Deleted
+    Plus13 -->|archive| Deleted
+    Notifications -->|wire triggers| NotifInbox
+    Digest -->|add cron| SlackDigest
+    MeetingBrief -->|wire calendar| CalBriefing
 ```
 
-**Key shifts:**
-1. **Human-first → Agent-first** — The primary consumer of The Hub's intelligence becomes AI agents, not web users
-2. **Reactive → Proactive** — Instead of "search when you need it," The Hub surfaces relevant context automatically
-3. **Session-scoped → Cross-session** — Knowledge persists and compounds across agent interactions
-4. **File-level → Semantic-level** — Changes described by meaning, not by filename
-5. **Pull → Push** — Notifications, digests, and pre-meeting briefs delivered without asking
-
----
-
-## Competitive Position (April 2026)
-
-| Tool | Threat | Why The Hub Wins |
-|---|---|---|
-| **Claude Code** | High — building native workspace indexing | Claude Code is stateless. Can't track decisions across sessions or detect contradictions between docs. |
-| **Cursor** | Medium — large context windows | Context windows are ephemeral. Can't build a knowledge timeline or notify stakeholders of changes. |
-| **Obsidian** | Low — different market | Note-taking tool, not a knowledge index. No MCP, no AI agent integration. |
-| **Notion** | Low — cloud-only | Cloud-locked, no local-first option, no MCP exposure. |
-| **Backstage** | Low — team infra | Developer portal, not personal knowledge tool. Different audience. |
-
-### The Real Pitch (v4)
-
-> "The Hub is the persistent memory layer for your AI tools. It indexes your workspace, extracts decisions, detects conflicts, scores impact, and streams it all to Claude Code, Cursor, and ChatGPT — so your agents understand your work better than you do."
+**Key shift:** From "build more" to "use what's built." Measure. Delete. Polish.
 
 ---
 
 ## Success Metrics
 
-| Metric | Current | v4 Target | Why |
+v5 success is measured by **adoption**, not feature count:
+
+| Metric | Current | v5 Target | How to Measure |
 |---|---|---|---|
-| Agent queries per session | Unmeasured | Measurable via session tracking | Core v4 metric — are agents using The Hub? |
-| Decision query accuracy | N/A | "What was decided about X?" returns useful results | Intelligence moat validation |
-| Time to useful context | ~3 min (setup wizard) | < 1 min (auto-context for meetings) | Proactive value delivery |
-| Change-to-notification latency | N/A | < 30s (file change → stakeholder alert) | Real-time pipeline speed |
-| 10K artifact search latency | Untested | < 200ms p95 | Scale readiness |
-| Features with UI exposure | ~90% (v3 achievement) | 95%+ (finish annotations, notifications) | Quality completion |
+| Search p95 latency | ~150ms | < 50ms | Benchmark suite |
+| Briefing first load | ~1s | < 500ms | Lighthouse |
+| MCP tool invocations/day | Unknown | Measurable | Session tracker (keep this one) |
+| Hygiene findings acted on | Unknown | > 50% | Track archive/delete actions |
+| Slack digest sent/week | 0 | 1 | Scheduled job success |
+| Notification delivery rate | 0% | > 80% | Notify calls / trigger events |
+| Lib modules | 69 | < 50 | File count |
+| MCP tools | 19 | 6 | Server registration |
+| Meaningful test coverage | ~20% | > 60% | Integration test ratio |
+
+---
+
+## The Pitch (Updated)
+
+> "The Hub is a personal workspace search engine that runs locally, keeps your docs healthy, and gives your AI tools context — all from one config file."
+
+Not an agent memory platform. Not an enterprise tool. Not a Notion replacement. A fast, reliable search engine with hygiene intelligence and MCP access. That's the product.
