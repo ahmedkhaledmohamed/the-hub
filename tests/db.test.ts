@@ -938,6 +938,37 @@ describe("notification system", () => {
   });
 });
 
+// ── Notification inbox page tests ────────────────────────────────
+
+describe("notification inbox", () => {
+  describe("inbox data retrieval", () => {
+    it("getNotifications returns all for recipient", () => {
+      const recipient = `inbox-all-${Date.now()}`;
+      notify({ recipient, type: "review", title: "R1" });
+      notify({ recipient, type: "annotation", title: "A1" });
+      const notifs = getNotifications(recipient);
+      expect(notifs.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("getNotifications filters unread only", () => {
+      const recipient = `inbox-unread-${Date.now()}`;
+      const id = notify({ recipient, type: "system", title: "Read me" });
+      notify({ recipient, type: "system", title: "Keep unread" });
+      markRead(id);
+      const unread = getNotifications(recipient, { unreadOnly: true });
+      for (const n of unread) expect(n.read).toBe(false);
+    });
+
+    it("markAllRead clears unread count", () => {
+      const recipient = `inbox-markall-${Date.now()}`;
+      notify({ recipient, type: "system", title: "A" });
+      notify({ recipient, type: "system", title: "B" });
+      markAllRead(recipient);
+      expect(getUnreadCount(recipient)).toBe(0);
+    });
+  });
+});
+
 // ── Vector index wired to hybrid search tests ────────────────────
 
 import {
