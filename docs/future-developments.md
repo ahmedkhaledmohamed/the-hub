@@ -88,7 +88,7 @@ Stop waiting for the user to visit a page. Push insights to where they already a
 
 **Features:**
 
-1. **Editor integration** — VS Code / Cursor extension that shows relevant Hub context in the sidebar. When you open a file, The Hub shows: related docs, recent changes to this area, hygiene warnings, and decision context. This is the most impactful feature The Hub could ship.
+1. **Auto-generated context files** — The Hub already scans for `CLAUDE.md` and `.cursorrules` in repos. Flip the direction: The Hub *generates* a workspace context file on every scan. Contents: workspace overview, stale docs, recent decisions, hygiene warnings, key artifacts. Every AI assistant (Claude Code, Cursor, Copilot) already reads these files natively. Zero extension to install. Zero friction. The Hub becomes invisible infrastructure — it enriches the context that AI tools already consume.
 
 2. **Slack proactive alerts** — Not just weekly digests. Real-time alerts for: "Document X contradicts document Y" (detected during scan), "Meeting in 2 hours — here's context for 3 docs you'll discuss" (calendar + context compilation), "5 docs haven't been updated in 90 days — here's which ones matter" (decay + impact scoring).
 
@@ -138,7 +138,7 @@ Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the
 
 | # | Item | Impact | Effort |
 |---|---|---|---|
-| 11 | VS Code / Cursor sidebar extension — related docs, decisions, hygiene for current file | Very High | High |
+| 11 | Auto-generated context files — CLAUDE.md / .cursorrules written on every scan with workspace state | Very High | Medium |
 | 12 | Scan-time insight computation — eager impact/decision analysis on file changes | High | Medium |
 | 13 | Slack proactive alerts — contradiction detection, meeting prep, decay alerts | Medium | Medium |
 | 14 | CLI upgrade — `hub context`, `hub stale`, AI-enhanced `hub search` | Medium | Medium |
@@ -217,7 +217,7 @@ flowchart TD
         subgraph Proactive["Proactive Layer"]
             ScanInsights[Scan-time Insights]
             SlackAlerts[Slack Alerts]
-            EditorExt[Editor Extension]
+            ContextFiles[Auto-gen CLAUDE.md]
         end
     end
 
@@ -245,7 +245,7 @@ v6 success is measured by **context utility**, not feature count:
 | Search p95 | < 50ms (target) | < 30ms | Benchmark suite |
 | Time to workspace orientation (MCP) | 4+ tool calls | 1 tool call | workspace_summary response |
 | Hygiene rules (configurable) | 7 built-in | 7 built-in + N custom | Config count |
-| Editor extension installs | 0 | 1 (personal use) | Installed locally |
+| Auto-generated context files | 0 | 1 per workspace | File exists + freshness |
 
 ---
 
