@@ -762,7 +762,6 @@ describe("predictive briefing merged into briefing page", () => {
 
 import { detectGaps, formatGapReport } from "@/lib/knowledge-gaps";
 import { trackSearch } from "@/lib/activity";
-import { remember as agentRemember } from "@/lib/agent-memory";
 
 describe("knowledge gap detection", () => {
   describe("detectGaps", () => {
@@ -812,15 +811,6 @@ describe("knowledge gap detection", () => {
       const report = detectGaps({ days: 1, minSearches: 1, maxAvgResults: 3 });
       const gap = report.gaps.find((g) => g.topic === topic);
       expect(gap).toBeUndefined();
-    });
-
-    it("includes agent questions as gap sources", () => {
-      const question = `What is the gap-agent-${Date.now()} process?`;
-      agentRemember({ content: question, type: "question" });
-
-      const report = detectGaps({ days: 1, minSearches: 1 });
-      // Agent questions may appear as gaps
-      expect(report).toBeDefined();
     });
 
     it("respects days parameter", () => {

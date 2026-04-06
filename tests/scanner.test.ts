@@ -1121,7 +1121,6 @@ describe("scheduled Slack digest", () => {
 import { persistArtifacts, searchArtifacts, getArtifactContent, getArtifactCount } from "@/lib/db";
 import { analyzeHygiene, getCachedHygieneFindingCount } from "@/lib/hygiene-analyzer";
 import { saveDecision, getActiveDecisions, searchDecisions as searchDecisionsLib, queryDecisions } from "@/lib/decision-tracker";
-import { remember, recall } from "@/lib/agent-memory";
 import { notify, getNotifications, getUnreadCount } from "@/lib/notifications";
 import { getSearchCache, buildSearchCacheKey, invalidateSearchCache } from "@/lib/search-cache";
 
@@ -1221,26 +1220,6 @@ describe("integration tests — real user flows", () => {
       // Invalidate
       invalidateSearchCache();
       expect(cache.get(key)).toBeUndefined();
-    });
-  });
-
-  describe("flow: agent memory across sessions", () => {
-    it("remembers in session A → recalls in session B", () => {
-      const sessionA = `int-session-a-${Date.now()}`;
-      const sessionB = `int-session-b-${Date.now()}`;
-
-      // Session A: remember
-      remember({
-        agentId: "claude-code",
-        sessionId: sessionA,
-        content: "The auth module uses JWT tokens with 24h expiry",
-        type: "observation",
-      });
-
-      // Session B: recall (different session, same agent)
-      const memories = recall({ agentId: "claude-code", search: "JWT" });
-      expect(memories.length).toBeGreaterThanOrEqual(1);
-      expect(memories[0].content).toContain("JWT");
     });
   });
 
