@@ -276,3 +276,26 @@ v6 success is measured by **context utility**, not feature count:
 > "The Hub is a local context engine for your workspace. It indexes your docs, keeps them healthy, and gives your AI tools deep understanding of your work — via MCP, CLI, or browser."
 
 The web UI is a window into the engine. The MCP server is the engine's voice. The CLI is the engine's hands. The engine itself is: scan → index → analyze → serve context.
+
+---
+
+## v6.1: Feature Restoration
+
+v6 deleted features based on "0 production usage" — but The Hub hasn't been used in production yet. Usage data is meaningless for an unshipped product. The correct question is: **does this feature align with the product direction?**
+
+### Corrected rationale
+
+Features were re-evaluated against the thesis: "The Hub makes AI assistants smarter about your workspace."
+
+**Restored (align with context engine):**
+- `agent-memory.ts` + `remember`/`recall` MCP tools — cross-session memory IS the product
+- `session-tracker.ts` + `catch_up` MCP tool — session-aware context IS proactive intelligence
+- 7 MCP tools re-added: `generate_content`, `list_repos`, `detect_gaps`, `compile_context`, `meeting_brief`, `get_impact`, `get_errors`
+
+**Stays deleted (product scope decisions, not usage decisions):**
+- federation, sharing, marketplace, SSO, plugin-sandbox, governance — enterprise/platform features that don't fit a personal context engine
+- change-pipeline — replaced by scan-insights.ts
+- smart-summary — replaced by on-demand AI summarization
+- context-manager — replaced by hub.config.ts workspaces
+
+**MCP tools: 13 → 23.** Every tool answers the question "does this help an AI assistant understand or improve this workspace?"

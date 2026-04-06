@@ -740,15 +740,18 @@ describe("MCP tool refinement", () => {
   });
 
   describe("tool catalog", () => {
-    it("13 core MCP tools registered", () => {
+    it("23 core MCP tools registered", () => {
       const tools = [
         "workspace_summary", "search", "read_artifact", "list_groups",
         "get_manifest", "ask_question", "get_context", "get_decisions",
         "get_hygiene", "get_trends",
         "create_doc", "update_artifact", "mark_reviewed",
+        "generate_content", "list_repos", "detect_gaps", "compile_context",
+        "meeting_brief", "get_impact", "get_errors",
+        "remember", "recall", "catch_up",
       ];
-      expect(tools.length).toBe(13);
-      expect(new Set(tools).size).toBe(13);
+      expect(tools.length).toBe(23);
+      expect(new Set(tools).size).toBe(23);
     });
   });
 
@@ -857,6 +860,73 @@ describe("MCP tool refinement", () => {
       expect(review.status).toBe("approved");
       expect(review.responseMessage).toBe("Approved via MCP tool");
     });
+  });
+});
+
+// ── Restored agent memory tests ─────────────────────────────────
+
+import { remember, recall, getObservation, getObservationCounts } from "@/lib/agent-memory";
+
+describe("agent memory (restored)", () => {
+  it("remembers and recalls observations", () => {
+    const id = remember({
+      agentId: "test-agent",
+      sessionId: `restore-test-${Date.now()}`,
+      content: "The auth module uses JWT tokens",
+      type: "observation",
+    });
+    expect(id).toBeGreaterThan(0);
+
+    const obs = getObservation(id);
+    expect(obs).not.toBeNull();
+    expect(obs!.content).toContain("JWT");
+  });
+
+  it("recalls by search keyword", () => {
+    remember({ content: `restore-recall-${Date.now()} uses Redis caching`, type: "insight" });
+    const results = recall({ search: "Redis" });
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("tracks observation counts", () => {
+    const counts = getObservationCounts();
+    expect(typeof counts).toBe("object");
+    const total = Object.values(counts).reduce((s, n) => s + n, 0);
+    expect(total).toBeGreaterThan(0);
+  });
+});
+
+// ── Restored session tracker tests ──────────────────────────────
+
+import { trackToolUse, getSessionEvents, generateCatchUp, formatCatchUp } from "@/lib/session-tracker";
+
+describe("session tracker (restored)", () => {
+  it("tracks tool usage", () => {
+    const session = `restore-session-${Date.now()}`;
+    const id = trackToolUse({ sessionId: session, toolName: "search", query: "auth" });
+    expect(id).toBeGreaterThan(0);
+
+    const events = getSessionEvents(session);
+    expect(events.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("generates catch-up report", () => {
+    const session = `restore-catchup-${Date.now()}`;
+    trackToolUse({ sessionId: session, toolName: "search", query: "test" });
+
+    const report = generateCatchUp(session);
+    expect(report.sinceSession).toBe(session);
+    expect(typeof report.summary).toBe("string");
+  });
+
+  it("formats catch-up report", () => {
+    const report = {
+      sinceSession: "test", sinceTime: "2026-04-06T00:00:00Z",
+      changedArtifacts: [], newDecisions: [], queriedArtifactsChanged: [],
+      summary: "Nothing changed.",
+    };
+    const text = formatCatchUp(report);
+    expect(text).toContain("Nothing changed");
   });
 });
 
