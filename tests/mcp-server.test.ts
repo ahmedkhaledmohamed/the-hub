@@ -739,14 +739,13 @@ describe("MCP tool refinement", () => {
   });
 
   describe("tool catalog", () => {
-    it("12 MCP tools registered", () => {
+    it("8 core MCP tools registered", () => {
       const tools = [
         "search", "read_artifact", "list_groups", "get_manifest",
-        "ask_question", "generate_content", "get_hygiene", "get_trends",
-        "list_repos", "get_decisions", "get_impact", "get_errors",
+        "ask_question", "get_decisions", "get_hygiene", "get_trends",
       ];
-      expect(tools.length).toBe(12);
-      expect(new Set(tools).size).toBe(12);
+      expect(tools.length).toBe(8);
+      expect(new Set(tools).size).toBe(8);
     });
   });
 });

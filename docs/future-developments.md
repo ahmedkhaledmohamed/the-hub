@@ -130,7 +130,7 @@ Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the
 |---|---|---|---|
 | 1 | ✅ Delete deprecated API routes (federation, sharing, contexts, marketplace, agent-memory, pipeline, gaps, meeting-brief) | High | Low |
 | 2 | ✅ Delete unused lib modules (federation, sharing, marketplace, context-manager, SSO, plugin-sandbox, governance) | High | Medium |
-| 3 | Delete archived MCP tools directory — remove code, not just archive | Medium | Low |
+| 3 | ✅ Delete archived MCP tools directory — remove code, not just archive | Medium | Low |
 | 4 | Delete agent-memory, session-tracker, change-pipeline, smart-summary modules | Medium | Low |
 | 5 | Consolidate remaining modules — merge small utilities, reduce public API surface | Medium | High |
 

@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * The Hub MCP Server (Full)
+ * The Hub MCP Server
  *
- * Exposes The Hub's complete feature set as an MCP server over stdio.
- * AI tools (Claude Code, Cursor, etc.) can search, read, ask questions,
- * generate content, and browse your workspace.
+ * 8 core tools over stdio for AI assistants to understand your workspace.
  *
  * Tools:
- *   search           — Full-text search across workspace
- *   read_artifact    — Read full content of an artifact
- *   list_groups      — List artifact groups with counts
- *   get_manifest     — Full workspace overview
- *   ask_question     — RAG-powered Q&A over workspace docs
- *   generate_content — Generate status updates, PRDs, handoffs
- *   get_hygiene      — Document hygiene report (duplicates, stale)
- *   get_trends       — Workspace health trends and alerts
- *   list_repos       — Connected git repositories
+ *   search         — Full-text search across workspace
+ *   read_artifact  — Read full content of an artifact
+ *   list_groups    — List artifact groups with counts
+ *   get_manifest   — Full workspace overview
+ *   ask_question   — RAG-powered Q&A over workspace docs
+ *   get_decisions  — Tracked decisions with contradiction detection
+ *   get_hygiene    — Document hygiene report (duplicates, stale)
+ *   get_trends     — Workspace health trends and alerts
  *
  * Usage:
  *   npx tsx src/mcp/server.ts
@@ -47,11 +44,6 @@ async function getRag() {
   return { askWorkspace };
 }
 
-async function getGenerator() {
-  const { generate, getTemplates } = await import("../lib/generator.js");
-  return { generate, getTemplates };
-}
-
 async function getTrendsLib() {
   const { getTrends, getPredictiveAlerts } = await import("../lib/trends.js");
   return { getTrends, getPredictiveAlerts };
@@ -60,13 +52,8 @@ async function getTrendsLib() {
 async function main() {
   const server = new McpServer({
     name: "the-hub",
-    version: "5.0.0",
+    version: "6.0.0",
   });
-
-  // v5: Only register core tools by default.
-  // Set HUB_MCP_ALL_TOOLS=true to register all 19 tools.
-  const allTools = process.env.HUB_MCP_ALL_TOOLS === "true";
-  const coreToolCount = allTools ? 19 : 6;
 
   // ── Tool: search ──────────────────────────────────────── [CORE]
 
@@ -191,34 +178,7 @@ async function main() {
     },
   );
 
-  // ── Non-core tools (registered when HUB_MCP_ALL_TOOLS=true) ────
-  if (allTools) {
-
-  // ── Tool: generate_content ──────────────────────────────────────
-
-  server.tool(
-    "generate_content",
-    "Generate content using workspace context. Templates: status-update (from change feed), handoff-doc (for a group), prd-outline (from research docs), custom (free-form).",
-    {
-      template: z.enum(["status-update", "handoff-doc", "prd-outline", "custom"]).describe("Template type"),
-      groupId: z.string().optional().describe("Group ID (required for handoff-doc)"),
-      artifactPaths: z.array(z.string()).optional().describe("Artifact paths (required for prd-outline)"),
-      customPrompt: z.string().optional().describe("Custom prompt (required for custom template)"),
-    },
-    async ({ template, groupId, artifactPaths, customPrompt }) => {
-      const gen = await getGenerator();
-      const result = await gen.generate({ template, groupId, artifactPaths, customPrompt });
-
-      let text = result.content;
-      if (result.sourcePaths.length > 0) {
-        text += "\n\n**Based on:** " + result.sourcePaths.join(", ");
-      }
-
-      return { content: [{ type: "text" as const, text }] };
-    },
-  );
-
-  // ── Tool: get_hygiene ───────────────────────────────────────────
+  // ── Tool: get_hygiene ──────────────────────────────────── [CORE]
 
   server.tool(
     "get_hygiene",
@@ -252,7 +212,7 @@ async function main() {
     },
   );
 
-  // ── Tool: get_trends ────────────────────────────────────────────
+  // ── Tool: get_trends ───────────────────────────────────── [CORE]
 
   server.tool(
     "get_trends",
@@ -288,36 +248,6 @@ async function main() {
       return { content: [{ type: "text" as const, text: parts.join("\n") }] };
     },
   );
-
-  // ── Tool: list_repos ────────────────────────────────────────────
-
-  server.tool(
-    "list_repos",
-    "List all git repositories discovered under configured workspaces.",
-    {},
-    async () => {
-      const { discoverRepos } = await import("../lib/repo-scanner.js");
-      const { loadConfig } = await import("../lib/config.js");
-      const config = loadConfig();
-      const repos = discoverRepos(config.workspaces);
-
-      if (repos.length === 0) {
-        return { content: [{ type: "text" as const, text: "No git repositories found under configured workspaces." }] };
-      }
-
-      const text = repos.map((r) => {
-        const flags = [
-          r.hasClaudeFile ? "CLAUDE.md" : "",
-          r.hasCursorRules ? ".cursorrules" : "",
-        ].filter(Boolean).join(", ");
-        return `- **${r.name}** (${r.branch}) — ${r.workspace}\n  ${r.browseUrl || r.path}${flags ? `\n  AI context: ${flags}` : ""}`;
-      }).join("\n\n");
-
-      return { content: [{ type: "text" as const, text: `${repos.length} repository(ies):\n\n${text}` }] };
-    },
-  );
-
-  } // end non-core tools block 1
 
   // ── Tool: get_decisions ────────────────────────────────── [CORE]
 
@@ -357,295 +287,6 @@ async function main() {
       }
     },
   );
-
-  if (allTools) { // non-core tools block 2
-
-  // ── Tool: ask_decisions ─────────────────────────────────────────
-
-  server.tool(
-    "ask_decisions",
-    "Ask a natural language question about decisions made in the workspace. E.g., 'what was decided about authentication?' Returns matching decisions with sources and any contradictions.",
-    {
-      question: z.string().describe("Natural language question about decisions (e.g., 'what was decided about auth?')"),
-    },
-    async ({ question }) => {
-      try {
-        const { queryDecisions } = await import("../lib/decision-tracker.js");
-        const result = queryDecisions(question);
-
-        if (result.decisions.length === 0) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: `No decisions found for: "${question}"\nKeywords searched: ${result.keywords.join(", ") || "none"}\n\nTry a more specific question, or check if decisions have been extracted from your documents.`,
-            }],
-          };
-        }
-
-        let text = `**${result.decisions.length} decision(s) found** for: "${question}"\nKeywords: ${result.keywords.join(", ")}\n\n`;
-
-        text += result.decisions.map((d, i) => {
-          let entry = `${i + 1}. [${d.status.toUpperCase()}] ${d.summary}`;
-          entry += `\n   Source: ${d.artifactPath}`;
-          if (d.actor) entry += ` | By: ${d.actor}`;
-          if (d.decidedAt) entry += ` | Date: ${d.decidedAt}`;
-          if (d.status === "superseded" && d.supersededBy) entry += ` | Superseded by decision #${d.supersededBy}`;
-          if (d.detail) entry += `\n   Detail: ${d.detail.slice(0, 200)}`;
-          return entry;
-        }).join("\n\n");
-
-        if (result.contradictions.length > 0) {
-          text += `\n\n⚠️ **${result.contradictions.length} potential contradiction(s):**\n`;
-          text += result.contradictions.map((c, i) =>
-            `${i + 1}. "${c.decisionA.summary}" vs "${c.decisionB.summary}"\n   ${c.reason}`
-          ).join("\n\n");
-        }
-
-        return { content: [{ type: "text" as const, text }] };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Decision query failed: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  // ── Tool: compile_context ───────────────────────────────────────
-
-  server.tool(
-    "compile_context",
-    "Compile a context packet for a meeting or topic. Gathers related docs, recent decisions, changes, and conflicts into a ready-to-use briefing.",
-    {
-      topic: z.string().describe("Meeting title or topic (e.g., 'Architecture Review', 'Q3 Planning')"),
-      changeDays: z.number().optional().default(7).describe("Look back N days for recent changes (default 7)"),
-    },
-    async ({ topic, changeDays }) => {
-      try {
-        const { compileContext, formatContextPacket } = await import("../lib/context-compiler.js");
-        const packet = compileContext(topic, new Date().toISOString(), { changeDays });
-        return { content: [{ type: "text" as const, text: formatContextPacket(packet) }] };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Context compilation failed: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  // ── Tool: catch_up ─────────────────────────────────────────────
-
-  server.tool(
-    "catch_up",
-    "Get a catch-up report: what changed since your last session. Shows updated docs, new decisions, and artifacts you previously asked about that were modified.",
-    {
-      sessionId: z.string().optional().describe("Session ID to catch up from (default: most recent)"),
-    },
-    async ({ sessionId }) => {
-      try {
-        const { generateCatchUp, formatCatchUp, getRecentSessions } = await import("../lib/session-tracker.js");
-        const sid = sessionId || (getRecentSessions(1)[0]?.sessionId as string) || "default";
-        const report = generateCatchUp(sid);
-        return { content: [{ type: "text" as const, text: formatCatchUp(report) }] };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Catch-up failed: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  // ── Tool: meeting_brief ────────────────────────────────────────
-
-  server.tool(
-    "meeting_brief",
-    "Generate a pre-meeting briefing with related docs, decisions, changes, conflicts, and action items. Use before any meeting to get prepared.",
-    {
-      topic: z.string().describe("Meeting title or topic (e.g., 'Sprint Planning', 'Architecture Review')"),
-      changeDays: z.number().optional().default(7).describe("Look back N days for changes (default 7)"),
-    },
-    async ({ topic, changeDays }) => {
-      try {
-        const { generateMeetingBriefing } = await import("../lib/meeting-briefing.js");
-        const briefing = generateMeetingBriefing(topic, new Date().toISOString(), { changeDays });
-        return { content: [{ type: "text" as const, text: briefing.briefingText }] };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Meeting brief failed: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  // ── Tool: detect_gaps ──────────────────────────────────────────
-
-  server.tool(
-    "detect_gaps",
-    "Detect knowledge gaps in the workspace — topics people search for but have no documentation. Helps identify what docs to create next.",
-    {
-      days: z.number().optional().default(30).describe("Look back N days (default 30)"),
-    },
-    async ({ days }) => {
-      try {
-        const { detectGaps, formatGapReport } = await import("../lib/knowledge-gaps.js");
-        const report = detectGaps({ days });
-        return { content: [{ type: "text" as const, text: formatGapReport(report) }] };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Gap detection failed: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  // ── Tool: get_impact ───────────────────────────────────────────
-
-  server.tool(
-    "get_impact",
-    "Get impact score for an artifact — who needs to know when this doc changes. Shows stakeholders and signals.",
-    {
-      path: z.string().describe("Artifact path to score"),
-    },
-    async ({ path }) => {
-      try {
-        const { computeImpactScore } = await import("../lib/impact-scoring.js");
-        const score = computeImpactScore(path);
-
-        const stakeholderList = score.stakeholders.length > 0
-          ? score.stakeholders.map((s) => `  - ${s.name} (${s.reason}) — relevance: ${s.relevance}`).join("\n")
-          : "  No stakeholders identified yet.";
-
-        const signalSummary = [
-          `Access: ${score.signals.accessCount} views by ${score.signals.uniqueAccessors} users`,
-          `Annotations: ${score.signals.annotationCount}`,
-          `Reviews: ${score.signals.reviewCount}`,
-          `Backlinks: ${score.signals.backlinkCount} docs depend on this`,
-        ].join(" | ");
-
-        return {
-          content: [{
-            type: "text" as const,
-            text: `**Impact Score: ${score.score}/100 (${score.level})**\n\n` +
-              `Path: ${score.artifactPath}\n` +
-              `Signals: ${signalSummary}\n\n` +
-              `Stakeholders:\n${stakeholderList}` +
-              (score.downstreamPaths.length > 0 ? `\n\nDownstream docs (${score.downstreamPaths.length}): ${score.downstreamPaths.slice(0, 5).join(", ")}` : ""),
-          }],
-        };
-      } catch {
-        return { content: [{ type: "text" as const, text: "Impact scoring not available." }] };
-      }
-    },
-  );
-
-  // ── Tool: get_errors ───────────────────────────────────────────
-
-  server.tool(
-    "get_errors",
-    "Get recent system errors and warnings. Useful for debugging issues with the Hub.",
-    {
-      category: z.string().optional().describe("Filter by category: scan, search, ai, api, integration, plugin, system, config"),
-      limit: z.number().optional().default(10).describe("Max results"),
-    },
-    async ({ category, limit }) => {
-      try {
-        const { getActiveErrors, getErrorSummary } = await import("../lib/error-reporter.js");
-        const summary = getErrorSummary();
-        const errors = getActiveErrors({
-          category: category as "scan" | "ai" | undefined,
-          limit,
-        });
-
-        if (errors.length === 0 && summary.total === 0) {
-          return { content: [{ type: "text" as const, text: "No active errors. System is healthy." }] };
-        }
-
-        const text = errors.map((e, i) =>
-          `${i + 1}. [${e.severity.toUpperCase()}] ${e.category}: ${e.message}${e.occurrences > 1 ? ` (×${e.occurrences})` : ""}\n   Last seen: ${e.lastSeen}`
-        ).join("\n\n");
-
-        return {
-          content: [{
-            type: "text" as const,
-            text: `${summary.total} active error(s) (${summary.critical} critical, ${summary.warning} warnings):\n\n${text}`,
-          }],
-        };
-      } catch {
-        return { content: [{ type: "text" as const, text: "Error reporting not available." }] };
-      }
-    },
-  );
-
-  // ── Tool: remember (agent memory write) ─────────────────────────
-
-  server.tool(
-    "remember",
-    "Store an observation, insight, or decision in The Hub's persistent memory. Survives across sessions — use this to remember important context about the workspace.",
-    {
-      content: z.string().describe("What to remember (observation, insight, decision, or question)"),
-      type: z.enum(["observation", "question", "insight", "decision", "context"]).optional().default("observation").describe("Type of memory"),
-      artifactPath: z.string().optional().describe("Related artifact path (if applicable)"),
-      confidence: z.number().optional().default(1.0).describe("Confidence level 0-1"),
-    },
-    async ({ content, type, artifactPath, confidence }) => {
-      try {
-        const { remember } = await import("../lib/agent-memory.js");
-        const id = remember({
-          agentId: "mcp-client",
-          sessionId: `session-${new Date().toISOString().slice(0, 10)}`,
-          content,
-          type,
-          artifactPath,
-          confidence,
-        });
-        return {
-          content: [{
-            type: "text" as const,
-            text: `Remembered (id: ${id}, type: ${type}): "${content.slice(0, 100)}${content.length > 100 ? "..." : ""}"`,
-          }],
-        };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Failed to remember: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  // ── Tool: recall (agent memory read) ───────────────────────────
-
-  server.tool(
-    "recall",
-    "Recall past observations, insights, and decisions from The Hub's persistent memory. Query by keyword, type, or artifact to retrieve cross-session context.",
-    {
-      search: z.string().optional().describe("Search keyword in memory content"),
-      type: z.enum(["observation", "question", "insight", "decision", "context"]).optional().describe("Filter by type"),
-      artifactPath: z.string().optional().describe("Filter by related artifact"),
-      days: z.number().optional().default(30).describe("Look back N days (default 30)"),
-      limit: z.number().optional().default(20).describe("Max results"),
-    },
-    async ({ search, type, artifactPath, days, limit }) => {
-      try {
-        const { recall: recallFn, getObservationCounts } = await import("../lib/agent-memory.js");
-        const observations = recallFn({ search, type, artifactPath, days, limit });
-        const counts = getObservationCounts();
-
-        if (observations.length === 0) {
-          const totalMemories = Object.values(counts).reduce((s, n) => s + n, 0);
-          return {
-            content: [{
-              type: "text" as const,
-              text: `No memories found${search ? ` for "${search}"` : ""}${type ? ` (type: ${type})` : ""}. Total memories: ${totalMemories}.`,
-            }],
-          };
-        }
-
-        const text = observations.map((o, i) =>
-          `${i + 1}. [${o.type.toUpperCase()}] ${o.content}${o.artifactPath ? `\n   Related: ${o.artifactPath}` : ""}\n   ${o.createdAt} (confidence: ${o.confidence})`
-        ).join("\n\n");
-
-        const countSummary = Object.entries(counts).map(([t, c]) => `${t}: ${c}`).join(", ");
-
-        return {
-          content: [{
-            type: "text" as const,
-            text: `${observations.length} memor${observations.length === 1 ? "y" : "ies"} found (total: ${countSummary}):\n\n${text}`,
-          }],
-        };
-      } catch (err) {
-        return { content: [{ type: "text" as const, text: `Failed to recall: ${(err as Error).message}` }] };
-      }
-    },
-  );
-
-  } // end non-core tools block 2
 
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
@@ -772,7 +413,7 @@ async function main() {
 
       const status = {
         server: {
-          version: "3.0.0",
+          version: "6.0.0",
           nodeVersion: process.version,
           platform: process.platform,
           uptime: Math.round(process.uptime()),
