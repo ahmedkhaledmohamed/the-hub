@@ -1361,3 +1361,77 @@ describe("context file generation", () => {
     });
   });
 });
+
+// ── Scan-time insight tests ─────────────────────────────────────
+
+import { processArtifactInsights, processScanInsights, getLastInsightSummary } from "@/lib/scan-insights";
+
+describe("scan-time insights", () => {
+  beforeAll(() => {
+    // Seed artifacts for insight processing
+    persistArtifacts([
+      { path: "insight/decision-doc.md", title: "Decision Doc", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 300, staleDays: 0, snippet: "We decided to use gRPC" },
+      { path: "insight/plain-doc.md", title: "Plain Doc", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 5, snippet: "Just a note" },
+    ], new Map([
+      ["insight/decision-doc.md", "# Architecture\n\nWe decided to use gRPC for internal communication.\nThe team agreed to migrate to PostgreSQL."],
+      ["insight/plain-doc.md", "# Note\n\nJust a simple note about something."],
+    ]), { deleteStale: false });
+  });
+
+  describe("processArtifactInsights", () => {
+    it("returns valid insight for a path", () => {
+      const insight = processArtifactInsights("insight/decision-doc.md");
+      expect(insight.path).toBe("insight/decision-doc.md");
+      expect(typeof insight.decisionsExtracted).toBe("number");
+      expect(typeof insight.impactScore).toBe("number");
+      expect(typeof insight.impactLevel).toBe("string");
+      expect(insight.processedAt).toBeTruthy();
+    });
+
+    it("extracts decisions from content with decision language", () => {
+      const insight = processArtifactInsights("insight/decision-doc.md");
+      expect(insight.decisionsExtracted).toBeGreaterThanOrEqual(1);
+    });
+
+    it("handles docs without decisions", () => {
+      const insight = processArtifactInsights("insight/plain-doc.md");
+      expect(insight.decisionsExtracted).toBe(0);
+    });
+
+    it("handles non-existent paths gracefully", () => {
+      const insight = processArtifactInsights("insight/nonexistent.md");
+      expect(insight.decisionsExtracted).toBe(0);
+      expect(insight.impactScore).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("processScanInsights", () => {
+    it("processes multiple paths and returns summary", () => {
+      const summary = processScanInsights(["insight/decision-doc.md", "insight/plain-doc.md"]);
+      expect(summary.totalProcessed).toBe(2);
+      expect(typeof summary.totalDecisions).toBe("number");
+      expect(typeof summary.highImpactCount).toBe("number");
+      expect(typeof summary.durationMs).toBe("number");
+      expect(summary.insights.length).toBe(2);
+    });
+
+    it("caps at 50 files", () => {
+      const paths = Array.from({ length: 60 }, (_, i) => `insight/doc-${i}.md`);
+      const summary = processScanInsights(paths);
+      expect(summary.totalProcessed).toBeLessThanOrEqual(50);
+    });
+
+    it("updates lastInsightSummary", () => {
+      processScanInsights(["insight/decision-doc.md"]);
+      const last = getLastInsightSummary();
+      expect(last).not.toBeNull();
+      expect(last!.totalProcessed).toBe(1);
+    });
+
+    it("returns empty summary for empty input", () => {
+      const summary = processScanInsights([]);
+      expect(summary.totalProcessed).toBe(0);
+      expect(summary.insights.length).toBe(0);
+    });
+  });
+});

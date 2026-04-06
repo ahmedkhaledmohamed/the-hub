@@ -106,6 +106,15 @@ export function regenerate(reason: string = "manual"): Manifest {
         analyzeHygiene(cachedManifest.artifacts, cachedManifest.generatedAt);
       } catch { /* non-critical — hygiene is advisory */ }
 
+      // Eager insight computation on changed files (decisions + impact scores)
+      try {
+        const changedPaths = [...changes.changed, ...changes.added];
+        if (changedPaths.length > 0) {
+          const { processScanInsights } = require("./scan-insights");
+          processScanInsights(changedPaths);
+        }
+      } catch { /* non-critical */ }
+
       // Auto-generate context files (.hub-context.md, .cursorrules) in workspaces
       try {
         const { writeContextFilesToAllWorkspaces } = require("./context-file-generator");
