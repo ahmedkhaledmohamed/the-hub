@@ -3,9 +3,10 @@
 /**
  * The Hub MCP Server
  *
- * 8 core tools over stdio for AI assistants to understand your workspace.
+ * 9 core tools over stdio for AI assistants to understand your workspace.
  *
  * Tools:
+ *   workspace_summary — Single-call workspace orientation
  *   search         — Full-text search across workspace
  *   read_artifact  — Read full content of an artifact
  *   list_groups    — List artifact groups with counts
@@ -54,6 +55,95 @@ async function main() {
     name: "the-hub",
     version: "6.0.0",
   });
+
+  // ── Tool: workspace_summary ────────────────────────────── [CORE]
+
+  server.tool(
+    "workspace_summary",
+    "Get a complete workspace orientation in one call. Returns: what this workspace is about, how it's organized (groups/tabs), what changed recently, what needs attention (stale docs, hygiene issues), and key decisions. Use this FIRST when starting a new session to understand the workspace before making targeted queries.",
+    {},
+    async () => {
+      const store = await getManifestStore();
+      const manifest = store.getManifest();
+      const db = await getDb();
+
+      const parts: string[] = [];
+
+      // 1. Overview
+      parts.push(`# Workspace Summary`);
+      parts.push(`**${manifest.artifacts.length} artifacts** across **${manifest.groups.length} groups** in ${manifest.workspaces.length} workspace(s).`);
+      parts.push(`Last scan: ${manifest.generatedAt}${manifest.lastScanReason ? ` (${manifest.lastScanReason})` : ""}\n`);
+
+      // 2. Groups
+      parts.push("## Groups");
+      for (const g of manifest.groups) {
+        parts.push(`- **${g.label}** (${g.id}): ${g.count} artifacts — ${g.description || "No description"}`);
+      }
+
+      // 3. Recently changed (last 7 days)
+      const recent = manifest.artifacts
+        .filter((a) => a.staleDays <= 7)
+        .sort((a, b) => a.staleDays - b.staleDays)
+        .slice(0, 10);
+      if (recent.length > 0) {
+        parts.push("\n## Recently Changed (last 7 days)");
+        for (const a of recent) {
+          parts.push(`- ${a.title} (${a.path}) — ${a.staleDays === 0 ? "today" : `${a.staleDays}d ago`}`);
+        }
+      }
+
+      // 4. Needs attention (stale)
+      const stale = manifest.artifacts
+        .filter((a) => a.staleDays > 90)
+        .sort((a, b) => b.staleDays - a.staleDays)
+        .slice(0, 10);
+      if (stale.length > 0) {
+        parts.push(`\n## Needs Attention (${manifest.artifacts.filter((a) => a.staleDays > 90).length} stale docs)`);
+        for (const a of stale) {
+          parts.push(`- ${a.title} (${a.path}) — ${a.staleDays} days old`);
+        }
+      }
+
+      // 5. Hygiene summary (quick count, no full analysis)
+      try {
+        const { getCachedHygieneSummary } = await import("../lib/hygiene-analyzer.js");
+        const hygiene = getCachedHygieneSummary();
+        if (hygiene && hygiene.totalFindings > 0) {
+          parts.push(`\n## Hygiene Issues: ${hygiene.totalFindings} finding(s)`);
+          if (hygiene.highCount > 0) parts.push(`- ${hygiene.highCount} high severity`);
+          if (hygiene.mediumCount > 0) parts.push(`- ${hygiene.mediumCount} medium severity`);
+          if (hygiene.lowCount > 0) parts.push(`- ${hygiene.lowCount} low severity`);
+        }
+      } catch { /* hygiene not available */ }
+
+      // 6. Recent decisions
+      try {
+        const { getActiveDecisions, getDecisionCounts } = await import("../lib/decision-tracker.js");
+        const counts = getDecisionCounts();
+        if (counts.active > 0) {
+          const decisions = getActiveDecisions(5);
+          parts.push(`\n## Decisions (${counts.active} active, ${counts.superseded} superseded)`);
+          for (const d of decisions) {
+            parts.push(`- ${d.summary} — ${d.artifactPath}`);
+          }
+        }
+      } catch { /* decisions not available */ }
+
+      // 7. Predictive alerts
+      try {
+        const lib = await getTrendsLib();
+        const alerts = lib.getPredictiveAlerts(manifest);
+        if (alerts.length > 0) {
+          parts.push("\n## Alerts");
+          for (const alert of alerts.slice(0, 3)) {
+            parts.push(`- **${alert.groupLabel}**: ${alert.currentStalePercent}% stale → predicted ${alert.predictedStalePercent}% by ${alert.predictedDate}`);
+          }
+        }
+      } catch { /* trends not available */ }
+
+      return { content: [{ type: "text" as const, text: parts.join("\n") }] };
+    },
+  );
 
   // ── Tool: search ──────────────────────────────────────── [CORE]
 
