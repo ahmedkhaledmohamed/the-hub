@@ -138,7 +138,7 @@ Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the
 
 | # | Item | Impact | Effort |
 |---|---|---|---|
-| 6 | Workspace summary MCP tool — single-call workspace orientation | Very High | Medium |
+| 6 | ✅ Workspace summary MCP tool — single-call workspace orientation | Very High | Medium |
 | 7 | Write-back MCP tools (create_doc, update_artifact, mark_reviewed) | High | Medium |
 | 8 | Smart context windows — optimally-sized context based on topic + impact scoring | High | High |
 | 9 | Promote get_hygiene and get_trends to core MCP tools | Medium | Low |

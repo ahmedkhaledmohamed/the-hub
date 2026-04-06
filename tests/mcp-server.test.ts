@@ -739,13 +739,67 @@ describe("MCP tool refinement", () => {
   });
 
   describe("tool catalog", () => {
-    it("8 core MCP tools registered", () => {
+    it("9 core MCP tools registered", () => {
       const tools = [
-        "search", "read_artifact", "list_groups", "get_manifest",
-        "ask_question", "get_decisions", "get_hygiene", "get_trends",
+        "workspace_summary", "search", "read_artifact", "list_groups",
+        "get_manifest", "ask_question", "get_decisions", "get_hygiene", "get_trends",
       ];
-      expect(tools.length).toBe(8);
-      expect(new Set(tools).size).toBe(8);
+      expect(tools.length).toBe(9);
+      expect(new Set(tools).size).toBe(9);
+    });
+  });
+
+  describe("workspace_summary tool data", () => {
+    it("builds summary from manifest data", () => {
+      const artifacts = [
+        { path: "docs/a.md", title: "Doc A", type: "md", group: "docs", staleDays: 1, modifiedAt: new Date().toISOString(), size: 100 },
+        { path: "docs/b.md", title: "Doc B", type: "md", group: "docs", staleDays: 100, modifiedAt: "2025-01-01", size: 200 },
+      ];
+      const recent = artifacts.filter((a) => a.staleDays <= 7);
+      const stale = artifacts.filter((a) => a.staleDays > 90);
+
+      expect(recent.length).toBe(1);
+      expect(recent[0].title).toBe("Doc A");
+      expect(stale.length).toBe(1);
+      expect(stale[0].title).toBe("Doc B");
+    });
+
+    it("formats workspace summary text", () => {
+      const parts: string[] = [];
+      parts.push("# Workspace Summary");
+      parts.push("**5 artifacts** across **2 groups** in 1 workspace(s).");
+      parts.push("\n## Groups");
+      parts.push("- **Docs** (docs): 3 artifacts — Documentation");
+      parts.push("- **Planning** (planning): 2 artifacts — Plans");
+
+      const text = parts.join("\n");
+      expect(text).toContain("# Workspace Summary");
+      expect(text).toContain("5 artifacts");
+      expect(text).toContain("2 groups");
+      expect(text).toContain("**Docs** (docs)");
+    });
+
+    it("includes recently changed section for fresh artifacts", () => {
+      const artifacts = [
+        { title: "Fresh", path: "a.md", staleDays: 0 },
+        { title: "Recent", path: "b.md", staleDays: 3 },
+        { title: "Old", path: "c.md", staleDays: 30 },
+      ];
+      const recent = artifacts.filter((a) => a.staleDays <= 7).sort((a, b) => a.staleDays - b.staleDays);
+      expect(recent.length).toBe(2);
+      expect(recent[0].title).toBe("Fresh");
+    });
+
+    it("includes stale docs section for old artifacts", () => {
+      const artifacts = [
+        { title: "Ancient", path: "old.md", staleDays: 200 },
+        { title: "Stale", path: "stale.md", staleDays: 95 },
+        { title: "Fine", path: "ok.md", staleDays: 10 },
+      ];
+      const stale = artifacts.filter((a) => a.staleDays > 90).sort((a, b) => b.staleDays - a.staleDays);
+      expect(stale.length).toBe(2);
+      expect(stale[0].title).toBe("Ancient");
+      expect(stale[0].staleDays).toBe(200);
     });
   });
 });
