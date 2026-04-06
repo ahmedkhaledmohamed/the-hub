@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getManifest } from "@/lib/manifest-store";
-import { getClientConfig } from "@/lib/config-client";
+import { getClientConfig } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
