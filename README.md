@@ -215,6 +215,23 @@ flowchart TD
 - **Meeting briefings** — Calendar-aware pre-meeting prep with action items, priority scoring via `meeting_brief`
 - **Performance monitoring** — Benchmark suite with threshold-based regression detection, query plan auditing
 
+### v5: Ship Less, Use More
+
+- **Search caching** — LRU cache with TTL for < 50ms p95 search latency
+- **Briefing optimization** — First-load < 500ms with server-side data prefetch
+- **MCP tool caching** — Core tool responses cached for < 100ms response times
+- **Keyboard navigation** — j/k keys for artifact preview, Esc to close
+- **Scheduled Slack digest** — Real cron-based weekly digest (not manual API call)
+- **Calendar-driven briefings** — iCal parsing wired to briefing page with today's events
+- **Notification triggers** — Review/annotation events fire real notifications with badge count
+- **Notification inbox** — Dedicated page for viewing and managing notifications
+- **Auto-hygiene on scan** — Hygiene analysis runs on every scan, badge on sidebar
+- **MCP tool archival** — 13 unused tools archived, 6 core tools by default (`HUB_MCP_ALL_TOOLS=true` for all 19)
+- **API deprecation** — 8 unused routes marked with `X-Deprecated` headers for removal in v5.1
+- **Module consolidation** — Inventory of 73 modules with merge targets identified
+- **Integration tests** — 8 real user-flow integration tests replacing existence checks
+- **Honest marketing** — Removed dead features (federation, SSO, marketplace) from README and landing page
+
 ### Interfaces
 
 | Interface | Description |
@@ -312,7 +329,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 - **MCP SDK** (@modelcontextprotocol/sdk) for AI tool integration
 - **marked** + **highlight.js** for markdown rendering
 - **chokidar** for filesystem watching
-- **vitest** for testing (1,129 tests across 11 suites)
+- **vitest** for testing (1,152 tests across 11 suites)
 
 ## Commands
 
@@ -320,7 +337,7 @@ Full OpenAPI 3.1 spec available at `/api/docs` when running.
 npm run dev        # Dev server with Turbopack
 npm run build      # Production build
 npm start          # Production server (HTTPS :9001 + HTTP :9002)
-npm test           # Run all 1,129 tests
+npm test           # Run all 1,152 tests
 npm run mcp        # Start MCP server
 hub search <query> # CLI search
 hub status         # Workspace status
@@ -350,16 +367,18 @@ the-hub/
 │   ├── components/           # 40+ React components
 │   ├── hooks/                # Client-side hooks (feature status, impact, search)
 │   ├── hooks/                # Client-side hooks (feature status, impact, search)
-│   ├── mcp/                  # MCP server (19 tools, 3 resources, 5 prompts)
-│   ├── lib/                  # 69 library modules
+│   ├── mcp/                  # MCP server (6 core + 13 archived tools, 3 resources, 5 prompts)
+│   ├── lib/                  # 73 library modules
 │   └── middleware.ts         # Rate limiting + API authentication
-└── tests/                    # 1,129 tests across 11 suites
+└── tests/                    # 1,152 tests across 11 suites
 ```
 
 ## Links
 
 - [Landing Page](https://ahmedkhaledmohamed.github.io/the-hub/)
 - [Future Developments](docs/future-developments.md)
+- [Release v5.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v5.0.0)
+- [Release v4.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v4.0.0)
 - [Release v3.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v3.0.0)
 - [Release v2.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v2.0.0)
 - [Release v1.0.0](https://github.com/ahmedkhaledmohamed/the-hub/releases/tag/v1.0.0)
