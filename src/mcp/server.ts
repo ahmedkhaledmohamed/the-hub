@@ -3,7 +3,7 @@
 /**
  * The Hub MCP Server
  *
- * 13 core tools over stdio for AI assistants to understand and update your workspace.
+ * 23 core tools over stdio for AI assistants to understand and update your workspace.
  *
  * Tools:
  *   workspace_summary — Single-call workspace orientation
@@ -15,10 +15,20 @@
  *   get_decisions  — Tracked decisions with contradiction detection
  *   get_hygiene    — Document hygiene report (duplicates, stale)
  *   get_trends     — Workspace health trends and alerts
- *   get_context    — Smart context window with impact-based prioritization
- *   create_doc     — Create a new document in the workspace
- *   update_artifact — Append or replace content in an artifact
- *   mark_reviewed  — Mark an artifact as reviewed
+ *   get_context      — Smart context window with impact-based prioritization
+ *   generate_content — Generate status updates, PRDs, handoffs
+ *   list_repos       — Connected git repositories
+ *   detect_gaps      — Knowledge gap detection
+ *   compile_context  — Meeting/topic context packets
+ *   meeting_brief    — Pre-meeting briefings
+ *   get_impact       — Impact score + stakeholders
+ *   get_errors       — System error visibility
+ *   remember         — Store cross-session observations
+ *   recall           — Retrieve past observations
+ *   catch_up         — What changed since last session
+ *   create_doc       — Create a new document in the workspace
+ *   update_artifact  — Append or replace content in an artifact
+ *   mark_reviewed    — Mark an artifact as reviewed
  *
  * Usage:
  *   npx tsx src/mcp/server.ts
@@ -47,6 +57,11 @@ async function getManifestStore() {
 async function getRag() {
   const { askWorkspace } = await import("../lib/rag.js");
   return { askWorkspace };
+}
+
+async function getGenerator() {
+  const { generate, getTemplates } = await import("../lib/generator.js");
+  return { generate, getTemplates };
 }
 
 async function getTrendsLib() {
@@ -532,6 +547,174 @@ async function main() {
     },
   );
 
+  // ── Restored tools (v6.1 — aligned with context engine direction) ──
+
+  server.tool(
+    "generate_content",
+    "Generate content using workspace context. Templates: status-update (from change feed), handoff-doc (for a group), prd-outline (from research docs), custom (free-form).",
+    {
+      template: z.enum(["status-update", "handoff-doc", "prd-outline", "custom"]).describe("Template type"),
+      groupId: z.string().optional().describe("Group ID (required for handoff-doc)"),
+      artifactPaths: z.array(z.string()).optional().describe("Artifact paths (required for prd-outline)"),
+      customPrompt: z.string().optional().describe("Custom prompt (required for custom template)"),
+    },
+    async ({ template, groupId, artifactPaths, customPrompt }) => {
+      const gen = await getGenerator();
+      const result = await gen.generate({ template, groupId, artifactPaths, customPrompt });
+      let text = result.content;
+      if (result.sourcePaths.length > 0) text += "\n\n**Based on:** " + result.sourcePaths.join(", ");
+      return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  server.tool(
+    "list_repos",
+    "List all git repositories discovered under configured workspaces.",
+    {},
+    async () => {
+      const { discoverRepos } = await import("../lib/repo-scanner.js");
+      const { loadConfig } = await import("../lib/config.js");
+      const config = loadConfig();
+      const repos = discoverRepos(config.workspaces);
+      if (repos.length === 0) return { content: [{ type: "text" as const, text: "No git repositories found." }] };
+      const text = repos.map((r) => {
+        const flags = [r.hasClaudeFile ? "CLAUDE.md" : "", r.hasCursorRules ? ".cursorrules" : ""].filter(Boolean).join(", ");
+        return `- **${r.name}** (${r.branch}) — ${r.workspace}${flags ? `\n  AI context: ${flags}` : ""}`;
+      }).join("\n\n");
+      return { content: [{ type: "text" as const, text: `${repos.length} repository(ies):\n\n${text}` }] };
+    },
+  );
+
+  server.tool(
+    "detect_gaps",
+    "Detect knowledge gaps — topics people search for but have no documentation.",
+    { days: z.number().optional().default(30).describe("Look back N days (default 30)") },
+    async ({ days }) => {
+      try {
+        const { detectGaps, formatGapReport } = await import("../lib/knowledge-gaps.js");
+        return { content: [{ type: "text" as const, text: formatGapReport(detectGaps({ days })) }] };
+      } catch (err) { return { content: [{ type: "text" as const, text: `Gap detection failed: ${(err as Error).message}` }] }; }
+    },
+  );
+
+  server.tool(
+    "compile_context",
+    "Compile a context packet for a meeting or topic. Gathers related docs, decisions, changes, and conflicts.",
+    {
+      topic: z.string().describe("Meeting title or topic"),
+      changeDays: z.number().optional().default(7).describe("Look back N days for changes (default 7)"),
+    },
+    async ({ topic, changeDays }) => {
+      try {
+        const { compileContext, formatContextPacket } = await import("../lib/context-compiler.js");
+        return { content: [{ type: "text" as const, text: formatContextPacket(compileContext(topic, new Date().toISOString(), { changeDays })) }] };
+      } catch (err) { return { content: [{ type: "text" as const, text: `Context compilation failed: ${(err as Error).message}` }] }; }
+    },
+  );
+
+  server.tool(
+    "meeting_brief",
+    "Generate a pre-meeting briefing with related docs, decisions, changes, conflicts, and action items.",
+    {
+      topic: z.string().describe("Meeting title or topic"),
+      changeDays: z.number().optional().default(7).describe("Look back N days (default 7)"),
+    },
+    async ({ topic, changeDays }) => {
+      try {
+        const { generateMeetingBriefing } = await import("../lib/meeting-briefing.js");
+        return { content: [{ type: "text" as const, text: generateMeetingBriefing(topic, new Date().toISOString(), { changeDays }).briefingText }] };
+      } catch (err) { return { content: [{ type: "text" as const, text: `Meeting brief failed: ${(err as Error).message}` }] }; }
+    },
+  );
+
+  server.tool(
+    "get_impact",
+    "Get impact score for an artifact — who needs to know when this doc changes.",
+    { path: z.string().describe("Artifact path to score") },
+    async ({ path }) => {
+      try {
+        const { computeImpactScore } = await import("../lib/impact-scoring.js");
+        const score = computeImpactScore(path);
+        const stakeholders = score.stakeholders.length > 0
+          ? score.stakeholders.map((s) => `  - ${s.name} (${s.reason}) — relevance: ${s.relevance}`).join("\n")
+          : "  No stakeholders identified yet.";
+        return { content: [{ type: "text" as const, text: `**Impact: ${score.score}/100 (${score.level})**\nPath: ${score.artifactPath}\nStakeholders:\n${stakeholders}` }] };
+      } catch { return { content: [{ type: "text" as const, text: "Impact scoring not available." }] }; }
+    },
+  );
+
+  server.tool(
+    "get_errors",
+    "Get recent system errors and warnings.",
+    {
+      category: z.string().optional().describe("Filter by category"),
+      limit: z.number().optional().default(10).describe("Max results"),
+    },
+    async ({ category, limit }) => {
+      try {
+        const { getActiveErrors, getErrorSummary } = await import("../lib/error-reporter.js");
+        const summary = getErrorSummary();
+        const errors = getActiveErrors({ category: category as "scan" | "ai" | undefined, limit });
+        if (errors.length === 0) return { content: [{ type: "text" as const, text: "No active errors. System is healthy." }] };
+        const text = errors.map((e, i) => `${i + 1}. [${e.severity.toUpperCase()}] ${e.category}: ${e.message}${e.occurrences > 1 ? ` (×${e.occurrences})` : ""}`).join("\n\n");
+        return { content: [{ type: "text" as const, text: `${summary.total} error(s):\n\n${text}` }] };
+      } catch { return { content: [{ type: "text" as const, text: "Error reporting not available." }] }; }
+    },
+  );
+
+  server.tool(
+    "remember",
+    "Store an observation, insight, or decision in persistent memory. Survives across sessions.",
+    {
+      content: z.string().describe("What to remember"),
+      type: z.enum(["observation", "question", "insight", "decision", "context"]).optional().default("observation").describe("Type"),
+      artifactPath: z.string().optional().describe("Related artifact path"),
+      confidence: z.number().optional().default(1.0).describe("Confidence 0-1"),
+    },
+    async ({ content, type, artifactPath, confidence }) => {
+      try {
+        const { remember } = await import("../lib/agent-memory.js");
+        const id = remember({ agentId: "mcp-client", sessionId: `session-${new Date().toISOString().slice(0, 10)}`, content, type, artifactPath, confidence });
+        return { content: [{ type: "text" as const, text: `Remembered (id: ${id}, type: ${type}): "${content.slice(0, 100)}${content.length > 100 ? "..." : ""}"` }] };
+      } catch (err) { return { content: [{ type: "text" as const, text: `Failed: ${(err as Error).message}` }] }; }
+    },
+  );
+
+  server.tool(
+    "recall",
+    "Recall past observations, insights, and decisions from persistent memory.",
+    {
+      search: z.string().optional().describe("Search keyword"),
+      type: z.enum(["observation", "question", "insight", "decision", "context"]).optional().describe("Filter by type"),
+      artifactPath: z.string().optional().describe("Filter by artifact"),
+      days: z.number().optional().default(30).describe("Look back N days"),
+      limit: z.number().optional().default(20).describe("Max results"),
+    },
+    async ({ search, type, artifactPath, days, limit }) => {
+      try {
+        const { recall: recallFn, getObservationCounts } = await import("../lib/agent-memory.js");
+        const observations = recallFn({ search, type, artifactPath, days, limit });
+        const counts = getObservationCounts();
+        if (observations.length === 0) return { content: [{ type: "text" as const, text: `No memories found. Total: ${Object.values(counts).reduce((s, n) => s + n, 0)}.` }] };
+        const text = observations.map((o, i) => `${i + 1}. [${o.type.toUpperCase()}] ${o.content}${o.artifactPath ? `\n   Related: ${o.artifactPath}` : ""}\n   ${o.createdAt}`).join("\n\n");
+        return { content: [{ type: "text" as const, text: `${observations.length} memor${observations.length === 1 ? "y" : "ies"}:\n\n${text}` }] };
+      } catch (err) { return { content: [{ type: "text" as const, text: `Failed: ${(err as Error).message}` }] }; }
+    },
+  );
+
+  server.tool(
+    "catch_up",
+    "What changed since your last session. Shows updated docs, new decisions, and modified queried artifacts.",
+    { sessionId: z.string().optional().describe("Session ID (default: most recent)") },
+    async ({ sessionId }) => {
+      try {
+        const { generateCatchUp, formatCatchUp, getRecentSessions } = await import("../lib/session-tracker.js");
+        const sid = sessionId || (getRecentSessions(1)[0]?.sessionId as string) || "default";
+        return { content: [{ type: "text" as const, text: formatCatchUp(generateCatchUp(sid)) }] };
+      } catch (err) { return { content: [{ type: "text" as const, text: `Catch-up failed: ${(err as Error).message}` }] }; }
+    },
+  );
+
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
   server.resource(
@@ -681,7 +864,7 @@ async function main() {
           details: features,
         },
         mcp: {
-          tools: 13,
+          tools: 23,
           resources: 4,
           prompts: 5,
         },
