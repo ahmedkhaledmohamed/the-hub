@@ -712,9 +712,9 @@ describe("MCP tool caching", () => {
 describe("MCP tool archival", () => {
   describe("core vs archived tools", () => {
     it("6 core tools always registered", () => {
-      const coreTools = ["workspace_summary", "search", "read_artifact", "list_groups", "get_manifest", "ask_question", "get_decisions", "get_hygiene", "get_trends"];
-      expect(coreTools.length).toBe(9);
-      expect(new Set(coreTools).size).toBe(9);
+      const coreTools = ["workspace_summary", "search", "read_artifact", "list_groups", "get_manifest", "ask_question", "get_decisions", "get_hygiene", "get_trends", "create_doc", "update_artifact", "mark_reviewed"];
+      expect(coreTools.length).toBe(12);
+      expect(new Set(coreTools).size).toBe(12);
     });
   });
 });

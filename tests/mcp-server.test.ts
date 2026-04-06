@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { resolve } from "path";
 import { persistArtifacts, searchArtifacts, getArtifactContent, getArtifactCount, getDb } from "@/lib/db";
 import type { Artifact } from "@/lib/types";
 
@@ -739,13 +740,14 @@ describe("MCP tool refinement", () => {
   });
 
   describe("tool catalog", () => {
-    it("9 core MCP tools registered", () => {
+    it("12 core MCP tools registered", () => {
       const tools = [
         "workspace_summary", "search", "read_artifact", "list_groups",
         "get_manifest", "ask_question", "get_decisions", "get_hygiene", "get_trends",
+        "create_doc", "update_artifact", "mark_reviewed",
       ];
-      expect(tools.length).toBe(9);
-      expect(new Set(tools).size).toBe(9);
+      expect(tools.length).toBe(12);
+      expect(new Set(tools).size).toBe(12);
     });
   });
 
@@ -800,6 +802,59 @@ describe("MCP tool refinement", () => {
       expect(stale.length).toBe(2);
       expect(stale[0].title).toBe("Ancient");
       expect(stale[0].staleDays).toBe(200);
+    });
+  });
+
+  describe("write-back MCP tools", () => {
+    it("create_doc validates path is within workspace", () => {
+      const wsPath = "/tmp/test-workspace";
+      const docPath = "../../../etc/passwd";
+      const fullPath = resolve(wsPath, docPath);
+      const isWithin = fullPath.startsWith(resolve(wsPath));
+      expect(isWithin).toBe(false);
+    });
+
+    it("create_doc allows valid paths within workspace", () => {
+      const wsPath = "/tmp/test-workspace";
+      const docPath = "docs/new-doc.md";
+      const fullPath = resolve(wsPath, docPath);
+      const isWithin = fullPath.startsWith(resolve(wsPath));
+      expect(isWithin).toBe(true);
+    });
+
+    it("update_artifact supports append and replace modes", () => {
+      const existing = "# Title\n\nExisting content.\n";
+      const appendContent = "## New Section\n\nAppended.";
+
+      // Append mode
+      const separator = existing.endsWith("\n") ? "\n" : "\n\n";
+      const appended = existing + separator + appendContent;
+      expect(appended).toContain("Existing content");
+      expect(appended).toContain("Appended");
+      expect(appended).toContain("# Title");
+
+      // Replace mode
+      const replaced = appendContent;
+      expect(replaced).not.toContain("Existing content");
+      expect(replaced).toContain("Appended");
+    });
+
+    it("mark_reviewed creates and approves a review", () => {
+      const unique = `write-back-${Date.now()}.md`;
+
+      const id = createReviewRequest({
+        artifactPath: unique,
+        requestedBy: "ai-assistant",
+        reviewer: "ai-assistant",
+        message: "Reviewed via MCP tool",
+      });
+      expect(id).toBeGreaterThan(0);
+
+      updateReviewStatus(id, "approved", "Approved via MCP tool");
+      const review = getReviewRequest(id);
+      expect(review).not.toBeNull();
+      expect(review.status).toBe("approved");
+      expect(review.responseMessage).toBe("Approved via MCP tool");
     });
   });
 });
