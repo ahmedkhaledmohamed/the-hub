@@ -6,8 +6,11 @@ import {
   hasPeers,
 } from "@/lib/federation";
 import { searchArtifacts } from "@/lib/db";
+import { isRouteDeprecated, addDeprecationHeaders } from "@/lib/deprecation";
 
 export const dynamic = "force-dynamic";
+
+// This route is deprecated in v5 — see /api/deprecated for details
 
 /**
  * GET /api/federation                — peer status and health
