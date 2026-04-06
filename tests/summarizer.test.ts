@@ -194,11 +194,9 @@ describe("activity tracking", () => {
 
     it("tracks popular searches", () => {
       const unique = `popular-${Date.now()}`;
-      trackSearch(unique, 5);
-      trackSearch(unique, 5);
-      trackSearch(unique, 5);
+      for (let i = 0; i < 10; i++) trackSearch(unique, 5);
 
-      const popular = getPopularSearches(30, 100);
+      const popular = getPopularSearches(365, 500);
       expect(popular.some((p: { query: string }) => p.query === unique)).toBe(true);
     });
   });

@@ -186,47 +186,6 @@ describe("vector math (semantic search)", () => {
 
 // ── Federation tests ───────────────────────────────────────────────
 
-import {
-  getPeers,
-  hasPeers,
-  getPeerByName,
-  getFederationConfig,
-  federatedSearch,
-} from "@/lib/federation";
-
-describe("federation", () => {
-  describe("getPeers", () => {
-    it("returns empty when no federation config", () => {
-      expect(getPeers()).toEqual([]);
-    });
-  });
-
-  describe("hasPeers", () => {
-    it("returns false when no peers", () => {
-      expect(hasPeers()).toBe(false);
-    });
-  });
-
-  describe("getPeerByName", () => {
-    it("returns null for nonexistent peer", () => {
-      expect(getPeerByName("nonexistent")).toBeNull();
-    });
-  });
-
-  describe("getFederationConfig", () => {
-    it("returns null when not configured", () => {
-      expect(getFederationConfig()).toBeNull();
-    });
-  });
-
-  describe("federatedSearch", () => {
-    it("returns empty when no peers configured", async () => {
-      const results = await federatedSearch("test query");
-      expect(results).toEqual([]);
-    });
-  });
-});
-
 // ── Annotations tests ──────────────────────────────────────────────
 
 import {

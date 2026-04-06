@@ -147,11 +147,6 @@ export function generateOpenApiSpec() {
         get: { summary: "Activity summary and boost scores", tags: ["Intelligence"], responses: { "200": { description: "Activity data" } } },
         post: { summary: "Track user action", tags: ["Intelligence"], responses: { "200": { description: "Tracked" } } },
       },
-      "/api/admin": {
-        get: { summary: "Governance dashboard", tags: ["Intelligence"], responses: { "200": { description: "Dashboard data" } } },
-        post: { summary: "Tag/untag artifacts, log audit", tags: ["Intelligence"], responses: { "200": { description: "Action result" } } },
-      },
-
       // ── Platform ──
       "/api/plugins": { get: { summary: "List loaded plugins", tags: ["Platform"], responses: { "200": { description: "Plugin list" } } } },
       "/api/agents": {
@@ -179,7 +174,7 @@ export function generateOpenApiSpec() {
       { name: "Core", description: "Workspace scanning, search, and file operations" },
       { name: "AI", description: "AI-powered Q&A, summarization, and generation" },
       { name: "Hygiene", description: "Document hygiene and duplicate detection" },
-      { name: "Intelligence", description: "Knowledge graph, trends, activity, governance" },
+      { name: "Intelligence", description: "Knowledge graph, trends, activity" },
       { name: "Platform", description: "Plugins, agents, webhooks, auth, settings" },
       { name: "Meta", description: "API documentation" },
     ],
