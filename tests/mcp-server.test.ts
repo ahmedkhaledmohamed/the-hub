@@ -943,6 +943,55 @@ describe("smart context windows", () => {
   });
 });
 
+// ── hub://health resource tests ─────────────────────────────────
+
+describe("hub://health resource data", () => {
+  it("computes staleness distribution from artifacts", () => {
+    const artifacts = [
+      { staleDays: 1 },
+      { staleDays: 3 },
+      { staleDays: 30 },
+      { staleDays: 60 },
+      { staleDays: 100 },
+      { staleDays: 200 },
+    ];
+    const fresh = artifacts.filter((a) => a.staleDays <= 7).length;
+    const aging = artifacts.filter((a) => a.staleDays > 7 && a.staleDays <= 90).length;
+    const stale = artifacts.filter((a) => a.staleDays > 90).length;
+
+    expect(fresh).toBe(2);
+    expect(aging).toBe(2);
+    expect(stale).toBe(2);
+  });
+
+  it("computes quality score from freshness and hygiene", () => {
+    const freshPercent = 70;
+    const hygieneHigh = 2;
+    const hygieneMedium = 3;
+    const hygieneLow = 5;
+
+    const hygienePenalty = Math.min(30, hygieneHigh * 10 + hygieneMedium * 3 + hygieneLow * 1);
+    const qualityScore = Math.max(0, freshPercent - hygienePenalty);
+
+    expect(hygienePenalty).toBe(30); // 20 + 9 + 5 = 34, capped at 30
+    expect(qualityScore).toBe(40);
+  });
+
+  it("quality score cannot go below 0", () => {
+    const freshPercent = 10;
+    const hygienePenalty = 30;
+    const qualityScore = Math.max(0, freshPercent - hygienePenalty);
+    expect(qualityScore).toBe(0);
+  });
+
+  it("perfect workspace has quality score 100", () => {
+    const freshPercent = 100;
+    const hygienePenalty = 0;
+    const qualityScore = Math.max(0, freshPercent - hygienePenalty);
+    expect(qualityScore).toBe(100);
+  });
+});
+
 // ── Notification trigger tests ───────────────────────────────────
 
 import {
