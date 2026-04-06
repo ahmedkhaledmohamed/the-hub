@@ -73,18 +73,36 @@ async function main() {
       limit: z.number().optional().default(10).describe("Max results (default 10)"),
     },
     async ({ query, limit }) => {
-      const db = await getDb();
-      const results = db.searchArtifacts(query, limit);
+      const start = performance.now();
+      let fromCache = false;
 
-      if (results.length === 0) {
-        return { content: [{ type: "text" as const, text: `No results found for "${query}".` }] };
+      try {
+        const { cachedToolCall } = await import("../lib/mcp-cache.js");
+        const { result, cached } = await cachedToolCall("search", `mcp:search:${query}:${limit}`, async () => {
+          const db = await getDb();
+          return db.searchArtifacts(query, limit);
+        });
+        fromCache = cached;
+        const results = result as Array<{ title: string; path: string; snippet: string }>;
+        const durationMs = Math.round((performance.now() - start) * 100) / 100;
+
+        if (results.length === 0) {
+          return { content: [{ type: "text" as const, text: `No results found for "${query}". (${durationMs}ms${fromCache ? ", cached" : ""})` }] };
+        }
+
+        const text = results
+          .map((r, i) => `${i + 1}. **${r.title}** (${r.path})\n   ${r.snippet || "No preview."}`)
+          .join("\n\n");
+
+        return { content: [{ type: "text" as const, text: `Found ${results.length} result(s) for "${query}" (${durationMs}ms${fromCache ? ", cached" : ""}):\n\n${text}` }] };
+      } catch {
+        // Fallback without cache
+        const db = await getDb();
+        const results = db.searchArtifacts(query, limit);
+        if (results.length === 0) return { content: [{ type: "text" as const, text: `No results found for "${query}".` }] };
+        const text = results.map((r, i) => `${i + 1}. **${r.title}** (${r.path})\n   ${r.snippet || "No preview."}`).join("\n\n");
+        return { content: [{ type: "text" as const, text: `Found ${results.length} result(s) for "${query}":\n\n${text}` }] };
       }
-
-      const text = results
-        .map((r, i) => `${i + 1}. **${r.title}** (${r.path})\n   ${r.snippet || "No preview."}`)
-        .join("\n\n");
-
-      return { content: [{ type: "text" as const, text: `Found ${results.length} result(s) for "${query}":\n\n${text}` }] };
     },
   );
 

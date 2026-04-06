@@ -95,8 +95,9 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* events not critical */ }
 
-      // Invalidate search cache on scan
+      // Invalidate caches on scan
       try { const { invalidateSearchCache } = require("./search-cache"); invalidateSearchCache(); } catch { /* non-critical */ }
+      try { const { invalidateMcpCache } = require("./mcp-cache"); invalidateMcpCache(); } catch { /* non-critical */ }
 
       // Trigger embedding auto-generation after scan (non-blocking)
       try {
