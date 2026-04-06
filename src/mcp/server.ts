@@ -3,7 +3,7 @@
 /**
  * The Hub MCP Server
  *
- * 12 core tools over stdio for AI assistants to understand and update your workspace.
+ * 13 core tools over stdio for AI assistants to understand and update your workspace.
  *
  * Tools:
  *   workspace_summary — Single-call workspace orientation
@@ -15,6 +15,7 @@
  *   get_decisions  — Tracked decisions with contradiction detection
  *   get_hygiene    — Document hygiene report (duplicates, stale)
  *   get_trends     — Workspace health trends and alerts
+ *   get_context    — Smart context window with impact-based prioritization
  *   create_doc     — Create a new document in the workspace
  *   update_artifact — Append or replace content in an artifact
  *   mark_reviewed  — Mark an artifact as reviewed
@@ -268,6 +269,28 @@ async function main() {
       }
 
       return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  // ── Tool: get_context ──────────────────────────────────── [CORE]
+
+  server.tool(
+    "get_context",
+    "Get optimally-sized context for a topic. Uses impact scoring to prioritize high-value docs and allocate more space to critical artifacts. Returns ranked, truncated content ready for LLM consumption.",
+    {
+      topic: z.string().describe("Topic or question to gather context for"),
+      budget: z.number().optional().default(12000).describe("Max characters budget (default 12000)"),
+      maxSources: z.number().optional().default(8).describe("Max source documents (default 8)"),
+    },
+    async ({ topic, budget, maxSources }) => {
+      try {
+        const { buildSmartContext, formatSmartContext } = await import("../lib/smart-context.js");
+        const ctx = buildSmartContext(topic, { budgetChars: budget, maxEntries: maxSources });
+        const text = formatSmartContext(ctx);
+        return { content: [{ type: "text" as const, text }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Context retrieval failed: ${(err as Error).message}` }] };
+      }
     },
   );
 

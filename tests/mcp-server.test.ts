@@ -740,14 +740,15 @@ describe("MCP tool refinement", () => {
   });
 
   describe("tool catalog", () => {
-    it("12 core MCP tools registered", () => {
+    it("13 core MCP tools registered", () => {
       const tools = [
         "workspace_summary", "search", "read_artifact", "list_groups",
-        "get_manifest", "ask_question", "get_decisions", "get_hygiene", "get_trends",
+        "get_manifest", "ask_question", "get_context", "get_decisions",
+        "get_hygiene", "get_trends",
         "create_doc", "update_artifact", "mark_reviewed",
       ];
-      expect(tools.length).toBe(12);
-      expect(new Set(tools).size).toBe(12);
+      expect(tools.length).toBe(13);
+      expect(new Set(tools).size).toBe(13);
     });
   });
 
@@ -856,6 +857,89 @@ describe("MCP tool refinement", () => {
       expect(review.status).toBe("approved");
       expect(review.responseMessage).toBe("Approved via MCP tool");
     });
+  });
+});
+
+// ── Smart context window tests ──────────────────────────────────
+
+import { buildSmartContext, formatSmartContext } from "@/lib/smart-context";
+
+describe("smart context windows", () => {
+  it("buildSmartContext returns valid structure", () => {
+    const ctx = buildSmartContext("architecture");
+    expect(ctx.topic).toBe("architecture");
+    expect(Array.isArray(ctx.entries)).toBe(true);
+    expect(typeof ctx.totalChars).toBe("number");
+    expect(typeof ctx.budgetChars).toBe("number");
+    expect(typeof ctx.entryCount).toBe("number");
+    expect(typeof ctx.averageImpact).toBe("number");
+  });
+
+  it("respects budget limit", () => {
+    const ctx = buildSmartContext("test", { budgetChars: 5000 });
+    expect(ctx.budgetChars).toBe(5000);
+    expect(ctx.totalChars).toBeLessThanOrEqual(5000);
+  });
+
+  it("respects maxEntries limit", () => {
+    const ctx = buildSmartContext("test", { maxEntries: 3 });
+    expect(ctx.entryCount).toBeLessThanOrEqual(3);
+  });
+
+  it("entries have impact scores and combined scores", () => {
+    // Seed some data first
+    persistArtifacts([
+      { path: "smart/high.md", title: "High Impact Doc", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 200, staleDays: 1, snippet: "Critical architecture decision" },
+      { path: "smart/low.md", title: "Low Impact Note", type: "md", group: "docs", modifiedAt: new Date().toISOString(), size: 100, staleDays: 1, snippet: "Minor note about something" },
+    ], new Map([
+      ["smart/high.md", "# Architecture\n\nCritical architecture decision about microservices."],
+      ["smart/low.md", "# Note\n\nMinor note about something."],
+    ]), { deleteStale: false });
+
+    const ctx = buildSmartContext("architecture decision");
+    for (const entry of ctx.entries) {
+      expect(typeof entry.impactScore).toBe("number");
+      expect(typeof entry.combinedScore).toBe("number");
+      expect(typeof entry.relevanceScore).toBe("number");
+      expect(entry.impactScore).toBeGreaterThanOrEqual(0);
+      expect(entry.impactScore).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("entries are sorted by combined score (best first)", () => {
+    const ctx = buildSmartContext("architecture");
+    for (let i = 1; i < ctx.entries.length; i++) {
+      expect(ctx.entries[i - 1].combinedScore).toBeGreaterThanOrEqual(ctx.entries[i].combinedScore);
+    }
+  });
+
+  it("formatSmartContext produces readable text", () => {
+    const ctx = buildSmartContext("architecture");
+    const text = formatSmartContext(ctx);
+    expect(typeof text).toBe("string");
+    if (ctx.entries.length > 0) {
+      expect(text).toContain("Context for:");
+      expect(text).toContain("impact:");
+    } else {
+      expect(text).toContain("No relevant documents");
+    }
+  });
+
+  it("returns empty for no-match topic", () => {
+    const ctx = buildSmartContext("xyznonexistentquerythatwillnevermatch12345");
+    expect(ctx.entryCount).toBe(0);
+    expect(ctx.totalChars).toBe(0);
+  });
+
+  it("high-impact entries get more budget allocation", () => {
+    const ctx = buildSmartContext("architecture", { budgetChars: 10000 });
+    if (ctx.entries.length >= 2) {
+      // Higher impact should get more chars (or equal if both have same content size)
+      const sorted = [...ctx.entries].sort((a, b) => b.impactScore - a.impactScore);
+      if (sorted[0].impactScore > sorted[sorted.length - 1].impactScore) {
+        expect(sorted[0].allocatedChars).toBeGreaterThanOrEqual(sorted[sorted.length - 1].allocatedChars);
+      }
+    }
   });
 });
 
