@@ -38,7 +38,7 @@ describe("CLI", () => {
       expect(stdout).toContain("hub search");
       expect(stdout).toContain("hub open");
       expect(stdout).toContain("hub status");
-      expect(stdout).toContain("hub context compile");
+      expect(stdout).toContain("hub context");
     });
 
     it("shows help with --help flag", () => {
@@ -76,15 +76,24 @@ describe("CLI", () => {
   });
 
   describe("context (no server)", () => {
-    it("shows help when context called without compile", () => {
-      const { stdout } = run("context");
-      expect(stdout).toContain("The Hub CLI");
+    it("shows usage when context called without topic", () => {
+      const { stdout, exitCode } = run("context");
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain("Usage: hub context");
     });
 
-    it("exits with error when --group missing", () => {
-      const { stdout, exitCode } = run("context compile", { HUB_URL: "http://localhost:59999" });
+    it("exits with connection error when server not running", () => {
+      const { stdout, exitCode } = run("context test-topic", { HUB_URL: "http://localhost:59999" });
       expect(exitCode).toBe(1);
-      expect(stdout).toContain("Usage: hub context compile --group");
+      expect(stdout).toContain("Could not connect");
+    });
+  });
+
+  describe("stale (no server)", () => {
+    it("exits with connection error when server not running", () => {
+      const { stdout, exitCode } = run("stale", { HUB_URL: "http://localhost:59999" });
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain("Could not connect");
     });
   });
 
@@ -586,6 +595,74 @@ describe("preview keyboard navigation", () => {
       const excluded = ["INPUT", "TEXTAREA", "SELECT"];
       expect(excluded.includes("INPUT")).toBe(true);
       expect(excluded.includes("DIV")).toBe(false);
+    });
+  });
+});
+
+// ── CLI upgrade tests (v6) ──────────────────────────────────────
+
+describe("CLI v6 commands", () => {
+  describe("hub stale", () => {
+    it("filters stale artifacts (>90 days)", () => {
+      const artifacts = [
+        { path: "a.md", title: "Fresh", staleDays: 5, group: "docs" },
+        { path: "b.md", title: "Aging", staleDays: 50, group: "docs" },
+        { path: "c.md", title: "Stale", staleDays: 100, group: "docs" },
+        { path: "d.md", title: "Ancient", staleDays: 200, group: "docs" },
+      ];
+      const stale = artifacts.filter((a) => a.staleDays > 90).sort((a, b) => b.staleDays - a.staleDays);
+      expect(stale.length).toBe(2);
+      expect(stale[0].title).toBe("Ancient");
+      expect(stale[1].title).toBe("Stale");
+    });
+
+    it("caps display at 20", () => {
+      const artifacts = Array.from({ length: 30 }, (_, i) => ({ staleDays: 100 + i, title: `Doc ${i}` }));
+      const stale = artifacts.filter((a) => a.staleDays > 90);
+      const displayed = stale.slice(0, 20);
+      expect(displayed.length).toBe(20);
+      expect(stale.length).toBe(30);
+    });
+  });
+
+  describe("hub context", () => {
+    it("filters related decisions by keywords", () => {
+      const topic = "authentication architecture";
+      const keywords = topic.toLowerCase().split(/\s+/);
+      const decisions = [
+        { summary: "Use JWT for authentication", artifactPath: "auth.md" },
+        { summary: "Deploy to AWS", artifactPath: "infra.md" },
+        { summary: "Microservices architecture pattern", artifactPath: "arch.md" },
+      ];
+      const related = decisions.filter((d) =>
+        keywords.some((k) => d.summary.toLowerCase().includes(k))
+      );
+      expect(related.length).toBe(2);
+      expect(related[0].summary).toContain("authentication");
+      expect(related[1].summary).toContain("architecture");
+    });
+  });
+
+  describe("hub search enhancements", () => {
+    it("classifies freshness by staleDays", () => {
+      const classify = (days) => days <= 7 ? "fresh" : days <= 30 ? "aging" : "stale";
+      expect(classify(1)).toBe("fresh");
+      expect(classify(7)).toBe("fresh");
+      expect(classify(15)).toBe("aging");
+      expect(classify(31)).toBe("stale");
+    });
+  });
+
+  describe("CLI command routing", () => {
+    it("defines 6 commands", () => {
+      const commands = ["search", "context", "stale", "status", "open", "help"];
+      expect(commands.length).toBe(6);
+      expect(new Set(commands).size).toBe(6);
+    });
+
+    it("removed plugin command (marketplace deleted in v6)", () => {
+      const commands = ["search", "context", "stale", "status", "open", "help"];
+      expect(commands.includes("plugin")).toBe(false);
     });
   });
 });

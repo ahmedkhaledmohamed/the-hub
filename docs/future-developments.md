@@ -152,7 +152,7 @@ Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the
 | 12 | ✅ Editor extension — hygiene warnings, decision context, impact preview, knowledge graph, cross-workspace search (only what Cursor lacks) | Very High | High |
 | 13 | ✅ Scan-time insight computation — eager impact/decision analysis on file changes | High | Medium |
 | 14 | ✅ Slack proactive alerts — contradiction detection, meeting prep, decay alerts | Medium | Medium |
-| 15 | CLI upgrade — `hub context`, `hub stale`, AI-enhanced `hub search` | Medium | Medium |
+| 15 | ✅ CLI upgrade — `hub context`, `hub stale`, AI-enhanced `hub search` | Medium | Medium |
 
 ### Phase 4: Quality Engine (Make hygiene the differentiator)
 
