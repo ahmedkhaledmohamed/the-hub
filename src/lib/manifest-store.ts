@@ -106,6 +106,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         analyzeHygiene(cachedManifest.artifacts, cachedManifest.generatedAt);
       } catch { /* non-critical — hygiene is advisory */ }
 
+      // Auto-generate context files (.hub-context.md, .cursorrules) in workspaces
+      try {
+        const { writeContextFilesToAllWorkspaces } = require("./context-file-generator");
+        writeContextFilesToAllWorkspaces(cachedManifest);
+      } catch { /* non-critical */ }
+
       // Trigger embedding auto-generation after scan (non-blocking)
       try {
         const { autoGenerateIfNeeded } = require("./embedding-generator");
