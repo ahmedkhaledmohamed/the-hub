@@ -120,7 +120,7 @@ Delete or deprecate features that aren't used. Reduce cognitive load.
 | ✅ 12 | Deprecate unused API routes (X-Deprecated header) | Cleanup | Low | Low |
 | ✅ 13 | Consolidate lib modules (69 → 45 target) | Cleanup | Medium | High |
 | ✅ 14 | Upgrade 100 weak tests to 20 integration tests | Cleanup | High | High |
-| 15 | Remove dead features from README/landing page | Cleanup | Medium | Low |
+| ✅ 15 | Remove dead features from README/landing page | Cleanup | Medium | Low |
 
 ---
 
