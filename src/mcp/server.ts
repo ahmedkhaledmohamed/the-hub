@@ -3,18 +3,21 @@
 /**
  * The Hub MCP Server
  *
- * 9 core tools over stdio for AI assistants to understand your workspace.
+ * 12 core tools over stdio for AI assistants to understand and update your workspace.
  *
  * Tools:
  *   workspace_summary — Single-call workspace orientation
- *   search         — Full-text search across workspace
- *   read_artifact  — Read full content of an artifact
+ *   search           — Full-text search across workspace
+ *   read_artifact    — Read full content of an artifact
  *   list_groups    — List artifact groups with counts
  *   get_manifest   — Full workspace overview
  *   ask_question   — RAG-powered Q&A over workspace docs
  *   get_decisions  — Tracked decisions with contradiction detection
  *   get_hygiene    — Document hygiene report (duplicates, stale)
  *   get_trends     — Workspace health trends and alerts
+ *   create_doc     — Create a new document in the workspace
+ *   update_artifact — Append or replace content in an artifact
+ *   mark_reviewed  — Mark an artifact as reviewed
  *
  * Usage:
  *   npx tsx src/mcp/server.ts
@@ -374,6 +377,134 @@ async function main() {
         return { content: [{ type: "text" as const, text: `${decisions.length} decision(s) (${counts.active} active, ${counts.superseded} superseded, ${counts.reverted} reverted):\n\n${text}` }] };
       } catch {
         return { content: [{ type: "text" as const, text: "Decision tracking not available." }] };
+      }
+    },
+  );
+
+  // ── Tool: create_doc ──────────────────────────────────── [CORE]
+
+  server.tool(
+    "create_doc",
+    "Create a new document in a workspace directory. Writes a file to disk and triggers a rescan so it appears in the manifest.",
+    {
+      path: z.string().describe("Relative path within a workspace (e.g., 'docs/new-doc.md')"),
+      content: z.string().describe("Full document content (markdown, text, etc.)"),
+      title: z.string().optional().describe("Document title (default: extracted from content or filename)"),
+    },
+    async ({ path: docPath, content, title }) => {
+      const { writeFileSync, mkdirSync, existsSync } = await import("fs");
+      const { dirname, join, resolve: pathResolve } = await import("path");
+      const { loadConfig } = await import("../lib/config.js");
+      const config = loadConfig();
+
+      if (config.workspaces.length === 0) {
+        return { content: [{ type: "text" as const, text: "No workspaces configured. Add a workspace to hub.config.ts first." }] };
+      }
+
+      // Resolve against first workspace
+      const wsPath = config.workspaces[0].path;
+      const fullPath = pathResolve(wsPath, docPath);
+
+      // Safety: ensure path is within workspace
+      if (!fullPath.startsWith(pathResolve(wsPath))) {
+        return { content: [{ type: "text" as const, text: `Path "${docPath}" escapes workspace boundary.` }] };
+      }
+
+      // Create directories if needed
+      const dir = dirname(fullPath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+      // Write file
+      writeFileSync(fullPath, content, "utf8");
+
+      const docTitle = title || docPath.split("/").pop()?.replace(/\.\w+$/, "") || docPath;
+      return {
+        content: [{
+          type: "text" as const,
+          text: `Created "${docTitle}" at ${docPath}\nFull path: ${fullPath}\nSize: ${content.length} bytes\n\nThe file watcher will pick it up within ~5 seconds, or call get_manifest to refresh.`,
+        }],
+      };
+    },
+  );
+
+  // ── Tool: update_artifact ────────────────────────────────── [CORE]
+
+  server.tool(
+    "update_artifact",
+    "Update an existing artifact's content. Can append to the end or replace the full content.",
+    {
+      path: z.string().describe("Artifact path (as shown in manifest)"),
+      content: z.string().describe("New content to write"),
+      mode: z.enum(["append", "replace"]).optional().default("append").describe("'append' adds to end (default), 'replace' overwrites entirely"),
+    },
+    async ({ path: artifactPath, content, mode }) => {
+      const { writeFileSync, readFileSync, existsSync } = await import("fs");
+      const { resolve: pathResolve } = await import("path");
+      const { loadConfig } = await import("../lib/config.js");
+      const config = loadConfig();
+
+      // Find the artifact's full path
+      let fullPath: string | null = null;
+      for (const ws of config.workspaces) {
+        const candidate = pathResolve(ws.path, artifactPath);
+        if (existsSync(candidate)) {
+          fullPath = candidate;
+          break;
+        }
+      }
+
+      if (!fullPath) {
+        return { content: [{ type: "text" as const, text: `Artifact not found: "${artifactPath}". Use create_doc to create a new file.` }] };
+      }
+
+      if (mode === "append") {
+        const existing = readFileSync(fullPath, "utf8");
+        const separator = existing.endsWith("\n") ? "\n" : "\n\n";
+        writeFileSync(fullPath, existing + separator + content, "utf8");
+      } else {
+        writeFileSync(fullPath, content, "utf8");
+      }
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: `Updated "${artifactPath}" (${mode}). ${content.length} bytes ${mode === "append" ? "appended" : "written"}.`,
+        }],
+      };
+    },
+  );
+
+  // ── Tool: mark_reviewed ──────────────────────────────────── [CORE]
+
+  server.tool(
+    "mark_reviewed",
+    "Mark an artifact as reviewed — creates a review record with 'approved' status. Use this after checking a document to track that it has been reviewed.",
+    {
+      path: z.string().describe("Artifact path to mark as reviewed"),
+      reviewer: z.string().optional().default("ai-assistant").describe("Reviewer name (default: 'ai-assistant')"),
+      message: z.string().optional().default("").describe("Optional review comment"),
+    },
+    async ({ path: artifactPath, reviewer, message }) => {
+      try {
+        const { createReviewRequest, updateReviewStatus } = await import("../lib/reviews.js");
+
+        // Create a review request and immediately approve it
+        const id = createReviewRequest({
+          artifactPath,
+          requestedBy: reviewer,
+          reviewer,
+          message: message || "Reviewed via MCP tool",
+        });
+        updateReviewStatus(id, "approved", message || "Approved via MCP tool");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Marked "${artifactPath}" as reviewed by ${reviewer} (review #${id}).${message ? ` Comment: ${message}` : ""}`,
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Failed to mark reviewed: ${(err as Error).message}` }] };
       }
     },
   );
