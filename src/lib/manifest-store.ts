@@ -3,7 +3,7 @@ import { loadConfig, getResolvedWorkspacePaths, invalidateConfigCache } from "./
 import { scan } from "./scanner";
 import { persistArtifacts, getChangedFiles, updateMtimes } from "./db";
 import { recordSnapshot } from "./trends";
-import { readPreferences } from "./preferences";
+import { readPreferences } from "./config";
 import path from "path";
 
 let cachedManifest: Manifest | null = null;
@@ -96,8 +96,7 @@ export function regenerate(reason: string = "manual"): Manifest {
       } catch { /* events not critical */ }
 
       // Invalidate caches on scan
-      try { const { invalidateSearchCache } = require("./search-cache"); invalidateSearchCache(); } catch { /* non-critical */ }
-      try { const { invalidateMcpCache } = require("./mcp-cache"); invalidateMcpCache(); } catch { /* non-critical */ }
+      try { const { invalidateSearchCache, invalidateMcpCache } = require("./search-cache"); invalidateSearchCache(); invalidateMcpCache(); } catch { /* non-critical */ }
       // Auto-start digest scheduler if enabled
       try { const { autoStartDigest } = require("./digest-scheduler"); autoStartDigest(); } catch { /* non-critical */ }
       // Auto-run hygiene analysis to populate sidebar badge

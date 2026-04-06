@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readPreferences, writePreferences } from "@/lib/preferences";
+import { readPreferences, writePreferences } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 

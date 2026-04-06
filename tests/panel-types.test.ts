@@ -640,7 +640,7 @@ describe("performance benchmarks", () => {
 
 // ── MCP tool caching tests ───────────────────────────────────────
 
-import { cachedToolCall, invalidateMcpCache, getMcpCacheStats } from "@/lib/mcp-cache";
+import { cachedToolCall, invalidateMcpCache, getMcpCacheStats } from "@/lib/search-cache";
 
 describe("MCP tool caching", () => {
   beforeEach(() => {

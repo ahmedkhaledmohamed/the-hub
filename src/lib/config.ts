@@ -1,4 +1,5 @@
 import path from "path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import type { HubConfig } from "./types";
 
 let cachedConfig: HubConfig | null = null;
@@ -107,4 +108,28 @@ export async function getClientConfig(): Promise<ClientConfig> {
     panels: config.panels || {},
     tools: config.tools || [],
   };
+}
+
+// ── Preferences (merged from preferences.ts) ────────────────────
+
+const PREFS_DIR = path.join(process.cwd(), ".hub-data");
+const PREFS_FILE = path.join(PREFS_DIR, "preferences.json");
+
+export interface HubPreferences {
+  hygieneExclude?: string[];
+  scannerExclude?: string[];
+}
+
+export function readPreferences(): HubPreferences {
+  try {
+    if (!existsSync(PREFS_FILE)) return {};
+    return JSON.parse(readFileSync(PREFS_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+export function writePreferences(prefs: HubPreferences): void {
+  if (!existsSync(PREFS_DIR)) mkdirSync(PREFS_DIR, { recursive: true });
+  writeFileSync(PREFS_FILE, JSON.stringify(prefs, null, 2));
 }

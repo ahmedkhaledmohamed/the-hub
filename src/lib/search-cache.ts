@@ -149,3 +149,51 @@ export function getSearchCache(): SearchCache<unknown> {
 export function invalidateSearchCache(): void {
   searchResultCache.clear();
 }
+
+// ── MCP tool cache (merged from mcp-cache.ts) ───────────────────
+
+const mcpCache = new SearchCache<string>({
+  maxSize: 100,
+  ttlMs: parseInt(process.env.HUB_MCP_CACHE_TTL || "15000", 10),
+});
+
+/**
+ * Get or compute a cached MCP tool result.
+ */
+export async function cachedToolCall<T>(
+  toolName: string,
+  cacheKey: string,
+  fn: () => T | Promise<T>,
+): Promise<{ result: T; cached: boolean; durationMs: number }> {
+  const cached = mcpCache.get(cacheKey);
+  if (cached !== undefined) {
+    return { result: JSON.parse(cached) as T, cached: true, durationMs: 0 };
+  }
+
+  const start = performance.now();
+  const result = await fn();
+  const durationMs = Math.round((performance.now() - start) * 100) / 100;
+
+  mcpCache.set(cacheKey, JSON.stringify(result));
+
+  try {
+    const { hubLog } = require("./logger");
+    hubLog("info", "ai", `MCP tool: ${toolName}`, { durationMs, cached: false, cacheKey: cacheKey.slice(0, 50) });
+  } catch { /* non-critical */ }
+
+  return { result, cached: false, durationMs };
+}
+
+/**
+ * Invalidate the MCP cache (on scan).
+ */
+export function invalidateMcpCache(): void {
+  mcpCache.clear();
+}
+
+/**
+ * Get MCP cache stats.
+ */
+export function getMcpCacheStats() {
+  return mcpCache.getStats();
+}
