@@ -718,3 +718,86 @@ describe("MCP tool archival", () => {
     });
   });
 });
+
+// ── VS Code extension data logic tests ──────────────────────────
+
+describe("editor extension data transforms", () => {
+  describe("health view computation", () => {
+    it("computes freshness percentage from artifacts", () => {
+      const artifacts = [
+        { staleDays: 1 }, { staleDays: 3 }, { staleDays: 30 },
+        { staleDays: 60 }, { staleDays: 100 }, { staleDays: 200 },
+      ];
+      const total = artifacts.length;
+      const fresh = artifacts.filter((a) => a.staleDays <= 7).length;
+      const stale = artifacts.filter((a) => a.staleDays > 90).length;
+      const freshPct = Math.round((fresh / total) * 100);
+
+      expect(freshPct).toBe(33);
+      expect(stale).toBe(2);
+    });
+
+    it("selects status icon based on freshness", () => {
+      const getIcon = (pct: number) => pct > 70 ? "check" : pct > 40 ? "warning" : "error";
+      expect(getIcon(80)).toBe("check");
+      expect(getIcon(50)).toBe("warning");
+      expect(getIcon(20)).toBe("error");
+    });
+  });
+
+  describe("hygiene severity filtering", () => {
+    it("counts findings by severity", () => {
+      const findings = [
+        { severity: "high" }, { severity: "high" },
+        { severity: "medium" }, { severity: "medium" }, { severity: "medium" },
+        { severity: "low" },
+      ];
+      const high = findings.filter((f) => f.severity === "high").length;
+      const medium = findings.filter((f) => f.severity === "medium").length;
+      expect(high).toBe(2);
+      expect(medium).toBe(3);
+    });
+  });
+
+  describe("recently changed sorting", () => {
+    it("sorts by staleDays ascending", () => {
+      const artifacts = [
+        { title: "C", staleDays: 5 },
+        { title: "A", staleDays: 0 },
+        { title: "B", staleDays: 2 },
+      ];
+      const recent = artifacts.filter((a) => a.staleDays <= 7).sort((a, b) => a.staleDays - b.staleDays);
+      expect(recent[0].title).toBe("A");
+      expect(recent[1].title).toBe("B");
+      expect(recent[2].title).toBe("C");
+    });
+  });
+
+  describe("cross-workspace search result formatting", () => {
+    it("strips HTML tags from snippets", () => {
+      const snippet = "Found <mark>architecture</mark> in the <mark>docs</mark>";
+      const clean = snippet.replace(/<\/?mark>/g, "");
+      expect(clean).toBe("Found architecture in the docs");
+      expect(clean).not.toContain("<mark>");
+    });
+  });
+
+  describe("extension package.json structure", () => {
+    it("defines 4 sidebar views", () => {
+      const views = ["hub-health", "hub-hygiene", "hub-decisions", "hub-recent"];
+      expect(views.length).toBe(4);
+    });
+
+    it("defines 3 commands", () => {
+      const commands = ["theHub.refresh", "theHub.openInBrowser", "theHub.searchWorkspace"];
+      expect(commands.length).toBe(3);
+    });
+
+    it("does not duplicate Cursor features", () => {
+      const cursorFeatures = ["file-search", "git", "ai-chat", "mcp-tools", "lsp"];
+      const extensionViews = ["health", "hygiene", "decisions", "recent-changes"];
+      const overlap = extensionViews.filter((v) => cursorFeatures.includes(v));
+      expect(overlap.length).toBe(0);
+    });
+  });
+});

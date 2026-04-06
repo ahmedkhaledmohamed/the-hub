@@ -1,0 +1,94 @@
+{
+  "name": "the-hub-extension",
+  "displayName": "The Hub — Workspace Intelligence",
+  "description": "Hygiene warnings, decision context, impact preview, and cross-workspace health from The Hub.",
+  "version": "0.1.0",
+  "publisher": "ahmedkhaledmohamed",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "the-hub",
+          "title": "The Hub",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "the-hub": [
+        {
+          "id": "hub-health",
+          "name": "Workspace Health"
+        },
+        {
+          "id": "hub-hygiene",
+          "name": "Hygiene Issues"
+        },
+        {
+          "id": "hub-decisions",
+          "name": "Active Decisions"
+        },
+        {
+          "id": "hub-recent",
+          "name": "Recently Changed"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "theHub.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "The Hub"
+      },
+      {
+        "command": "theHub.openInBrowser",
+        "title": "Open The Hub in Browser",
+        "category": "The Hub"
+      },
+      {
+        "command": "theHub.searchWorkspace",
+        "title": "Search Across All Workspaces",
+        "category": "The Hub"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "theHub.refresh",
+          "when": "view =~ /^hub-/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "The Hub",
+      "properties": {
+        "theHub.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:9002",
+          "description": "The Hub server URL"
+        },
+        "theHub.refreshInterval": {
+          "type": "number",
+          "default": 60,
+          "description": "Auto-refresh interval in seconds (0 to disable)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.7.0"
+  }
+}
