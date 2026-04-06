@@ -88,13 +88,23 @@ Stop waiting for the user to visit a page. Push insights to where they already a
 
 **Features:**
 
-1. **Auto-generated context files** — The Hub already scans for `CLAUDE.md` and `.cursorrules` in repos. Flip the direction: The Hub *generates* a workspace context file on every scan. Contents: workspace overview, stale docs, recent decisions, hygiene warnings, key artifacts. Every AI assistant (Claude Code, Cursor, Copilot) already reads these files natively. Zero extension to install. Zero friction. The Hub becomes invisible infrastructure — it enriches the context that AI tools already consume.
+1. **Auto-generated context files** — The Hub already scans for `CLAUDE.md` and `.cursorrules` in repos. Flip the direction: The Hub *generates* a workspace context file on every scan. Contents: workspace overview, stale docs, recent decisions, hygiene warnings, key artifacts. Every AI assistant (Claude Code, Cursor, Copilot) already reads these files natively. Zero extension to install. Zero friction. The Hub becomes invisible infrastructure that enriches the context AI tools already consume.
 
-2. **Slack proactive alerts** — Not just weekly digests. Real-time alerts for: "Document X contradicts document Y" (detected during scan), "Meeting in 2 hours — here's context for 3 docs you'll discuss" (calendar + context compilation), "5 docs haven't been updated in 90 days — here's which ones matter" (decay + impact scoring).
+2. **Editor extension (complementing, not duplicating)** — Cursor and VS Code have file search, git, AI chat, and MCP. They do NOT have persistent cross-workspace intelligence. The extension surfaces what editors can't compute on their own:
+   - **Hygiene warnings** — "This doc has 2 near-duplicates", "Stale: 90 days without update", "Contradicts decision in pricing-v3.md" — shown in a sidebar panel when viewing any indexed file
+   - **Decision context** — "3 decisions reference this area" with links to source docs — extracted from Hub's decision graph, not available via grep
+   - **Impact preview** — "Changing this affects 5 stakeholders" — requires Hub's activity tracking + impact scoring over time
+   - **Knowledge graph navigation** — "4 docs link to this, 2 depend on it" — backlinks and typed relationships from Hub's persistent graph
+   - **Cross-workspace search** — Search ALL indexed workspaces, not just the open project. Cursor only sees the current folder.
+   - **Workspace health** — Quality score, staleness trend sparklines, hygiene badge count in the status bar
 
-3. **CLI intelligence** — `hub context` before a meeting. `hub stale` to see what needs attention. `hub search <query>` with AI-enhanced results. Make the CLI a first-class citizen, not an afterthought.
+   What this is NOT: not file search (Cmd+P exists), not git (built-in), not AI chat (Claude/GPT built-in), not MCP tools (already consumed natively). Purely the persistent, temporal, cross-workspace layer.
 
-4. **Scan-time insights** — When a file changes, The Hub should know if that change matters. "pricing.md changed — this affects 3 decisions and 2 stakeholders." Wire the existing impact scoring and decision tracking into the scan pipeline so insights are computed eagerly, not lazily.
+3. **Slack proactive alerts** — Not just weekly digests. Real-time alerts for: "Document X contradicts document Y" (detected during scan), "Meeting in 2 hours — here's context for 3 docs you'll discuss" (calendar + context compilation), "5 docs haven't been updated in 90 days — here's which ones matter" (decay + impact scoring).
+
+4. **CLI intelligence** — `hub context` before a meeting. `hub stale` to see what needs attention. `hub search <query>` with AI-enhanced results. Make the CLI a first-class citizen, not an afterthought.
+
+5. **Scan-time insights** — When a file changes, The Hub should know if that change matters. "pricing.md changed — this affects 3 decisions and 2 stakeholders." Wire the existing impact scoring and decision tracking into the scan pipeline so insights are computed eagerly, not lazily.
 
 ### Pillar 4: Content Quality Engine
 
@@ -138,19 +148,20 @@ Go from "find docs" to "keep docs good." The hygiene analyzer works. Make it the
 
 | # | Item | Impact | Effort |
 |---|---|---|---|
-| 11 | Auto-generated context files — CLAUDE.md / .cursorrules written on every scan with workspace state | Very High | Medium |
-| 12 | Scan-time insight computation — eager impact/decision analysis on file changes | High | Medium |
-| 13 | Slack proactive alerts — contradiction detection, meeting prep, decay alerts | Medium | Medium |
-| 14 | CLI upgrade — `hub context`, `hub stale`, AI-enhanced `hub search` | Medium | Medium |
+| 11 | Auto-generated context files — CLAUDE.md / .cursorrules written on every scan with workspace state | High | Medium |
+| 12 | Editor extension — hygiene warnings, decision context, impact preview, knowledge graph, cross-workspace search (only what Cursor lacks) | Very High | High |
+| 13 | Scan-time insight computation — eager impact/decision analysis on file changes | High | Medium |
+| 14 | Slack proactive alerts — contradiction detection, meeting prep, decay alerts | Medium | Medium |
+| 15 | CLI upgrade — `hub context`, `hub stale`, AI-enhanced `hub search` | Medium | Medium |
 
 ### Phase 4: Quality Engine (Make hygiene the differentiator)
 
 | # | Item | Impact | Effort |
 |---|---|---|---|
-| 15 | Hygiene-as-code — custom rules in hub.config.ts | High | High |
-| 16 | Auto-fix suggestions — AI-generated merge diffs for duplicates | High | Medium |
-| 17 | Doc lifecycle states (draft → active → stale → archived) with transition rules | Medium | Medium |
-| 18 | Quality score per artifact + workspace-level health metric | Medium | Medium |
+| 16 | Hygiene-as-code — custom rules in hub.config.ts | High | High |
+| 17 | Auto-fix suggestions — AI-generated merge diffs for duplicates | High | Medium |
+| 18 | Doc lifecycle states (draft → active → stale → archived) with transition rules | Medium | Medium |
+| 19 | Quality score per artifact + workspace-level health metric | Medium | Medium |
 
 ---
 
@@ -215,9 +226,10 @@ flowchart TD
         end
 
         subgraph Proactive["Proactive Layer"]
+            ContextFiles[Auto-gen CLAUDE.md]
+            EditorExt[Editor Extension - hygiene, decisions, impact]
             ScanInsights[Scan-time Insights]
             SlackAlerts[Slack Alerts]
-            ContextFiles[Auto-gen CLAUDE.md]
         end
     end
 
@@ -246,6 +258,7 @@ v6 success is measured by **context utility**, not feature count:
 | Time to workspace orientation (MCP) | 4+ tool calls | 1 tool call | workspace_summary response |
 | Hygiene rules (configurable) | 7 built-in | 7 built-in + N custom | Config count |
 | Auto-generated context files | 0 | 1 per workspace | File exists + freshness |
+| Editor extension | 0 | Installed locally | Surfaces hygiene/decisions/impact in sidebar |
 
 ---
 
