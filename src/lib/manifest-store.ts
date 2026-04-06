@@ -98,6 +98,8 @@ export function regenerate(reason: string = "manual"): Manifest {
       // Invalidate caches on scan
       try { const { invalidateSearchCache } = require("./search-cache"); invalidateSearchCache(); } catch { /* non-critical */ }
       try { const { invalidateMcpCache } = require("./mcp-cache"); invalidateMcpCache(); } catch { /* non-critical */ }
+      // Auto-start digest scheduler if enabled
+      try { const { autoStartDigest } = require("./digest-scheduler"); autoStartDigest(); } catch { /* non-critical */ }
 
       // Trigger embedding auto-generation after scan (non-blocking)
       try {
