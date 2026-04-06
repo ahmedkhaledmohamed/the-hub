@@ -73,10 +73,15 @@ export const KNOWN_MODELS: ModelInfo[] = [
 
 // ── Provider configuration ────────────────────────────────────────
 
+import { readPreferences } from "./config";
+
 export function getProviderConfig(name: ProviderName): ProviderConfig | null {
+  // Env vars take precedence; saved preferences are fallback
+  const prefs = readPreferences();
+
   switch (name) {
     case "anthropic": {
-      const key = process.env.ANTHROPIC_API_KEY;
+      const key = process.env.ANTHROPIC_API_KEY || prefs.anthropicApiKey;
       if (!key) return null;
       return {
         name: "anthropic",
@@ -87,7 +92,7 @@ export function getProviderConfig(name: ProviderName): ProviderConfig | null {
       };
     }
     case "openai": {
-      const key = process.env.OPENAI_API_KEY;
+      const key = process.env.OPENAI_API_KEY || prefs.openaiApiKey;
       if (!key) return null;
       return {
         name: "openai",
@@ -98,7 +103,7 @@ export function getProviderConfig(name: ProviderName): ProviderConfig | null {
       };
     }
     case "ollama": {
-      const url = process.env.OLLAMA_URL || "http://localhost:11434";
+      const url = process.env.OLLAMA_URL || prefs.ollamaUrl || "http://localhost:11434";
       return {
         name: "ollama",
         apiUrl: `${url}/v1/chat/completions`,

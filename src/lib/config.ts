@@ -118,6 +118,12 @@ const PREFS_FILE = path.join(PREFS_DIR, "preferences.json");
 export interface HubPreferences {
   hygieneExclude?: string[];
   scannerExclude?: string[];
+  // AI provider settings (saved via Settings UI, env vars take precedence)
+  aiProvider?: string;          // "anthropic" | "openai" | "ollama"
+  anthropicApiKey?: string;
+  openaiApiKey?: string;
+  ollamaUrl?: string;
+  aiDefaultModel?: string;
 }
 
 export function readPreferences(): HubPreferences {
