@@ -15,9 +15,10 @@ interface MorningBriefingProps {
   artifacts: Artifact[];
   panels: Record<string, PanelConfig[]>;
   generatedAt: string;
+  stats?: { total: number; fresh: number; stale: number };
 }
 
-export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBriefingProps) {
+export function MorningBriefing({ artifacts, panels, generatedAt, stats: precomputedStats }: MorningBriefingProps) {
   const { pinned, togglePin, isPinned } = usePinnedArtifacts();
   const { recordView } = useRecentArtifacts();
 
@@ -62,10 +63,11 @@ export function MorningBriefing({ artifacts, panels, generatedAt }: MorningBrief
   }, [panels]);
 
   const stats = useMemo(() => {
+    if (precomputedStats) return precomputedStats;
     const fresh = artifacts.filter((a) => a.staleDays <= 7).length;
     const stale = artifacts.filter((a) => a.staleDays > 30).length;
     return { total: artifacts.length, fresh, stale };
-  }, [artifacts]);
+  }, [artifacts, precomputedStats]);
 
   return (
     <div className="p-4 sm:p-6">
