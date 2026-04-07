@@ -36,7 +36,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   const [hygieneCount, setHygieneCount] = useState<number | null>(null);
   const [notifCount, setNotifCount] = useState<number | null>(null);
 
-  const activeTab = pathname === "/" ? defaultTab : pathname.replace("/", "");
+  const activeTab = pathname === "/" ? defaultTab : pathname.slice(1);
 
   // Fetch hygiene finding count + notification count for sidebar badges
   useEffect(() => {
@@ -151,7 +151,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         {tabs.map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
           const isActive = activeTab === tab.id;
-          const href = tab.id === defaultTab ? "/" : `/${tab.id}`;
+          const href = `/${tab.id}`;
 
           return (
             <Link

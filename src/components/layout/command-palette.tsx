@@ -145,6 +145,13 @@ export function CommandPalette() {
       action: () => { fetch("/api/regenerate", { method: "POST" }); },
     },
     {
+      id: "action:sync-planning",
+      label: "Sync planning sources",
+      description: "Pull updates from configured planning sources and detect mentions",
+      type: "action",
+      action: () => { fetch("/api/planning-sources", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync-all" }) }); },
+    },
+    {
       id: "action:new-doc",
       label: "New document",
       description: "Create a new doc from template",

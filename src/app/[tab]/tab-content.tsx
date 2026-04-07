@@ -11,6 +11,7 @@ import { ArtifactPreview } from "@/components/artifacts/artifact-preview";
 import { ArtifactCard } from "@/components/artifacts/artifact-card";
 import { ContextCompiler } from "@/components/context-compiler";
 import { EnhancedSearch } from "@/components/layout/enhanced-search";
+import { PlanningSourcesSection } from "@/components/briefing/planning-sources-section";
 import { relativeTime, cn } from "@/lib/utils";
 import { useRecentArtifacts } from "@/hooks/use-recent-artifacts";
 import { usePinnedArtifacts } from "@/hooks/use-pinned-artifacts";
@@ -250,6 +251,8 @@ export function TabContent({
       {frameworkCatalog && (
         <FrameworkCatalog catalog={frameworkCatalog} />
       )}
+
+      {tabId === "planning" && <PlanningSourcesSection />}
 
       <PanelRenderer panels={panels} />
 
