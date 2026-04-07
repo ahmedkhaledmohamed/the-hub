@@ -1,11 +1,43 @@
 {
   "name": "the-hub",
   "version": "0.1.0",
-  "private": true,
+  "description": "A config-driven personal command center — index your workspaces, search everything, get AI-powered insights.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahmedkhaledmohamed/the-hub"
+  },
+  "keywords": [
+    "knowledge-base",
+    "personal-hub",
+    "workspace",
+    "command-center",
+    "ai",
+    "mcp",
+    "nextjs"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
+    "the-hub": "./bin/the-hub.js",
     "hub": "./bin/hub.js",
     "hub-mcp": "./bin/hub-mcp.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "public/",
+    "server.mjs",
+    "next.config.ts",
+    "hub.config.example.ts",
+    "tsconfig.json",
+    "postcss.config.mjs",
+    "Dockerfile",
+    "docker-compose.yml",
+    "LICENSE"
+  ],
   "scripts": {
     "mcp": "tsx src/mcp/server.ts",
     "dev": "next dev --turbopack -p 9001",
