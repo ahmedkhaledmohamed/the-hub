@@ -15,5 +15,6 @@ export default function Home() {
     redirect("/setup");
   }
 
-  redirect("/briefing");
+  const defaultTab = config.tabs.find((t) => t.default)?.id || config.tabs[0]?.id || "briefing";
+  redirect("/" + defaultTab);
 }
