@@ -25,11 +25,14 @@ export interface HubConfig {
 
 export interface PlanningSourceConfig {
   id: string;
-  type: "google-docs" | "confluence" | "jira" | "notion" | "github";
+  type: "google-docs" | "confluence" | "jira" | "notion" | "github" | "agent";
   label: string;
   enabled?: boolean;
   group?: string;
   tab?: string;
+  // Auth (per-source override; falls back to env vars)
+  apiToken?: string;
+  authScheme?: "bearer" | "basic" | "cookie";
   // Google Docs
   folderId?: string;
   // Confluence
