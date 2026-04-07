@@ -1,5 +1,7 @@
 # The Hub
 
+[![npm](https://img.shields.io/npm/v/the-hub)](https://www.npmjs.com/package/the-hub)
+
 A config-driven personal command center that indexes your workspaces and surfaces everything in a searchable, AI-augmented interface.
 
 Point it at your directories. It scans your files, groups them by pattern, and gives you a morning briefing, document hygiene analysis, knowledge graphs, and full-text search — from your browser, terminal, or any AI tool via MCP.
@@ -90,6 +92,19 @@ const config: HubConfig = {
 {
   "mcpServers": {
     "the-hub": {
+      "command": "npx",
+      "args": ["-y", "the-hub", "mcp"]
+    }
+  }
+}
+```
+
+Or if installed locally via git clone:
+
+```json
+{
+  "mcpServers": {
+    "the-hub": {
       "command": "node",
       "args": ["/path/to/the-hub/bin/hub-mcp.js"]
     }
@@ -97,7 +112,7 @@ const config: HubConfig = {
 }
 ```
 
-23 tools including: `workspace_summary`, `search`, `read_artifact`, `ask_question`, `get_decisions`, `get_hygiene`, `create_doc`, `compile_context`, `meeting_brief`, and more.
+23 tools including: `workspace_summary`, `search`, `read_artifact`, `ask_question`, `get_decisions`, `get_hygiene`, `create_doc`, `compile_context`, `meeting_brief`, `remember`, `recall`, and more.
 
 ## Interfaces
 
