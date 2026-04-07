@@ -1435,3 +1435,56 @@ describe("scan-time insights", () => {
     });
   });
 });
+
+// ── Planning sources + mention detection tests ──────────────────
+
+import { detectMentions, getItemsWithMentions, getPlanningSourceStatus } from "@/lib/planning-sources";
+
+describe("planning sources", () => {
+  describe("detectMentions", () => {
+    it("finds exact mentions case-insensitively", () => {
+      const content = "The Platform Engineering team is working on a new service.";
+      const matches = detectMentions(content, ["Platform Engineering", "Alice"]);
+      expect(matches).toContain("Platform Engineering");
+      expect(matches).not.toContain("Alice");
+    });
+
+    it("finds multiple mentions", () => {
+      const content = "Alice from Platform Engineering presented the Core Infrastructure roadmap.";
+      const matches = detectMentions(content, ["Alice", "Platform Engineering", "Core Infrastructure"]);
+      expect(matches.length).toBe(3);
+    });
+
+    it("returns empty for no matches", () => {
+      const matches = detectMentions("Some unrelated content.", ["Alice", "Platform Engineering"]);
+      expect(matches.length).toBe(0);
+    });
+
+    it("returns empty for empty content", () => {
+      expect(detectMentions("", ["Alice"])).toEqual([]);
+    });
+
+    it("returns empty for empty patterns", () => {
+      expect(detectMentions("Some content", [])).toEqual([]);
+    });
+
+    it("is case-insensitive", () => {
+      const matches = detectMentions("alice smith is here", ["Alice"]);
+      expect(matches).toContain("Alice");
+    });
+  });
+
+  describe("getPlanningSourceStatus", () => {
+    it("returns array (empty when no sources configured)", () => {
+      const status = getPlanningSourceStatus();
+      expect(Array.isArray(status)).toBe(true);
+    });
+  });
+
+  describe("getItemsWithMentions", () => {
+    it("returns array", () => {
+      const items = getItemsWithMentions();
+      expect(Array.isArray(items)).toBe(true);
+    });
+  });
+});

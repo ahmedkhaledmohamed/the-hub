@@ -163,6 +163,18 @@ async function main() {
         }
       } catch { /* trends not available */ }
 
+      // 8. Planning source mentions
+      try {
+        const { getItemsWithMentions } = await import("../lib/planning-sources.js");
+        const mentions = getItemsWithMentions();
+        if (mentions.length > 0) {
+          parts.push(`\n## Mentions (${mentions.length} planning docs reference you/your team)`);
+          for (const m of mentions.slice(0, 5)) {
+            parts.push(`- ${m.title} (${m.sourceId}) — mentions: ${m.mentions.join(", ")}`);
+          }
+        }
+      } catch { /* planning sources not available */ }
+
       return { content: [{ type: "text" as const, text: parts.join("\n") }] };
     },
   );
