@@ -1128,3 +1128,100 @@ describe("notification triggers", () => {
     });
   });
 });
+
+// ── MCP tool smoke tests (verify all 23 tools' underlying libs work) ──
+
+import { analyzeHygiene } from "@/lib/hygiene-analyzer";
+import { getTrends, getPredictiveAlerts } from "@/lib/trends";
+import { discoverRepos } from "@/lib/repo-scanner";
+import { detectGaps } from "@/lib/knowledge-gaps";
+import { getDecisionCounts } from "@/lib/decision-tracker";
+import { getErrorSummary } from "@/lib/error-reporter";
+import { buildSmartContext } from "@/lib/smart-context";
+import { computeWorkspaceHealth } from "@/lib/quality-score";
+import { detectMentions, getPlanningSourceStatus } from "@/lib/planning-sources";
+import { getLifecycleSummary } from "@/lib/doc-lifecycle";
+
+describe("MCP tool smoke tests — all underlying libs callable", () => {
+  it("search: searchArtifacts returns array", () => {
+    const results = searchArtifacts("test", 5);
+    expect(Array.isArray(results)).toBe(true);
+  });
+
+  it("read_artifact: getArtifactContent returns string or null", () => {
+    const content = getArtifactContent("nonexistent.md");
+    expect(content === null || typeof content === "string").toBe(true);
+  });
+
+  it("get_decisions: getDecisionCounts returns counts object", () => {
+    const counts = getDecisionCounts();
+    expect(typeof counts.active).toBe("number");
+    expect(typeof counts.superseded).toBe("number");
+  });
+
+  it("get_hygiene: analyzeHygiene returns report", () => {
+    const report = analyzeHygiene([], new Date().toISOString());
+    expect(report.stats.totalFindings).toBe(0);
+    expect(Array.isArray(report.findings)).toBe(true);
+  });
+
+  it("get_trends: getTrends returns structure", () => {
+    const trends = getTrends(7);
+    expect(Array.isArray(trends.dates)).toBe(true);
+    expect(Array.isArray(trends.total)).toBe(true);
+  });
+
+  it("get_context: buildSmartContext returns structure", () => {
+    const ctx = buildSmartContext("test");
+    expect(typeof ctx.totalChars).toBe("number");
+    expect(Array.isArray(ctx.entries)).toBe(true);
+  });
+
+  it("list_repos: discoverRepos returns array", () => {
+    const repos = discoverRepos([]);
+    expect(Array.isArray(repos)).toBe(true);
+  });
+
+  it("detect_gaps: detectGaps returns report", () => {
+    const report = detectGaps({ days: 1 });
+    expect(Array.isArray(report.gaps)).toBe(true);
+    expect(typeof report.stats.totalGaps).toBe("number");
+  });
+
+  it("get_errors: getErrorSummary returns counts", () => {
+    const summary = getErrorSummary();
+    expect(typeof summary.total).toBe("number");
+  });
+
+  it("remember/recall: agent memory round-trip", () => {
+    const id = remember({ content: `smoke-test-${Date.now()}`, type: "observation" });
+    expect(id).toBeGreaterThan(0);
+    const results = recall({ limit: 1 });
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("catch_up: generateCatchUp returns report", () => {
+    const report = generateCatchUp("smoke-test-session");
+    expect(typeof report.summary).toBe("string");
+    expect(Array.isArray(report.changedArtifacts)).toBe(true);
+  });
+
+  it("quality: computeWorkspaceHealth returns metric", () => {
+    const health = computeWorkspaceHealth([]);
+    expect(typeof health.averageScore).toBe("number");
+    expect(health.totalArtifacts).toBe(0);
+  });
+
+  it("lifecycle: getLifecycleSummary returns counts", () => {
+    const summary = getLifecycleSummary();
+    expect(typeof summary.total).toBe("number");
+    expect(typeof summary.draft).toBe("number");
+  });
+
+  it("planning sources: status and mentions callable", () => {
+    const status = getPlanningSourceStatus();
+    expect(Array.isArray(status)).toBe(true);
+    const mentions = detectMentions("test content", ["test"]);
+    expect(mentions).toContain("test");
+  });
+});
