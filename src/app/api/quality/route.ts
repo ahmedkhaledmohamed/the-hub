@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const artifactPath = req.nextUrl.searchParams.get("path");
 
   // Build hygiene flags set
-  let hygieneFlags = new Set<string>();
+  const hygieneFlags = new Set<string>();
   try {
     const { getCachedHygieneSummary } = await import("@/lib/hygiene-analyzer");
     const cached = getCachedHygieneSummary();

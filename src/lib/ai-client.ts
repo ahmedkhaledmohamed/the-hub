@@ -20,6 +20,13 @@ export interface AiConfig {
   model: string;
 }
 
+function authHeaders(config: AiConfig): Record<string, string> {
+  if (config.gatewayUrl.includes("hendrix") || process.env.AI_AUTH_HEADER === "x-api-key") {
+    return { "x-api-key": config.apiKey };
+  }
+  return { Authorization: `Bearer ${config.apiKey}` };
+}
+
 export interface AiMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -251,7 +258,7 @@ export async function complete(options: AiCompletionOptions): Promise<AiCompleti
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${config!.apiKey}`,
+          ...authHeaders(config!),
         },
         body: JSON.stringify({
           model: config!.model,
@@ -349,7 +356,7 @@ export async function* stream(options: AiCompletionOptions): AsyncGenerator<AiSt
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
+        ...authHeaders(config),
       },
       body: JSON.stringify({
         model: config.model,
