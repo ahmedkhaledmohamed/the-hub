@@ -1079,6 +1079,60 @@ async function main() {
     },
   );
 
+  // ── Tool: sync_planning_sources ──────────────────────────────────
+
+  server.tool(
+    "sync_planning_sources",
+    "Write planning data gathered by the agent (from Groove, Jira, Google Docs, etc.) into the Hub for indexing and mention detection. Pass sourceId and items array. The Hub will index the content and detect mentions based on hub.config.ts mentions patterns. Call this after pulling data from MCPs like groove-mcp, atlassian-mcp, google-drive, etc.",
+    {
+      sourceId: z.string().describe("Source identifier matching a planningSources entry in hub.config.ts (e.g., 'groove-dods', 'cm-jira')"),
+      items: z.array(z.object({
+        remoteId: z.string().describe("Unique ID for this item (e.g., 'DOD-5765', 'CM-1016')"),
+        title: z.string().describe("Display title"),
+        content: z.string().describe("Full text content for indexing and mention detection"),
+        remoteUrl: z.string().optional().describe("Link to the original item"),
+      })).describe("Items to write"),
+    },
+    async ({ sourceId, items }) => {
+      try {
+        const fs = await import("fs");
+        const path = await import("path");
+
+        const hubDataDir = process.env.HUB_DATA_DIR || path.join(process.cwd(), ".hub-data");
+        const syncDir = path.join(hubDataDir, "agent-sync");
+        if (!fs.existsSync(syncDir)) fs.mkdirSync(syncDir, { recursive: true });
+
+        const filePath = path.join(syncDir, `${sourceId}.json`);
+        fs.writeFileSync(filePath, JSON.stringify({ items, syncedAt: new Date().toISOString() }, null, 2));
+
+        const { syncAllPlanningSources, getItemsWithMentions } = await import("../lib/planning-sources.js");
+        const results = await syncAllPlanningSources();
+
+        const thisResult = results.find((r: { sourceId: string }) => r.sourceId === sourceId);
+        const mentions = getItemsWithMentions();
+        const sourceMentions = mentions.filter((m: { sourceId: string }) => m.sourceId === sourceId);
+
+        const parts: string[] = [`# Synced ${items.length} items to "${sourceId}"\n`];
+        if (thisResult) {
+          parts.push(`Indexed: ${thisResult.itemsSynced} items, ${thisResult.mentionsFound} with mentions`);
+          if (thisResult.error) parts.push(`Warning: ${thisResult.error}`);
+        }
+
+        if (sourceMentions.length > 0) {
+          parts.push(`\n## Mentions Found (${sourceMentions.length})\n`);
+          for (const m of sourceMentions) {
+            parts.push(`- **${m.title}**${m.remoteUrl ? ` — [link](${m.remoteUrl})` : ""}`);
+            parts.push(`  Matches: ${m.mentions.join(", ")}`);
+          }
+        }
+
+        return { content: [{ type: "text" as const, text: parts.join("\n") }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Sync failed: ${(err as Error).message}` }] };
+      }
+    },
+  );
+
   // ── Prompt: review_artifact ─────────────────────────────────────
 
   server.prompt(

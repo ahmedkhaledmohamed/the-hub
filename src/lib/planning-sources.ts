@@ -103,17 +103,20 @@ interface FetchedItem {
  */
 async function fetchJiraItems(config: PlanningSourceConfig): Promise<FetchedItem[]> {
   const baseUrl = config.baseUrl || process.env.JIRA_BASE_URL;
-  const token = process.env.JIRA_API_TOKEN;
-  if (!baseUrl || !token) return [];
+  const token = config.apiToken || process.env.JIRA_API_TOKEN;
+  if (!baseUrl) throw new Error("No baseUrl configured and JIRA_BASE_URL not set");
+  if (!token) throw new Error(`No API token — set apiToken in config or JIRA_API_TOKEN env var`);
 
   const jql = config.jql || `project = ${config.projectKey} AND type = Epic`;
   const url = `${baseUrl}/rest/api/2/search?jql=${encodeURIComponent(jql)}&maxResults=50&fields=summary,description,status`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return [];
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (config.authScheme === "cookie") headers["Cookie"] = token;
+  else if (config.authScheme === "basic") headers["Authorization"] = `Basic ${token}`;
+  else headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`Jira returned ${res.status}: ${res.statusText}`);
 
   const data = await res.json() as { issues?: Array<{ key: string; fields: { summary: string; description?: string; status?: { name: string } } }> };
   return (data.issues || []).map((issue) => ({
@@ -129,16 +132,19 @@ async function fetchJiraItems(config: PlanningSourceConfig): Promise<FetchedItem
  */
 async function fetchConfluenceItems(config: PlanningSourceConfig): Promise<FetchedItem[]> {
   const baseUrl = config.baseUrl || process.env.CONFLUENCE_BASE_URL;
-  const token = process.env.CONFLUENCE_API_TOKEN;
-  if (!baseUrl || !token) return [];
+  const token = config.apiToken || process.env.CONFLUENCE_API_TOKEN;
+  if (!baseUrl) throw new Error("No baseUrl configured and CONFLUENCE_BASE_URL not set");
+  if (!token) throw new Error("No API token — set apiToken in config or CONFLUENCE_API_TOKEN env var");
 
   const url = `${baseUrl}/rest/api/content?spaceKey=${config.spaceKey}&limit=50&expand=body.storage`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return [];
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (config.authScheme === "cookie") headers["Cookie"] = token;
+  else if (config.authScheme === "basic") headers["Authorization"] = `Basic ${token}`;
+  else headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`Confluence returned ${res.status}: ${res.statusText}`);
 
   const data = await res.json() as { results?: Array<{ id: string; title: string; body?: { storage?: { value: string } }; _links?: { webui?: string } }> };
   return (data.results || []).map((page) => {
@@ -199,6 +205,25 @@ async function fetchNotionItems(config: PlanningSourceConfig): Promise<FetchedIt
 }
 
 /**
+ * Fetch items written by an AI agent (Cursor / Claude Code) via MCP or file drop.
+ * Reads from .hub-data/agent-sync/<sourceId>.json
+ */
+async function fetchAgentItems(config: PlanningSourceConfig): Promise<FetchedItem[]> {
+  const fs = await import("fs");
+  const path = await import("path");
+  const hubDataDir = process.env.HUB_DATA_DIR || path.join(process.cwd(), ".hub-data");
+  const filePath = path.join(hubDataDir, "agent-sync", `${config.id}.json`);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`No agent data found. Run sync_planning_sources from Cursor/Claude Code first.`);
+  }
+
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const data = JSON.parse(raw) as { items: FetchedItem[]; syncedAt?: string };
+  return data.items || [];
+}
+
+/**
  * Dispatch to the correct fetcher based on source type.
  */
 async function fetchSourceItems(config: PlanningSourceConfig): Promise<FetchedItem[]> {
@@ -207,6 +232,7 @@ async function fetchSourceItems(config: PlanningSourceConfig): Promise<FetchedIt
     case "confluence": return fetchConfluenceItems(config);
     case "google-docs": return fetchGoogleDocsItems(config);
     case "notion": return fetchNotionItems(config);
+    case "agent": return fetchAgentItems(config);
     default: return [];
   }
 }
