@@ -115,6 +115,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* non-critical */ }
 
+      // Sync planning sources (non-blocking)
+      try {
+        const { syncAllPlanningSources } = require("./planning-sources");
+        syncAllPlanningSources().catch(() => { /* non-blocking */ });
+      } catch { /* non-critical */ }
+
       // Auto-apply lifecycle transitions based on staleness
       try {
         const { applyAutoTransitions } = require("./doc-lifecycle");

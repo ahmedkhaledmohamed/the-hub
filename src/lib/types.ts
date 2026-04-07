@@ -12,6 +12,8 @@ export interface HubConfig {
   framework?: FrameworkConfig;
   staleness?: { fresh?: number; aging?: number; stale?: number };
   hygieneRules?: HygieneRule[];
+  planningSources?: PlanningSourceConfig[];
+  mentions?: { self?: string[]; team?: string[]; org?: string[] };
   templates?: DocTemplate[];
   agents?: AgentConfig[];
   webhooks?: WebhookConfig[];
@@ -19,6 +21,28 @@ export interface HubConfig {
   sharing?: SharingConfig;
   federation?: FederationConfig;
   governance?: GovernanceConfig;
+}
+
+export interface PlanningSourceConfig {
+  id: string;
+  type: "google-docs" | "confluence" | "jira" | "notion" | "github";
+  label: string;
+  enabled?: boolean;
+  group?: string;
+  tab?: string;
+  // Google Docs
+  folderId?: string;
+  // Confluence
+  spaceKey?: string;
+  baseUrl?: string;
+  // Jira
+  projectKey?: string;
+  jql?: string;
+  // Notion
+  databaseId?: string;
+  // GitHub
+  repoUrl?: string;
+  repoPath?: string;
 }
 
 export interface HygieneRule {
