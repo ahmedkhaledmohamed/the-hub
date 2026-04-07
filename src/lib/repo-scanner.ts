@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "fs";
 import { join, basename } from "path";
+import { execSync } from "child_process";
 import type { RepoInfo, WorkspaceConfig } from "./types";
 
 function readGitHead(gitDir: string): string {
@@ -128,4 +129,43 @@ function addRepo(repos: RepoInfo[], seen: Set<string>, repoPath: string, workspa
     hasClaudeFile: existsSync(join(repoPath, "CLAUDE.md")),
     hasCursorRules: existsSync(join(repoPath, ".cursor", "rules")) || existsSync(join(repoPath, ".cursorrules")),
   });
+}
+
+// ── Git pull ──────────────────────────────────────────────────────
+
+export interface PullResult {
+  repo: string;
+  path: string;
+  success: boolean;
+  output: string;
+  error?: string;
+}
+
+/**
+ * Pull latest for a single repo.
+ */
+export function pullRepo(repoPath: string): PullResult {
+  const name = basename(repoPath);
+  try {
+    const output = execSync("git pull", {
+      cwd: repoPath,
+      encoding: "utf-8",
+      timeout: 30000,
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return { repo: name, path: repoPath, success: true, output };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    // Extract stderr if available
+    const stderr = (err as { stderr?: string }).stderr?.trim() || "";
+    return { repo: name, path: repoPath, success: false, output: stderr, error };
+  }
+}
+
+/**
+ * Pull latest for all discovered repos.
+ */
+export function pullAllRepos(workspaces: WorkspaceConfig[]): PullResult[] {
+  const repos = discoverRepos(workspaces);
+  return repos.map((r) => pullRepo(r.path));
 }
