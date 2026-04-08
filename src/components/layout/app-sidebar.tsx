@@ -99,19 +99,14 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           collapsed ? "px-1" : "px-2",
         )}
       >
+        {/* ── Core (daily use) ── */}
         {[
           { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
           { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false, badge: hygieneCount && hygieneCount > 0 ? hygieneCount : undefined },
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
-          { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
           { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
           { href: "/notifications", label: "Inbox", Icon: Bell, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
-          { href: "/integrations", label: "Integrations", Icon: Link2, needsAI: false },
-          { href: "/status", label: "Status", Icon: Activity, needsAI: false },
-          { href: "/setup", label: "Setup", Icon: Wrench, needsAI: false },
-          { href: "/mcp-servers", label: "MCP Servers", Icon: Plug, needsAI: false },
-          { href: "/settings", label: "Settings", Icon: Settings, needsAI: false },
         ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
           const degraded = needsAI && !aiConfigured && !featureLoading;
           return (
@@ -148,6 +143,35 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
             </Link>
           );
         })}
+
+        {/* ── Secondary (admin/occasional) ── */}
+        <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
+        {[
+          { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
+          { href: "/mcp-servers", label: "MCP Servers", Icon: Plug, needsAI: false },
+          { href: "/settings", label: "Settings", Icon: Settings, needsAI: false },
+        ].map(({ href, label, Icon, needsAI }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean }) => {
+          const degraded = needsAI && !aiConfigured && !featureLoading;
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={collapsed ? label : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+                pathname === href
+                  ? "bg-accent text-black font-semibold"
+                  : "text-text-dim hover:text-text hover:bg-surface-hover",
+              )}
+            >
+              <Icon size={16} />
+              {!collapsed && <span>{label}</span>}
+            </Link>
+          );
+        })}
+
+        {/* ── Config tabs (from hub.config.ts) ── */}
         <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
         {tabs.map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;

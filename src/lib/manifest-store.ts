@@ -121,6 +121,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         applyAutoTransitions(cachedManifest.artifacts);
       } catch { /* non-critical */ }
 
+      // Fire notification triggers (lightweight — only when conditions change)
+      try {
+        const { runScanNotifications } = require("./scan-notifications");
+        runScanNotifications(cachedManifest.artifacts);
+      } catch { /* non-critical */ }
+
       // Removed from scan pipeline for performance (still available via API):
       // - Slack alerts: POST /api/slack
       // - Context file gen: runs on manual scan via /api/regenerate
