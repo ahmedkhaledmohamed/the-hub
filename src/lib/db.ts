@@ -21,6 +21,7 @@ export function getDb(): Database.Database {
 
   db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
+  db.pragma("wal_autocheckpoint = 1000");
   db.pragma("foreign_keys = ON");
 
   migrate(db);

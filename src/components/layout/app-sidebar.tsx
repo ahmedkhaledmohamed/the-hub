@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
   type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck, Sparkles, Share2, Settings,
-  Activity, Wrench, Link2, GitBranch, Bell,
+  Activity, Wrench, Link2, GitBranch, Bell, Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
@@ -110,6 +110,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/integrations", label: "Integrations", Icon: Link2, needsAI: false },
           { href: "/status", label: "Status", Icon: Activity, needsAI: false },
           { href: "/setup", label: "Setup", Icon: Wrench, needsAI: false },
+          { href: "/mcp-servers", label: "MCP Servers", Icon: Plug, needsAI: false },
           { href: "/settings", label: "Settings", Icon: Settings, needsAI: false },
         ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
           const degraded = needsAI && !aiConfigured && !featureLoading;
