@@ -118,6 +118,7 @@ const PREFS_FILE = path.join(PREFS_DIR, "preferences.json");
 export interface HubPreferences {
   hygieneExclude?: string[];
   scannerExclude?: string[];
+  hiddenSidebarItems?: string[];
 }
 
 export function readPreferences(): HubPreferences {

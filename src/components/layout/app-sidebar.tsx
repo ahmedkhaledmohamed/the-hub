@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { useFeatureStatus } from "@/hooks/use-feature-status";
+import { usePreferences } from "@/hooks/use-preferences";
 
 const iconMap: Record<string, LucideIcon> = {
   calendar: Calendar,
@@ -37,6 +38,8 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   const [notifCount, setNotifCount] = useState<number | null>(null);
 
   const activeTab = pathname === "/" ? defaultTab : pathname.slice(1);
+  const { preferences } = usePreferences();
+  const hidden = new Set(preferences.hiddenSidebarItems || []);
 
   // Fetch hygiene finding count + notification count for sidebar badges
   useEffect(() => {
@@ -100,7 +103,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
       >
         {/* ── Core (daily use): primary config tabs + key pages ── */}
-        {tabs.filter((t) => ["planning", "knowledge", "deliverables"].includes(t.id)).map((tab) => {
+        {tabs.filter((t) => ["planning", "knowledge", "deliverables"].includes(t.id) && !hidden.has(t.id)).map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
           const isActive = activeTab === tab.id;
           const href = `/${tab.id}`;
@@ -126,7 +129,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
           { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false, badge: hygieneCount && hygieneCount > 0 ? hygieneCount : undefined },
-        ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
+        ].filter((item) => !hidden.has(item.href.slice(1))).map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
           const degraded = needsAI && !aiConfigured && !featureLoading;
           return (
             <Link
@@ -164,7 +167,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
           { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
           { href: "/notifications", label: "Inbox", Icon: Bell, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
-        ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
+        ].filter((item) => !hidden.has(item.href.slice(1))).map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
           const degraded = needsAI && !aiConfigured && !featureLoading;
           return (
             <Link
@@ -200,7 +203,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
             </Link>
           );
         })}
-        {tabs.filter((t) => ["ai-tools", "personal"].includes(t.id)).map((tab) => {
+        {tabs.filter((t) => ["ai-tools", "personal"].includes(t.id) && !hidden.has(t.id)).map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
           const isActive = activeTab === tab.id;
           const href = `/${tab.id}`;

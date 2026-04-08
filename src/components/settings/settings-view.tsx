@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Settings, FolderOpen, Eye, EyeOff, RefreshCw,
-  HardDrive, FileCode, ShieldCheck, Lock,
+  HardDrive, FileCode, ShieldCheck, Lock, PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePreferences } from "@/hooks/use-preferences";
+import { useHubConfig } from "@/components/providers/hub-provider";
 
 interface DirectoryInfo {
   name: string;
@@ -35,11 +37,22 @@ const STATUS_LABELS: Record<string, string> = {
   "pref-skip": "Skipped (UI)",
 };
 
+const FEATURE_ITEMS = [
+  { id: "briefing", label: "Briefing" },
+  { id: "repos", label: "Repos" },
+  { id: "hygiene", label: "Hygiene" },
+  { id: "ask", label: "Ask AI" },
+  { id: "decisions", label: "Decisions" },
+  { id: "notifications", label: "Inbox" },
+];
+
 export function SettingsView() {
   const [data, setData] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const { preferences, mutate: mutatePrefs } = usePreferences();
+  const config = useHubConfig();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -121,6 +134,48 @@ export function SettingsView() {
           {data.artifactCount} artifacts across {data.workspaces.length} workspace(s)
         </span>
       </div>
+
+      {/* Sidebar visibility */}
+      <section className="mb-8">
+        <h2 className="text-[14px] font-semibold text-text-muted mb-1 flex items-center gap-2">
+          <PanelLeft size={14} />
+          Sidebar
+        </h2>
+        <p className="text-[11px] text-text-dim mb-3">
+          Toggle which tabs and features appear in the sidebar. Hidden items are still accessible via URL.
+        </p>
+        <div className="space-y-1">
+          {[
+            ...(config?.tabs || []).map((t) => ({ id: t.id, label: t.label, section: "Tab" })),
+            ...FEATURE_ITEMS.map((f) => ({ ...f, section: "Feature" })),
+          ].map((item) => {
+            const isHidden = (preferences.hiddenSidebarItems || []).includes(item.id);
+            return (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-2 bg-surface border border-border rounded-md">
+                <button
+                  onClick={() => {
+                    const current = preferences.hiddenSidebarItems || [];
+                    const next = isHidden ? current.filter((id) => id !== item.id) : [...current, item.id];
+                    mutatePrefs({ hiddenSidebarItems: next });
+                  }}
+                  className="shrink-0 hover:text-accent transition-colors"
+                  title={isHidden ? "Show in sidebar" : "Hide from sidebar"}
+                >
+                  {isHidden ? <EyeOff size={14} className="text-orange-400" /> : <Eye size={14} className="text-accent" />}
+                </button>
+                <span className="text-[13px] text-text flex-1">{item.label}</span>
+                <span className="text-[9px] text-text-dim">{item.section}</span>
+                <span className={cn(
+                  "text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold",
+                  isHidden ? "bg-orange-900/20 text-orange-400" : "bg-accent/10 text-accent",
+                )}>
+                  {isHidden ? "Hidden" : "Visible"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Workspaces */}
       <section className="mb-8">
