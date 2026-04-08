@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { useFeatureStatus } from "@/hooks/use-feature-status";
+import { usePreferences } from "@/hooks/use-preferences";
 
 const iconMap: Record<string, LucideIcon> = {
   calendar: Calendar,
@@ -37,6 +38,8 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
   const [notifCount, setNotifCount] = useState<number | null>(null);
 
   const activeTab = pathname === "/" ? defaultTab : pathname.slice(1);
+  const { preferences } = usePreferences();
+  const hidden = new Set(preferences.hiddenSidebarItems || []);
 
   // Fetch hygiene finding count + notification count for sidebar badges
   useEffect(() => {
@@ -107,7 +110,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
           { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
           { href: "/notifications", label: "Inbox", Icon: Bell, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
-        ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
+        ].filter((item) => !hidden.has(item.href.slice(1))).map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
           const degraded = needsAI && !aiConfigured && !featureLoading;
           return (
             <Link
@@ -173,7 +176,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
 
         {/* ── Config tabs (from hub.config.ts) ── */}
         <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
-        {tabs.map((tab) => {
+        {tabs.filter((t) => !hidden.has(t.id)).map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
           const isActive = activeTab === tab.id;
           const href = `/${tab.id}`;
