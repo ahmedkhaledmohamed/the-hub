@@ -1,83 +1,147 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
 export const dynamic = "force-dynamic";
 
 const HOME = process.env.HOME || "/";
+const CURSOR_MCP_PATH = join(HOME, ".cursor", "mcp.json");
+const CLAUDE_MCP_PATH = join(HOME, ".claude", "settings.json");
 
-function getMcpConfigPath(): string {
-  return join(HOME, ".cursor", "mcp.json");
+interface McpServerEntry {
+  url?: string;
+  command?: string;
+  args?: string[];
+  cwd?: string;
+  disabled?: boolean;
+  [key: string]: unknown;
 }
 
-function readMcpConfig(): Record<string, Record<string, unknown>> {
-  const configPath = getMcpConfigPath();
-  if (!existsSync(configPath)) return {};
+interface McpConfig {
+  mcpServers: Record<string, McpServerEntry>;
+}
+
+function readCursorConfig(): McpConfig {
+  if (!existsSync(CURSOR_MCP_PATH)) return { mcpServers: {} };
+  return JSON.parse(readFileSync(CURSOR_MCP_PATH, "utf-8"));
+}
+
+function readClaudeConfig(): { mcpServers?: Record<string, McpServerEntry> } {
+  if (!existsSync(CLAUDE_MCP_PATH)) return {};
+  const data = JSON.parse(readFileSync(CLAUDE_MCP_PATH, "utf-8"));
+  return { mcpServers: data.mcpServers || {} };
+}
+
+function getServerType(entry: McpServerEntry): "stdio" | "url" {
+  return entry.command ? "stdio" : "url";
+}
+
+function getCacheStatus(serverId: string): "ok" | "errored" | "no-tools" | "uncached" {
+  const projectsDir = join(HOME, ".cursor", "projects");
+  if (!existsSync(projectsDir)) return "uncached";
+
+  let cacheDir: string | null = null;
   try {
-    const content = readFileSync(configPath, "utf-8").trim();
-    if (!content) return {};
-    const raw = JSON.parse(content);
-    return raw.mcpServers || {};
-  } catch {
-    return {};
+    const projects = readdirSync(projectsDir);
+    for (const proj of projects) {
+      const candidate = join(projectsDir, proj, "mcps", `user-${serverId}`);
+      if (existsSync(candidate)) { cacheDir = candidate; break; }
+    }
+  } catch { return "uncached"; }
+
+  if (!cacheDir) return "uncached";
+
+  const statusPath = join(cacheDir, "STATUS.md");
+  if (existsSync(statusPath)) {
+    const content = readFileSync(statusPath, "utf-8");
+    if (content.toLowerCase().includes("error")) return "errored";
   }
+
+  const toolsDir = join(cacheDir, "tools");
+  if (!existsSync(toolsDir)) return "no-tools";
+
+  try {
+    const files = readdirSync(toolsDir).filter((f: string) => f.endsWith(".json"));
+    if (files.length === 0) return "no-tools";
+    if (files.length === 1 && files[0] === "mcp_auth.json") return "no-tools";
+  } catch {
+    return "no-tools";
+  }
+
+  return "ok";
 }
 
-function writeMcpConfig(servers: Record<string, Record<string, unknown>>): void {
-  const configPath = getMcpConfigPath();
-  const raw = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) : {};
-  raw.mcpServers = servers;
-  writeFileSync(configPath, JSON.stringify(raw, null, 2), "utf-8");
+function getToolCount(serverId: string): number {
+  const projectsDir = join(HOME, ".cursor", "projects");
+  if (!existsSync(projectsDir)) return 0;
+
+  try {
+    const projects = readdirSync(projectsDir);
+    for (const proj of projects) {
+      const toolsDir = join(projectsDir, proj, "mcps", `user-${serverId}`, "tools");
+      if (existsSync(toolsDir)) {
+        return readdirSync(toolsDir).filter((f: string) => f.endsWith(".json")).length;
+      }
+    }
+  } catch { /* ignore */ }
+  return 0;
 }
 
-/**
- * GET /api/mcp-servers — list all configured MCP servers with status
- */
 export async function GET() {
-  const servers = readMcpConfig();
+  const cursorConfig = readCursorConfig();
+  const claudeConfig = readClaudeConfig();
 
-  const result = Object.entries(servers).map(([id, config]) => ({
-    id,
-    disabled: config.disabled === true,
-    type: config.url ? "http" : "stdio",
-    url: (config.url as string) || null,
-    command: (config.command as string) || null,
-    cwd: (config.cwd as string) || null,
-  }));
+  const servers = Object.entries(cursorConfig.mcpServers).map(([id, entry]) => {
+    const inClaude = id in (claudeConfig.mcpServers || {});
+    return {
+      id,
+      type: getServerType(entry),
+      url: entry.url || null,
+      command: entry.command || null,
+      cwd: entry.cwd || null,
+      disabled: entry.disabled || false,
+      cacheStatus: entry.disabled ? "disabled" : getCacheStatus(id),
+      toolCount: getToolCount(id),
+      inClaude,
+    };
+  });
 
-  const enabled = result.filter((s) => !s.disabled).length;
-  const disabled = result.filter((s) => s.disabled).length;
+  servers.sort((a, b) => {
+    if (a.disabled !== b.disabled) return a.disabled ? 1 : -1;
+    return a.id.localeCompare(b.id);
+  });
 
-  return NextResponse.json({ servers: result, total: result.length, enabled, disabled });
+  const enabledCount = servers.filter((s) => !s.disabled).length;
+  const disabledCount = servers.filter((s) => s.disabled).length;
+  const totalTools = servers.filter((s) => !s.disabled).reduce((sum, s) => sum + s.toolCount, 0);
+
+  return NextResponse.json({
+    servers,
+    summary: { total: servers.length, enabled: enabledCount, disabled: disabledCount, totalTools },
+    paths: { cursor: CURSOR_MCP_PATH, claude: CLAUDE_MCP_PATH },
+  });
 }
 
-/**
- * PATCH /api/mcp-servers
- * { id: "server-name", disabled: true|false }
- */
 export async function PATCH(req: NextRequest) {
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
-
-  const id = body.id as string;
-  const disabled = body.disabled as boolean;
+  const body = await req.json();
+  const { id, disabled } = body as { id: string; disabled: boolean };
 
   if (!id || typeof disabled !== "boolean") {
     return NextResponse.json({ error: "id (string) and disabled (boolean) required" }, { status: 400 });
   }
 
-  const servers = readMcpConfig();
-  if (!servers[id]) {
-    return NextResponse.json({ error: `Unknown server: ${id}` }, { status: 404 });
+  const config = readCursorConfig();
+  if (!(id in config.mcpServers)) {
+    return NextResponse.json({ error: `Server "${id}" not found` }, { status: 404 });
   }
 
   if (disabled) {
-    servers[id].disabled = true;
+    config.mcpServers[id].disabled = true;
   } else {
-    delete servers[id].disabled;
+    delete config.mcpServers[id].disabled;
   }
 
-  writeMcpConfig(servers);
+  writeFileSync(CURSOR_MCP_PATH, JSON.stringify(config, null, 2) + "\n", "utf-8");
 
-  return NextResponse.json({ id, disabled, message: `${id} ${disabled ? "disabled" : "enabled"}` });
+  return NextResponse.json({ id, disabled, message: `Server "${id}" ${disabled ? "disabled" : "enabled"}. Restart Cursor to apply.` });
 }

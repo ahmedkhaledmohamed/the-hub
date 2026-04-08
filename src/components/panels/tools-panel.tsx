@@ -1,6 +1,6 @@
 import {
   ExternalLink, BarChart, Zap, Layout, Globe,
-  type LucideIcon, Wrench,
+  type LucideIcon, Wrench, GitBranch, Layers,
 } from "lucide-react";
 import type { ToolsPanelConfig, ToolConfig } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ const iconMap: Record<string, LucideIcon> = {
   layout: Layout,
   globe: Globe,
   wrench: Wrench,
+  "git-branch": GitBranch,
+  layers: Layers,
 };
 
 interface ToolsPanelProps {
@@ -27,7 +29,7 @@ export function ToolsPanel({ config }: ToolsPanelProps) {
           <Badge text={config.badge.text} color={config.badge.color} className="ml-auto" />
         )}
       </div>
-      <div className="grid grid-cols-1 gap-2 p-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
         {config.items.map((tool, i) => (
           <ToolCard key={i} tool={tool} />
         ))}

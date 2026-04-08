@@ -267,7 +267,7 @@ export function isSupported(filePath: string): boolean {
  */
 export async function extractPdfText(filePath: string): Promise<string> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
     const buffer = fs.readFileSync(filePath);
     const data = await pdfParse(buffer);

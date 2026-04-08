@@ -1,20 +1,14 @@
-import { redirect } from "next/navigation";
-import { loadConfig } from "@/lib/config";
-import { getManifest } from "@/lib/manifest-store";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const config = loadConfig();
-  const manifest = getManifest();
+  const router = useRouter();
 
-  const hasWorkspaces = config.workspaces.length > 0;
-  const hasArtifacts = manifest.artifacts.length > 0;
+  useEffect(() => {
+    router.replace("/planning");
+  }, [router]);
 
-  if (!hasWorkspaces || !hasArtifacts) {
-    redirect("/setup");
-  }
-
-  const defaultTab = config.tabs.find((t) => t.default)?.id || config.tabs[0]?.id || "briefing";
-  redirect("/" + defaultTab);
+  return null;
 }

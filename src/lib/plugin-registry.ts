@@ -116,7 +116,7 @@ export async function runOnScan(manifest: Manifest): Promise<Artifact[]> {
  * Run onSearch hooks — extend search results.
  */
 export async function runOnSearch(query: string, results: Artifact[]): Promise<Artifact[]> {
-  let extended = [...results];
+  const extended = [...results];
 
   for (const plugin of loadedPlugins.values()) {
     if (!plugin.onSearch) continue;

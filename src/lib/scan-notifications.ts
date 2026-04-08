@@ -6,7 +6,6 @@
  * - Artifacts crossing the stale threshold (90 days)
  * - Decision contradictions detected
  * - Planning source mentions
- * - Quality grade drops
  *
  * Rate-limited: each trigger type fires at most once per scan.
  */

@@ -3,36 +3,16 @@
 /**
  * The Hub MCP Server
  *
- * 23 core tools over stdio for AI assistants to understand and update your workspace.
+ * Slim mode (default, 10 tools):
+ *   workspace_summary, search, read_artifact, ask_question,
+ *   get_hygiene, get_decisions, remember, recall, catch_up,
+ *   sync_planning_sources
  *
- * Tools:
- *   workspace_summary — Single-call workspace orientation
- *   search           — Full-text search across workspace
- *   read_artifact    — Read full content of an artifact
- *   list_groups    — List artifact groups with counts
- *   get_manifest   — Full workspace overview
- *   ask_question   — RAG-powered Q&A over workspace docs
- *   get_decisions  — Tracked decisions with contradiction detection
- *   get_hygiene    — Document hygiene report (duplicates, stale)
- *   get_trends     — Workspace health trends and alerts
- *   get_context      — Smart context window with impact-based prioritization
- *   generate_content — Generate status updates, PRDs, handoffs
- *   list_repos       — Connected git repositories
- *   detect_gaps      — Knowledge gap detection
- *   compile_context  — Meeting/topic context packets
- *   meeting_brief    — Pre-meeting briefings
- *   get_impact       — Impact score + stakeholders
- *   get_errors       — System error visibility
- *   remember         — Store cross-session observations
- *   recall           — Retrieve past observations
- *   catch_up         — What changed since last session
- *   create_doc       — Create a new document in the workspace
- *   update_artifact  — Append or replace content in an artifact
- *   mark_reviewed    — Mark an artifact as reviewed
- *
- * Usage:
- *   npx tsx src/mcp/server.ts
- *   # or via bin: npx hub-mcp
+ * Full mode (HUB_MCP_SLIM=false, 24 tools):
+ *   All slim tools + list_groups, get_manifest, get_context,
+ *   get_trends, create_doc, update_artifact, mark_reviewed,
+ *   generate_content, list_repos, detect_gaps, compile_context,
+ *   meeting_brief, get_impact, get_errors
  */
 
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -45,6 +25,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const hubRoot = resolve(__dirname, "../..");
 process.chdir(hubRoot);
+
+const SLIM_MODE = process.env.HUB_MCP_SLIM !== "false";
 
 // Lazy imports
 async function getDb() {
@@ -75,12 +57,8 @@ async function getTrendsLib() {
 async function main() {
   const server = new McpServer({
     name: "the-hub",
-    version: "6.1.0",
+    version: "6.0.0",
   });
-
-  // Slim mode: register only essential tools to reduce context window usage.
-  // Set HUB_MCP_SLIM=false for the full 23-tool set.
-  const SLIM_MODE = process.env.HUB_MCP_SLIM !== "false";
 
   // ── Tool: workspace_summary ────────────────────────────── [CORE]
 
@@ -244,9 +222,9 @@ async function main() {
     },
   );
 
-  // ── Tool: list_groups ───────────────────────────────────────────
+  // ── Tool: list_groups ─────────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "list_groups",
     "List all artifact groups with counts and metadata.",
     {},
@@ -262,9 +240,9 @@ async function main() {
     },
   );
 
-  // ── Tool: get_manifest ──────────────────────────────────────────
+  // ── Tool: get_manifest ──────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "get_manifest",
     "Full workspace overview: all artifacts, groups, and metadata.",
     {},
@@ -306,9 +284,9 @@ async function main() {
     },
   );
 
-  // ── Tool: get_context ──────────────────────────────────── [CORE]
+  // ── Tool: get_context ─────────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "get_context",
     "Get optimally-sized context for a topic. Uses impact scoring to prioritize high-value docs and allocate more space to critical artifacts. Returns ranked, truncated content ready for LLM consumption.",
     {
@@ -362,9 +340,9 @@ async function main() {
     },
   );
 
-  // ── Tool: get_trends ───────────────────────────────────── [CORE]
+  // ── Tool: get_trends ─────────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "get_trends",
     "Get workspace health trends and predictive alerts. Shows artifact count, staleness, and group trends over time.",
     {
@@ -438,9 +416,9 @@ async function main() {
     },
   );
 
-  // ── Tool: create_doc ──────────────────────────────────── [CORE]
+  // ── Tool: create_doc ─────────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "create_doc",
     "Create a new document in a workspace directory. Writes a file to disk and triggers a rescan so it appears in the manifest.",
     {
@@ -484,9 +462,9 @@ async function main() {
     },
   );
 
-  // ── Tool: update_artifact ────────────────────────────────── [CORE]
+  // ── Tool: update_artifact ──────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "update_artifact",
     "Update an existing artifact's content. Can append to the end or replace the full content.",
     {
@@ -531,9 +509,9 @@ async function main() {
     },
   );
 
-  // ── Tool: mark_reviewed ──────────────────────────────────── [CORE]
+  // ── Tool: mark_reviewed ────────────────────────── [slim: skipped]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "mark_reviewed",
     "Mark an artifact as reviewed — creates a review record with 'approved' status. Use this after checking a document to track that it has been reviewed.",
     {
@@ -566,10 +544,9 @@ async function main() {
     },
   );
 
-  // ── Non-essential tools (skipped in slim mode) ─────────────────
-  if (!SLIM_MODE) {
+  // ── Restored tools (v6.1) ──────────────── [slim: skipped below]
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "generate_content",
     "Generate content using workspace context. Templates: status-update (from change feed), handoff-doc (for a group), prd-outline (from research docs), custom (free-form).",
     {
@@ -587,7 +564,7 @@ async function main() {
     },
   );
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "list_repos",
     "List all git repositories discovered under configured workspaces.",
     {},
@@ -605,7 +582,7 @@ async function main() {
     },
   );
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "detect_gaps",
     "Detect knowledge gaps — topics people search for but have no documentation.",
     { days: z.number().optional().default(30).describe("Look back N days (default 30)") },
@@ -617,7 +594,7 @@ async function main() {
     },
   );
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "compile_context",
     "Compile a context packet for a meeting or topic. Gathers related docs, decisions, changes, and conflicts.",
     {
@@ -632,7 +609,7 @@ async function main() {
     },
   );
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "meeting_brief",
     "Generate a pre-meeting briefing with related docs, decisions, changes, conflicts, and action items.",
     {
@@ -647,7 +624,7 @@ async function main() {
     },
   );
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "get_impact",
     "Get impact score for an artifact — who needs to know when this doc changes.",
     { path: z.string().describe("Artifact path to score") },
@@ -663,7 +640,7 @@ async function main() {
     },
   );
 
-  server.tool(
+  if (!SLIM_MODE) server.tool(
     "get_errors",
     "Get recent system errors and warnings.",
     {
@@ -734,8 +711,6 @@ async function main() {
       } catch (err) { return { content: [{ type: "text" as const, text: `Catch-up failed: ${(err as Error).message}` }] }; }
     },
   );
-
-  } // end !SLIM_MODE
 
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
@@ -1086,8 +1061,7 @@ async function main() {
     },
   );
 
-  // ── Tool: sync_planning_sources (non-essential) ──────────────────
-  if (!SLIM_MODE) {
+  // ── Tool: sync_planning_sources ──────────────────────────────────
 
   server.tool(
     "sync_planning_sources",
@@ -1140,8 +1114,6 @@ async function main() {
       }
     },
   );
-
-  } // end !SLIM_MODE (sync_planning_sources)
 
   // ── Prompt: review_artifact ─────────────────────────────────────
 

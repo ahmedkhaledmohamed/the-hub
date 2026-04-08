@@ -119,33 +119,6 @@ export function getAiConfig(): AiConfig | null {
     };
   }
 
-  // Check saved preferences (from Settings UI)
-  try {
-    const { readPreferences } = require("./config");
-    const prefs = readPreferences();
-    if (prefs.aiProvider === "ollama" || prefs.ollamaUrl) {
-      const url = prefs.ollamaUrl || "http://localhost:11434";
-      return {
-        gatewayUrl: `${url}/v1/chat/completions`,
-        apiKey: "ollama",
-        model: prefs.aiDefaultModel || OLLAMA_DEFAULT_MODEL,
-      };
-    }
-    if (prefs.openaiApiKey) {
-      return {
-        gatewayUrl: "https://api.openai.com/v1/chat/completions",
-        apiKey: prefs.openaiApiKey,
-        model: prefs.aiDefaultModel || DEFAULT_MODEL,
-      };
-    }
-    if (prefs.anthropicApiKey) {
-      // Anthropic doesn't use OpenAI-compatible endpoint, but the multi-model
-      // system handles it. For ai-client single-gateway mode, skip.
-    }
-  } catch {
-    // config module not available (e.g., during build)
-  }
-
   // Auto-detected Ollama (cached sync check)
   if (ollamaDetected === true) {
     return {
