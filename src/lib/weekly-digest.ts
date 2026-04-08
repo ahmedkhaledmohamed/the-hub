@@ -51,7 +51,8 @@ export function generateWeeklyDigest(days = 7): WeeklyDigest {
   const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
 
   // Changes
-  let added = 0, modified = 0, deleted = 0;
+  const added = 0, deleted = 0;
+  let modified = 0;
   const topChanged: Array<{ path: string; title: string }> = [];
   try {
     const recentRows = db.prepare(

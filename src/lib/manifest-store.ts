@@ -115,6 +115,12 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* non-critical */ }
 
+      // Sync planning sources (non-blocking)
+      try {
+        const { syncAllPlanningSources } = require("./planning-sources");
+        syncAllPlanningSources().catch(() => { /* non-blocking */ });
+      } catch { /* non-critical */ }
+
       // Auto-apply lifecycle transitions based on staleness
       try {
         const { applyAutoTransitions } = require("./doc-lifecycle");
@@ -127,11 +133,8 @@ export function regenerate(reason: string = "manual"): Manifest {
         runScanNotifications(cachedManifest.artifacts);
       } catch { /* non-critical */ }
 
-      // Removed from scan pipeline for performance (still available via API):
-      // - Slack alerts: POST /api/slack
-      // - Context file gen: runs on manual scan via /api/regenerate
-      // - Embedding gen: POST /api/embeddings
-      // - Planning source sync: POST /api/planning-sources { action: "sync-all" }
+      // Slack alerts, context file gen, and embeddings removed from per-scan hooks
+      // (available on-demand via API; not needed on every file change)
 
       if (changedCount > 0) {
         console.log(

@@ -99,11 +99,68 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
           collapsed ? "px-1" : "px-2",
         )}
       >
-        {/* ── Core (daily use) ── */}
+        {/* ── Core (daily use): primary config tabs + key pages ── */}
+        {tabs.filter((t) => ["planning", "knowledge", "deliverables"].includes(t.id)).map((tab) => {
+          const Icon = iconMap[tab.icon || "layers"] || Layers;
+          const isActive = activeTab === tab.id;
+          const href = `/${tab.id}`;
+          return (
+            <Link
+              key={tab.id}
+              href={href}
+              title={collapsed ? tab.label : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+                isActive
+                  ? "bg-accent text-black font-semibold"
+                  : "text-text-dim hover:text-text hover:bg-surface-hover",
+              )}
+            >
+              <Icon size={16} />
+              {!collapsed && tab.label}
+            </Link>
+          );
+        })}
         {[
           { href: "/briefing", label: "Briefing", Icon: Sun, needsAI: false },
           { href: "/repos", label: "Repos", Icon: GitFork, needsAI: false },
           { href: "/hygiene", label: "Hygiene", Icon: ShieldCheck, needsAI: false, badge: hygieneCount && hygieneCount > 0 ? hygieneCount : undefined },
+        ].map(({ href, label, Icon, needsAI, badge }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean; badge?: number }) => {
+          const degraded = needsAI && !aiConfigured && !featureLoading;
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={collapsed ? `${label}${degraded ? " (needs AI)" : ""}` : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+                pathname === href
+                  ? "bg-accent text-black font-semibold"
+                  : degraded
+                    ? "text-text-muted hover:text-text-dim hover:bg-surface-hover"
+                    : "text-text-dim hover:text-text hover:bg-surface-hover",
+              )}
+            >
+              <Icon size={16} />
+              {!collapsed && (
+                <span className="flex items-center gap-2 flex-1">
+                  {label}
+                  {badge && !degraded && (
+                    <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-orange-900/40 text-orange-400 font-medium">
+                      {badge}
+                    </span>
+                  )}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+        {/* ── Middle: tools + secondary tabs ── */}
+        <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
+        {[
           { href: "/ask", label: "Ask AI", Icon: Sparkles, needsAI: true },
           { href: "/decisions", label: "Decisions", Icon: GitBranch, needsAI: false },
           { href: "/notifications", label: "Inbox", Icon: Bell, needsAI: false, badge: notifCount && notifCount > 0 ? notifCount : undefined },
@@ -143,41 +200,10 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
             </Link>
           );
         })}
-
-        {/* ── Secondary (admin/occasional) ── */}
-        <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
-        {[
-          { href: "/graph", label: "Graph", Icon: Share2, needsAI: false },
-          { href: "/mcp-servers", label: "MCP Servers", Icon: Plug, needsAI: false },
-          { href: "/settings", label: "Settings", Icon: Settings, needsAI: false },
-        ].map(({ href, label, Icon, needsAI }: { href: string; label: string; Icon: React.ComponentType<{ size: number }>; needsAI: boolean }) => {
-          const degraded = needsAI && !aiConfigured && !featureLoading;
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={collapsed ? label : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
-                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
-                pathname === href
-                  ? "bg-accent text-black font-semibold"
-                  : "text-text-dim hover:text-text hover:bg-surface-hover",
-              )}
-            >
-              <Icon size={16} />
-              {!collapsed && <span>{label}</span>}
-            </Link>
-          );
-        })}
-
-        {/* ── Config tabs (from hub.config.ts) ── */}
-        <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
-        {tabs.map((tab) => {
+        {tabs.filter((t) => ["ai-tools", "personal"].includes(t.id)).map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
           const isActive = activeTab === tab.id;
           const href = `/${tab.id}`;
-
           return (
             <Link
               key={tab.id}
@@ -185,9 +211,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
               title={collapsed ? tab.label : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
-                collapsed
-                  ? "justify-center px-2 py-2.5"
-                  : "px-3 py-2",
+                collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
                 isActive
                   ? "bg-accent text-black font-semibold"
                   : "text-text-dim hover:text-text hover:bg-surface-hover",
@@ -198,6 +222,31 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
             </Link>
           );
         })}
+
+        {/* ── Admin ── */}
+        <div className={cn("border-b border-border my-1.5", collapsed ? "mx-1" : "mx-2")} />
+        {[
+          { href: "/graph", label: "Graph", Icon: Share2 },
+          { href: "/mcp-servers", label: "MCP Servers", Icon: Plug },
+          { href: "/settings", label: "Settings", Icon: Settings },
+        ].map(({ href, label, Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            title={collapsed ? label : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors",
+              collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+              pathname === href
+                ? "bg-accent text-black font-semibold"
+                : "text-text-dim hover:text-text hover:bg-surface-hover",
+            )}
+          >
+            <Icon size={16} />
+            {!collapsed && <span>{label}</span>}
+          </Link>
+        ))}
+        {/* Config tabs now rendered inline in Core and Middle sections above */}
       </nav>
 
       <div

@@ -87,7 +87,7 @@ export function IntelligenceSummary() {
       icon: <MessageSquare className="w-4 h-4" />,
       color: "text-yellow-400",
       bg: "bg-yellow-900/20 border-yellow-800/30",
-      href: "/hygiene",
+      href: "/api/reviews",
       show: data.reviews.pending > 0,
     },
     {

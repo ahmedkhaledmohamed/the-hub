@@ -124,6 +124,8 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
       allFiles.push({
         fullPath: f.fullPath,
         relativePath: prefix + "/" + f.relativePath,
+        mtimeMs: f.mtimeMs,
+        fileSize: f.fileSize,
       });
     }
   }
@@ -131,19 +133,19 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
   const snippetLen = config.scanner?.contentSnippetLength ?? 300;
   const now = Date.now();
 
-  const artifacts: Artifact[] = allFiles.map(({ fullPath, relativePath }) => {
+  // Build contentMap in the same pass as artifact creation (avoid double file reads)
+  const contentMap = options?.withContent ? new Map<string, string>() : null;
+
+  const artifacts: Artifact[] = allFiles.map(({ fullPath, relativePath, mtimeMs, fileSize }) => {
     const extractor = getExtractor(fullPath);
 
-    let stat: fs.Stats;
-    try {
-      stat = fs.statSync(fullPath);
-    } catch {
-      stat = { mtime: new Date(), size: 0 } as fs.Stats;
-    }
+    // Use preserved stat data from walk() instead of re-statting
+    const mtime = mtimeMs ? new Date(mtimeMs) : new Date();
+    const size = fileSize ?? 0;
 
-    const staleDays = Math.floor((now - stat.mtime.getTime()) / 86400000);
+    const staleDays = Math.floor((now - mtime.getTime()) / 86400000);
 
-    // Read content for extractors (skip binary files like PDFs)
+    // Read content once for extractors (skip binary files like PDFs)
     const isBinary = extractor?.artifactType === "pdf";
     const content = isBinary ? "" : readFileContent(fullPath);
 
@@ -151,13 +153,19 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
     const snippet = extractor?.extractSnippet(content, snippetLen);
     const artifactType = extractor?.artifactType || "html";
 
+    // Populate contentMap in this same pass (no second read needed)
+    if (contentMap) {
+      const text = isBinary ? "" : (extractor?.extractText(content) || content);
+      contentMap.set(relativePath, text);
+    }
+
     return {
       path: relativePath,
       title,
       type: artifactType,
       group: getGroup(relativePath, config),
-      modifiedAt: stat.mtime.toISOString(),
-      size: stat.size,
+      modifiedAt: mtime.toISOString(),
+      size,
       staleDays,
       snippet,
     };
@@ -214,19 +222,7 @@ export function scan(config: HubConfig, options?: { withContent?: boolean }): Ma
     artifacts,
   };
 
-  if (options?.withContent) {
-    const contentMap = new Map<string, string>();
-    for (const { fullPath, relativePath } of allFiles) {
-      const extractor = getExtractor(fullPath);
-      if (extractor?.artifactType === "pdf") {
-        // PDF text extraction is async — skip for now, handled separately
-        contentMap.set(relativePath, "");
-      } else {
-        const raw = readFileContent(fullPath);
-        const text = extractor?.extractText(raw) || raw;
-        contentMap.set(relativePath, text);
-      }
-    }
+  if (options?.withContent && contentMap) {
     const fileMtimes = allFiles.map((f) => ({
       path: f.relativePath,
       mtimeMs: f.mtimeMs || 0,

@@ -5,7 +5,7 @@
  * Strategy: network-first for API, cache-first for static assets.
  */
 
-const CACHE_NAME = "hub-v1";
+const CACHE_NAME = "hub-v2";
 
 const SHELL_URLS = [
   "/briefing",
@@ -68,19 +68,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Pages: stale-while-revalidate
+  // Pages: network-first (cache only as offline fallback)
   if (event.request.mode === "navigate") {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const fetchPromise = fetch(event.request).then((response) => {
+      fetch(event.request)
+        .then((response) => {
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
-        });
-        return cached || fetchPromise;
-      })
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }

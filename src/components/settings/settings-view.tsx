@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Settings, FolderOpen, Eye, EyeOff, RefreshCw,
   HardDrive, FileCode, ShieldCheck, Lock,
-  Sparkles, Check, AlertCircle, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,37 +35,11 @@ const STATUS_LABELS: Record<string, string> = {
   "pref-skip": "Skipped (UI)",
 };
 
-interface AiProviderState {
-  anthropicKey: string;
-  openaiKey: string;
-  ollamaUrl: string;
-  defaultProvider: string;
-  testing: string | null;
-  testResult: Record<string, "ok" | "error" | null>;
-  savingAi: boolean;
-}
-
-function maskKey(key: string): string {
-  if (!key || key.length < 8) return key ? "****" : "";
-  return key.slice(0, 5) + "..." + key.slice(-4);
-}
-
 export function SettingsView() {
   const [data, setData] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-
-  const [ai, setAi] = useState<AiProviderState>({
-    anthropicKey: "",
-    openaiKey: "",
-    ollamaUrl: "http://localhost:11434",
-    defaultProvider: "",
-    testing: null,
-    testResult: {},
-    savingAi: false,
-  });
-  const [aiLoaded, setAiLoaded] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -78,50 +51,6 @@ export function SettingsView() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  // Load AI preferences
-  useEffect(() => {
-    fetch("/api/preferences")
-      .then((r) => r.json())
-      .then((prefs) => {
-        setAi((prev) => ({
-          ...prev,
-          anthropicKey: prefs.anthropicApiKey || "",
-          openaiKey: prefs.openaiApiKey || "",
-          ollamaUrl: prefs.ollamaUrl || "http://localhost:11434",
-          defaultProvider: prefs.aiProvider || "",
-        }));
-        setAiLoaded(true);
-      })
-      .catch(() => setAiLoaded(true));
-  }, []);
-
-  const saveAiSettings = useCallback(async () => {
-    setAi((prev) => ({ ...prev, savingAi: true }));
-    await fetch("/api/preferences", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        aiProvider: ai.defaultProvider || undefined,
-        anthropicApiKey: ai.anthropicKey || undefined,
-        openaiApiKey: ai.openaiKey || undefined,
-        ollamaUrl: ai.ollamaUrl !== "http://localhost:11434" ? ai.ollamaUrl : undefined,
-      }),
-    });
-    setAi((prev) => ({ ...prev, savingAi: false }));
-  }, [ai.defaultProvider, ai.anthropicKey, ai.openaiKey, ai.ollamaUrl]);
-
-  const testProvider = useCallback(async (provider: string) => {
-    setAi((prev) => ({ ...prev, testing: provider, testResult: { ...prev.testResult, [provider]: null } }));
-    try {
-      const res = await fetch(`/api/ai/models?health=true&provider=${provider}`);
-      const data = await res.json();
-      const ok = data.providers?.find((p: { name: string }) => p.name === provider)?.health?.ok;
-      setAi((prev) => ({ ...prev, testing: null, testResult: { ...prev.testResult, [provider]: ok ? "ok" : "error" } }));
-    } catch {
-      setAi((prev) => ({ ...prev, testing: null, testResult: { ...prev.testResult, [provider]: "error" } }));
-    }
-  }, []);
 
   const toggleScannerDir = useCallback(async (dirName: string) => {
     if (!data) return;
@@ -192,104 +121,6 @@ export function SettingsView() {
           {data.artifactCount} artifacts across {data.workspaces.length} workspace(s)
         </span>
       </div>
-
-      {/* AI Providers */}
-      <section className="mb-8">
-        <h2 className="text-[14px] font-semibold text-text-muted mb-3 flex items-center gap-2">
-          <Sparkles size={14} />
-          AI Providers
-        </h2>
-        <p className="text-[11px] text-text-dim mb-3">
-          Configure AI providers for insights, hygiene analysis, and search. Environment variables override these settings.
-        </p>
-        <div className="space-y-3">
-          {/* Anthropic */}
-          <div className="bg-surface border border-border rounded-md px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[13px] font-medium text-text">Anthropic (Claude)</span>
-              {ai.testResult.anthropic === "ok" && <Check size={14} className="text-green-400" />}
-              {ai.testResult.anthropic === "error" && <AlertCircle size={14} className="text-red-400" />}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="sk-ant-..."
-                value={ai.anthropicKey}
-                onChange={(e) => setAi((prev) => ({ ...prev, anthropicKey: e.target.value }))}
-                className="flex-1 bg-background border border-border rounded px-3 py-1.5 text-[12px] text-text font-mono placeholder:text-text-dim focus:border-accent outline-none"
-              />
-              <button
-                onClick={() => testProvider("anthropic")}
-                disabled={!ai.anthropicKey || ai.testing === "anthropic"}
-                className="px-3 py-1.5 text-[11px] bg-surface-hover border border-border rounded text-text-muted hover:text-accent disabled:opacity-40 transition-colors"
-              >
-                {ai.testing === "anthropic" ? <Loader2 size={12} className="animate-spin" /> : "Test"}
-              </button>
-            </div>
-          </div>
-
-          {/* OpenAI */}
-          <div className="bg-surface border border-border rounded-md px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[13px] font-medium text-text">OpenAI (GPT)</span>
-              {ai.testResult.openai === "ok" && <Check size={14} className="text-green-400" />}
-              {ai.testResult.openai === "error" && <AlertCircle size={14} className="text-red-400" />}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="sk-..."
-                value={ai.openaiKey}
-                onChange={(e) => setAi((prev) => ({ ...prev, openaiKey: e.target.value }))}
-                className="flex-1 bg-background border border-border rounded px-3 py-1.5 text-[12px] text-text font-mono placeholder:text-text-dim focus:border-accent outline-none"
-              />
-              <button
-                onClick={() => testProvider("openai")}
-                disabled={!ai.openaiKey || ai.testing === "openai"}
-                className="px-3 py-1.5 text-[11px] bg-surface-hover border border-border rounded text-text-muted hover:text-accent disabled:opacity-40 transition-colors"
-              >
-                {ai.testing === "openai" ? <Loader2 size={12} className="animate-spin" /> : "Test"}
-              </button>
-            </div>
-          </div>
-
-          {/* Ollama */}
-          <div className="bg-surface border border-border rounded-md px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[13px] font-medium text-text">Ollama (Local)</span>
-              {ai.testResult.ollama === "ok" && <Check size={14} className="text-green-400" />}
-              {ai.testResult.ollama === "error" && <AlertCircle size={14} className="text-red-400" />}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="http://localhost:11434"
-                value={ai.ollamaUrl}
-                onChange={(e) => setAi((prev) => ({ ...prev, ollamaUrl: e.target.value }))}
-                className="flex-1 bg-background border border-border rounded px-3 py-1.5 text-[12px] text-text font-mono placeholder:text-text-dim focus:border-accent outline-none"
-              />
-              <button
-                onClick={() => testProvider("ollama")}
-                disabled={ai.testing === "ollama"}
-                className="px-3 py-1.5 text-[11px] bg-surface-hover border border-border rounded text-text-muted hover:text-accent disabled:opacity-40 transition-colors"
-              >
-                {ai.testing === "ollama" ? <Loader2 size={12} className="animate-spin" /> : "Test"}
-              </button>
-            </div>
-            <p className="text-[10px] text-text-dim mt-1.5">Free, runs locally. Install from ollama.com</p>
-          </div>
-        </div>
-
-        {/* Save button */}
-        <button
-          onClick={saveAiSettings}
-          disabled={ai.savingAi}
-          className="mt-3 flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/30 rounded-md text-[13px] text-accent hover:bg-accent/20 transition-colors disabled:opacity-50"
-        >
-          {ai.savingAi ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-          Save AI Settings
-        </button>
-      </section>
 
       {/* Workspaces */}
       <section className="mb-8">

@@ -156,7 +156,7 @@ export function syncWikiLinks(artifacts: Array<{ path: string; type: string }>):
   const mdArtifacts = artifacts.filter((a) => a.type === "md");
 
   let created = 0;
-  let removed = 0;
+  const removed = 0;
 
   // Track which wiki-link relationships currently exist
   const currentWikiLinks = new Set<string>();

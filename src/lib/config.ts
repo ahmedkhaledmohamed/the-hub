@@ -35,7 +35,7 @@ export function loadConfig(): HubConfig {
 
   try {
     // Resolved via webpack alias @hub-config -> ./hub.config (set in next.config.ts)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const loaded = require("@hub-config");
     userConfig = loaded.default || loaded;
   } catch {
@@ -118,12 +118,6 @@ const PREFS_FILE = path.join(PREFS_DIR, "preferences.json");
 export interface HubPreferences {
   hygieneExclude?: string[];
   scannerExclude?: string[];
-  // AI provider settings (saved via Settings UI, env vars take precedence)
-  aiProvider?: string;          // "anthropic" | "openai" | "ollama"
-  anthropicApiKey?: string;
-  openaiApiKey?: string;
-  ollamaUrl?: string;
-  aiDefaultModel?: string;
 }
 
 export function readPreferences(): HubPreferences {

@@ -19,7 +19,7 @@ export default async function TabPage({ params }: TabPageProps) {
   if (!tabConfig) notFound();
 
   const panels = config.panels[tab] || [];
-  const tools = tab === "deliverables" ? config.tools : [];
+  const tools = (tab === "deliverables" || tab === "planning") ? config.tools : [];
 
   const manifest = getManifest();
 
