@@ -12,7 +12,7 @@ let watcherStarted = false;
 let configWatcherStarted = false;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-const DEBOUNCE_MS = 5000;
+const DEBOUNCE_MS = 10000;
 
 export function getManifest(): Manifest {
   if (!cachedManifest) {
@@ -115,38 +115,17 @@ export function regenerate(reason: string = "manual"): Manifest {
         }
       } catch { /* non-critical */ }
 
-      // Sync planning sources (non-blocking)
-      try {
-        const { syncAllPlanningSources } = require("./planning-sources");
-        syncAllPlanningSources().catch(() => { /* non-blocking */ });
-      } catch { /* non-critical */ }
-
       // Auto-apply lifecycle transitions based on staleness
       try {
         const { applyAutoTransitions } = require("./doc-lifecycle");
         applyAutoTransitions(cachedManifest.artifacts);
       } catch { /* non-critical */ }
 
-      // Proactive Slack alerts (contradictions, decay)
-      try {
-        const { runProactiveAlerts } = require("./slack-alerts");
-        runProactiveAlerts().catch(() => { /* non-blocking */ });
-      } catch { /* non-critical */ }
-
-      // Auto-generate context files (.hub-context.md, .cursorrules) in workspaces
-      try {
-        const { writeContextFilesToAllWorkspaces } = require("./context-file-generator");
-        writeContextFilesToAllWorkspaces(cachedManifest);
-      } catch { /* non-critical */ }
-
-      // Trigger embedding auto-generation after scan (non-blocking)
-      try {
-        const { autoGenerateIfNeeded } = require("./embedding-generator");
-        autoGenerateIfNeeded().catch(() => { /* non-blocking */ });
-        // Prune stale embeddings for removed artifacts
-        const { pruneStaleEmbeddings } = require("./embeddings");
-        pruneStaleEmbeddings();
-      } catch { /* non-critical */ }
+      // Removed from scan pipeline for performance (still available via API):
+      // - Slack alerts: POST /api/slack
+      // - Context file gen: runs on manual scan via /api/regenerate
+      // - Embedding gen: POST /api/embeddings
+      // - Planning source sync: POST /api/planning-sources { action: "sync-all" }
 
       if (changedCount > 0) {
         console.log(
@@ -196,8 +175,8 @@ function startWatcher() {
         },
         persistent: true,
         ignoreInitial: true,
-        followSymlinks: true,
-        depth: 15,
+        followSymlinks: false,
+        depth: 8,
       });
 
       for (const wsPath of paths) {

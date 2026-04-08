@@ -75,8 +75,12 @@ async function getTrendsLib() {
 async function main() {
   const server = new McpServer({
     name: "the-hub",
-    version: "6.0.0",
+    version: "6.1.0",
   });
+
+  // Slim mode: register only essential tools to reduce context window usage.
+  // Set HUB_MCP_SLIM=false for the full 23-tool set.
+  const SLIM_MODE = process.env.HUB_MCP_SLIM !== "false";
 
   // ── Tool: workspace_summary ────────────────────────────── [CORE]
 
@@ -562,7 +566,8 @@ async function main() {
     },
   );
 
-  // ── Restored tools (v6.1 — aligned with context engine direction) ──
+  // ── Non-essential tools (skipped in slim mode) ─────────────────
+  if (!SLIM_MODE) {
 
   server.tool(
     "generate_content",
@@ -729,6 +734,8 @@ async function main() {
       } catch (err) { return { content: [{ type: "text" as const, text: `Catch-up failed: ${(err as Error).message}` }] }; }
     },
   );
+
+  } // end !SLIM_MODE
 
   // ── Resource: artifact (dynamic, template-based) ─────────────────
 
@@ -1079,7 +1086,8 @@ async function main() {
     },
   );
 
-  // ── Tool: sync_planning_sources ──────────────────────────────────
+  // ── Tool: sync_planning_sources (non-essential) ──────────────────
+  if (!SLIM_MODE) {
 
   server.tool(
     "sync_planning_sources",
@@ -1132,6 +1140,8 @@ async function main() {
       }
     },
   );
+
+  } // end !SLIM_MODE (sync_planning_sources)
 
   // ── Prompt: review_artifact ─────────────────────────────────────
 
