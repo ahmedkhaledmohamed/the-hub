@@ -7,6 +7,7 @@ import hljs from "highlight.js";
 import { documentHref, type LibraryEntry, type LibraryIndex } from "./library-types";
 
 const extensions = new Set([".md", ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".csv", ".xlsx", ".docx", ".mmd", ".excalidraw"]);
+const educationDownloads = new Set([".pptx", ".zip", ".rar"]);
 const excluded = new Set(["node_modules", "AGENTS.md", "SKILL.md", "package-lock.json"]);
 const escape = (text: string) => text.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 const stripFrontmatter = (text: string) => text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, "");
@@ -25,8 +26,8 @@ export async function buildLibrary(root: string, publicRoot: string, categories:
   const knownCategories = categories.map(category => {
     if (!category || typeof category.id !== "string" || !/^[a-z0-9-]+$/.test(category.id)
       || typeof category.title !== "string" || typeof category.path !== "string"
-      || !["projects", "career", "learning", "goals"].includes(category.path)) {
-      throw new Error("Library categories must select Projects, Career, Learning, or Goals explicitly.");
+      || !["projects", "career", "learning", "goals", "education"].includes(category.path)) {
+      throw new Error("Library categories must select Projects, Career, Learning, Goals, or Education explicitly.");
     }
     if (usedPaths.has(category.path)) throw new Error("Library category paths must be unique.");
     usedPaths.add(category.path);
@@ -42,7 +43,8 @@ export async function buildLibrary(root: string, publicRoot: string, categories:
         return;
       }
       const extension = path.extname(relative).toLowerCase();
-      if (!stat.isFile() || !extensions.has(extension)) return;
+      if (!stat.isFile() || (!extensions.has(extension)
+        && !(category.path === "education" && educationDownloads.has(extension)))) return;
       const sourcePath = relative.split(path.sep).join("/");
       const id = crypto.createHash("sha256").update(sourcePath).digest("hex").slice(0, 24);
       const kind = extension === ".md" ? "markdown" : extension === ".pdf" ? "pdf"
@@ -73,7 +75,7 @@ export async function buildLibrary(root: string, publicRoot: string, categories:
     if (entry.kind === "pdf") {
       const { PDFParse } = await import("pdf-parse");
       const parser = new PDFParse({ data: new Uint8Array(fs.readFileSync(path.join(root, entry.path))) });
-      try { entry.text = (await parser.getText()).text.replace(/\s+/g, " ").trim(); }
+      try { entry.text = (await parser.getText({ pageJoiner: "" })).text.replace(/\s+/g, " ").trim(); }
       catch { entry.text = ""; }
       finally { await parser.destroy(); }
       entry.textSearch = entry.text.length > 0;
