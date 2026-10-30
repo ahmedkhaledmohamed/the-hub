@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./library.css";
 
 export const metadata: Metadata = {
   title: "Ahmed’s Personal Hub",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return <html lang="en"><body>
-    <div className="border-b border-border px-5 py-4 text-sm font-medium sm:px-9">Ahmed’s Personal Hub</div>
+    <header className="hub-header"><a href="/">Ahmed’s Personal Hub</a><nav aria-label="Hub navigation"><a href="/">Start</a><a href="/library/">Library</a></nav></header>
     <main>{children}</main>
   </body></html>;
 }
