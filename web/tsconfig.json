@@ -1,6 +1,6 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": { "paths": { "@/*": ["../src/*"] } },
-  "include": ["next-env.d.ts", "app/**/*.tsx", ".next/types/**/*.ts", "../src/components/start/start-page.tsx", "../src/lib/start-catalog.ts"],
+  "include": ["next-env.d.ts", "app/**/*.tsx", "components/**/*.tsx", "*.ts", ".next/types/**/*.ts", "../src/components/start/start-page.tsx", "../src/lib/start-catalog.ts"],
   "exclude": ["node_modules"]
 }
