@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Calendar, BookOpen, Package, Lock, LayoutGrid,
   type LucideIcon, Layers, ChevronsLeft, ChevronsRight, Sun, GitFork, ShieldCheck, Sparkles, Share2, Settings,
-  Activity, Wrench, Link2, GitBranch, Bell, Plug,
+  Activity, Wrench, Link2, GitBranch, Bell, Plug, House, Briefcase, Building, Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabConfig } from "@/lib/types";
@@ -22,22 +22,36 @@ const iconMap: Record<string, LucideIcon> = {
   lock: Lock,
   "layout-grid": LayoutGrid,
   layers: Layers,
+  briefcase: Briefcase,
+  building: Building,
+  rocket: Rocket,
 };
 
 interface AppSidebarProps {
   name: string;
   tabs: TabConfig[];
   defaultTab: string;
+  startAvailable?: boolean;
 }
 
-export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
+export function AppSidebar({ name, tabs, defaultTab, startAvailable = false }: AppSidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
+  const [savedCollapsed, setCollapsed] = usePersistedState("sidebar-collapsed", false);
+  const [narrowScreen, setNarrowScreen] = useState(false);
+  const collapsed = narrowScreen || savedCollapsed;
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setNarrowScreen(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const { aiConfigured, loading: featureLoading } = useFeatureStatus();
   const [hygieneCount, setHygieneCount] = useState<number | null>(null);
   const [notifCount, setNotifCount] = useState<number | null>(null);
 
-  const activeTab = pathname === "/" ? defaultTab : pathname.slice(1);
+  const activeTab = pathname === "/" ? startAvailable ? "" : defaultTab : pathname.slice(1);
   const { preferences } = usePreferences();
   const hidden = new Set(preferences.hiddenSidebarItems || []);
 
@@ -103,7 +117,14 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
       >
         {/* ── Core (daily use): primary config tabs + key pages ── */}
-        {tabs.filter((t) => ["planning", "knowledge", "deliverables"].includes(t.id) && !hidden.has(t.id)).map((tab) => {
+        {startAvailable && (
+          <Link href="/" aria-current={pathname === "/" ? "page" : undefined} title={collapsed ? "Start" : undefined}
+            className={cn("flex items-center gap-3 rounded-md text-[13px] no-underline transition-colors", collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
+              pathname === "/" ? "bg-accent text-black font-semibold" : "text-text-dim hover:text-text hover:bg-surface-hover")}>
+            <House size={16} />{!collapsed && <span>Start</span>}
+          </Link>
+        )}
+        {tabs.filter((t) => !["ai-tools", "personal", "all"].includes(t.id) && !hidden.has(t.id)).map((tab) => {
           const Icon = iconMap[tab.icon || "layers"] || Layers;
           const isActive = activeTab === tab.id;
           const href = `/${tab.id}`;
@@ -272,7 +293,7 @@ export function AppSidebar({ name, tabs, defaultTab }: AppSidebarProps) {
         )}
         <button
           onClick={() => setCollapsed((prev) => !prev)}
-          className="text-text-dim hover:text-text transition-colors"
+          className="hidden sm:block text-text-dim hover:text-text transition-colors"
           title={collapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
         >
           {collapsed ? (

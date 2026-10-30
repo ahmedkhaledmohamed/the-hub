@@ -44,8 +44,9 @@ export default async function RootLayout({
             name={config.name}
             tabs={config.tabs}
             defaultTab={config.defaultTab}
+            startAvailable={config.startAvailable}
           />
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
           <CommandPalette />
           <HubShell />
           <PwaRegister />

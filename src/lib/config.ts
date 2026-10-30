@@ -1,6 +1,7 @@
 import path from "path";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import type { HubConfig } from "./types";
+import { hasStartCatalog } from "./start-catalog";
 
 let cachedConfig: HubConfig | null = null;
 
@@ -95,6 +96,7 @@ export interface ClientConfig {
   name: string;
   tabs: TabConfig[];
   defaultTab: string;
+  startAvailable?: boolean;
   panels: Record<string, PanelConfig[]>;
   tools: ToolConfig[];
 }
@@ -105,6 +107,7 @@ export async function getClientConfig(): Promise<ClientConfig> {
     name: config.name,
     tabs: config.tabs,
     defaultTab: getDefaultTab(config),
+    startAvailable: hasStartCatalog(config),
     panels: config.panels || {},
     tools: config.tools || [],
   };
