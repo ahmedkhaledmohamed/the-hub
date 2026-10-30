@@ -7,6 +7,7 @@ export interface HubContext {
   name: string;
   tabs: TabConfig[];
   defaultTab: string;
+  startAvailable?: boolean;
   panels: Record<string, PanelConfig[]>;
   tools: ToolConfig[];
 }

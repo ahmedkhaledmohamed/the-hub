@@ -47,6 +47,27 @@ open http://localhost:9002
 - **AI-powered Q&A** — ask natural language questions about your workspace via RAG
 - **Multi-model AI** — works with Ollama (free, local), OpenAI, or Anthropic
 
+## Start directory
+
+Place `hub.catalog.json` at the root of a configured workspace to use the Hub home page as one starting point for products, personal tools, pages, and visualizations. Existing workspace tabs remain available. Without a catalogue, the home page opens the configured default tab.
+
+```json
+{
+  "version": 1,
+  "sections": [{
+    "id": "visualizations",
+    "title": "Visualizations",
+    "entries": [{
+      "id": "school-pathways",
+      "name": "School pathways",
+      "links": [{"label": "Open map", "path": "projects/schools/index.html"}]
+    }]
+  }]
+}
+```
+
+Links use either a workspace-relative `path` or an HTTP(S) `url`. Entries may also have a `description` and workspace-relative `previewPath`. The directory is read from disk on each page request, so content updates do not require application edits. Relative assets and downloads use the existing workspace file API. Missing files, unsafe paths, and unsupported URL schemes are omitted with a visible notice.
+
 ## AI Setup
 
 The Hub works without AI, but it's better with it. Configure providers in Settings (`/settings`) or via environment variables:
