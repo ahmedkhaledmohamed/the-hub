@@ -43,3 +43,6 @@ extension/*.vsix
 extension/out/
 extension/node_modules/
 tsconfig.tsbuildinfo
+web/public/
+web/catalog.generated.json
+web/next-env.d.ts

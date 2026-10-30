@@ -68,6 +68,10 @@ Place `hub.catalog.json` at the root of a configured workspace to use the Hub ho
 
 Links use either a workspace-relative `path` or an HTTP(S) `url`. Entries may also have a `description` and workspace-relative `previewPath`. The directory is read from disk on each page request, so content updates do not require application edits. Relative assets and downloads use the existing workspace file API. Missing files, unsafe paths, and unsupported URL schemes are omitted with a visible notice.
 
+## Hosted Start page
+
+`HUB_CONTENT_ROOT=/path/to/Personal npm run build:web` exports the existing Start component to `web/out`. The catalog must explicitly list `web.publishPaths`; only those local files and external links enter the export. Private local file links are omitted. This build contains no workspace API, scanner, or SQLite runtime. Protect preview and production deployments with Vercel Authentication before publishing.
+
 ## AI Setup
 
 The Hub works without AI, but it's better with it. Configure providers in Settings (`/settings`) or via environment variables:
