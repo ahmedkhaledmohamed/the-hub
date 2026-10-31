@@ -74,6 +74,10 @@ Links use either a workspace-relative `path` or an HTTP(S) `url`. Entries may al
 
 Optional `web.library.categories` entries select `projects`, `career`, `learning`, `goals`, and `education` directories for the hosted Library. Each entry has an `id`, `title`, and `path`. The Library supports folder browsing, title/content search, formatted Markdown, PDF and image previews, and downloads. Education additionally supports PowerPoint (`.pptx`), ZIP, and RAR downloads; archives are copied unchanged without extracting or executing their contents. Its Markdown renderer preserves document/section links and safe anchors, escapes active HTML, and renders SVGs only as images. Unsupported files, hidden paths, and source symlinks are excluded or rejected; directories outside the selected categories are not exported.
 
+The hosted navigation also includes Start here, a Personal overview, and Publishing status. Optional `web.guidePath` and `web.overviewPath` select Markdown documents already included in the Library; invalid or unpublished selections fail the build. `web.deploymentDashboardUrl` can link to the deployment dashboard. Guide documents can link to the Hub's known internal routes as well as other Library documents.
+
+`web/public/publication.json` is generated at build time from the content checkout, application checkout and selected files. The publishing page shows build time, source revisions, local changes, selected categories and counts, supported file types, excluded top-level folders, and explicitly published visualization assets. It does not query GitHub or Vercel for live PR/deployment state; links open those services. Build time is not deployment completion. Only selected non-secret environment fields enter the manifest.
+
 ## AI Setup
 
 The Hub works without AI, but it's better with it. Configure providers in Settings (`/settings`) or via environment variables:

@@ -7,18 +7,19 @@ const normalize = (value: string) => value.toLocaleLowerCase().normalize("NFKD")
 const libraryHref = (folder: string) => `/library/${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`;
 const folderName = (folder: string) => folder.split("/").at(-1)!.replace(/[-_]/g, " ");
 
-function useLibrary() {
+function useLibrary(initialIndex?: LibraryIndex) {
   const [index, setIndex] = useState<LibraryIndex | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
+    if (initialIndex) return;
     const controller = new AbortController();
     fetch("/library/index.json", { signal: controller.signal }).then(response => {
       if (!response.ok) throw new Error("Library index unavailable");
       return response.json();
     }).then(setIndex).catch(error => { if (error.name !== "AbortError") setError(true); });
     return () => controller.abort();
-  }, []);
-  return { index, error };
+  }, [initialIndex]);
+  return { index: initialIndex || index, error };
 }
 
 function Loading({ error }: { error: boolean }) {
@@ -102,32 +103,42 @@ function excerpt(text: string, query: string) {
   return `${start ? "…" : ""}${text.slice(start, start + 210)}${text.length > start + 210 ? "…" : ""}`;
 }
 
-export function LibraryReader() {
-  const { index, error } = useLibrary();
+export function LibraryReader({ documentPath, initialEntry, initialDocument }: { documentPath?: string; initialEntry?: LibraryEntry; initialDocument?: LibraryDocument } = {}) {
+  const initialIndex = useMemo(() => initialEntry ? { categories: [], entries: [initialEntry] } : undefined, [initialEntry]);
+  const { index, error } = useLibrary(initialIndex);
   const [sourcePath, setSourcePath] = useState<string | null>(null);
-  const [document, setDocument] = useState<LibraryDocument | null>(null);
+  const [loadedDocument, setDocument] = useState<LibraryDocument | null>(null);
+  const selectedPath = documentPath ?? sourcePath;
+  const document = initialDocument ?? loadedDocument;
   const [documentError, setDocumentError] = useState(false);
   const [missingSection, setMissingSection] = useState(false);
-  useEffect(() => { setSourcePath(new URLSearchParams(window.location.search).get("path") || ""); }, []);
-  const entry = index?.entries.find(entry => entry.path === sourcePath);
+  useEffect(() => { if (documentPath === undefined) setSourcePath(new URLSearchParams(window.location.search).get("path") || ""); }, [documentPath]);
+  const entry = index?.entries.find(entry => entry.path === selectedPath);
   useEffect(() => {
+    if (initialDocument) return;
     if (!entry || (entry.kind !== "markdown" && entry.format !== "SVG")) return;
     const controller = new AbortController(); setDocument(null); setDocumentError(false); setMissingSection(false);
     fetch(`/library/documents/${entry.id}.json`, { signal: controller.signal }).then(response => {
       if (!response.ok) throw new Error("Document unavailable"); return response.json();
     }).then(value => {
       setDocument(value);
-      if (window.location.hash) requestAnimationFrame(() => requestAnimationFrame(() => {
+    }).catch(error => { if (error.name !== "AbortError") setDocumentError(true); });
+    return () => controller.abort();
+  }, [entry?.id, entry?.kind, entry?.format, initialDocument]);
+  useEffect(() => {
+    if (document && window.location.hash) {
+      let nextFrame = 0;
+      const frame = requestAnimationFrame(() => { nextFrame = requestAnimationFrame(() => {
         try {
           const section = window.document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
           if (section) section.scrollIntoView(); else setMissingSection(true);
         } catch { setMissingSection(true); }
-      }));
-    }).catch(error => { if (error.name !== "AbortError") setDocumentError(true); });
-    return () => controller.abort();
-  }, [entry?.id, entry?.kind, entry?.format]);
+      }); });
+      return () => { cancelAnimationFrame(frame); cancelAnimationFrame(nextFrame); };
+    }
+  }, [document]);
   useEffect(() => { if (entry) window.document.title = `${entry.title} | Personal Hub`; }, [entry?.title]);
-  if (!index || sourcePath === null) return <div className="library-page"><Loading error={error} /></div>;
+  if (!index || selectedPath === null) return <div className="library-page"><Loading error={error} /></div>;
   if (!entry) return <div className="library-page"><h1>Document not found</h1><p>This file is not part of the published Library.</p><a href="/library/">Browse the Library</a></div>;
   const sourceUrl = `https://github.com/ahmedkhaledmohamed/Personal/blob/main/${entry.path.split("/").map(encodeURIComponent).join("/")}`;
   const fileHref = entry.fileHref || document?.imageData;

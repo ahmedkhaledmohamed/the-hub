@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { loadStartCatalog } from "../src/lib/start-catalog";
 import type { HubConfig } from "../src/lib/types";
 import { buildLibrary } from "./library-build";
+import { buildPublication } from "./publication";
 
 const root = process.env.HUB_CONTENT_ROOT;
 if (!root) throw new Error("HUB_CONTENT_ROOT must point to the Personal content checkout.");
@@ -52,6 +53,9 @@ catalog.sections = catalog.sections.map(section => ({ ...section,
   })).filter(entry => entry.links.length > 0),
 })).filter(section => section.entries.length > 0);
 catalog.sources = [];
-await buildLibrary(realRoot, publicRoot, spec.web?.library?.categories);
+const library = await buildLibrary(realRoot, publicRoot, spec.web?.library?.categories);
+fs.writeFileSync(path.join(publicRoot, "publication.json"), JSON.stringify(
+  buildPublication(realRoot, path.join(webRoot, ".."), spec, library, allowedFiles.size)
+));
 fs.writeFileSync(path.join(webRoot, "catalog.generated.json"), JSON.stringify(catalog));
 console.log(`Prepared ${catalog.sections.reduce((n, section) => n + section.entries.length, 0)} Hub entries and ${allowedFiles.size} explicitly published files.`);

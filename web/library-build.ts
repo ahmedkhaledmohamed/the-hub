@@ -4,10 +4,11 @@ import crypto from "node:crypto";
 import { Marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 import hljs from "highlight.js";
-import { documentHref, type LibraryEntry, type LibraryIndex } from "./library-types";
+import { documentHref, libraryExtensions, educationDownloadExtensions, type LibraryEntry, type LibraryIndex } from "./library-types";
 
-const extensions = new Set([".md", ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".csv", ".xlsx", ".docx", ".mmd", ".excalidraw"]);
-const educationDownloads = new Set([".pptx", ".zip", ".rar"]);
+const extensions = new Set(libraryExtensions);
+const educationDownloads = new Set(educationDownloadExtensions);
+const hubRoutes = new Set(["/", "/library/", "/library/read/", "/start-here/", "/overview/", "/publishing/"]);
 const excluded = new Set(["node_modules", "AGENTS.md", "SKILL.md", "package-lock.json"]);
 const escape = (text: string) => text.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 const stripFrontmatter = (text: string) => text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, "");
@@ -89,6 +90,7 @@ export async function buildLibrary(root: string, publicRoot: string, categories:
     if (/^(https?:|mailto:)/i.test(href)) return { href, external: true };
     if (href.startsWith("//") || /^[a-z][a-z0-9+.-]*:/i.test(href)) return null;
     if (href.startsWith("#")) return { href };
+    if (hubRoutes.has(href.split(/[?#]/)[0])) return { href };
     let decoded: string;
     try { decoded = decodeURIComponent(href.split(/[?#]/)[0]); } catch { return null; }
     const fragment = href.includes("#") ? "#" + href.split("#").slice(1).join("#") : "";
