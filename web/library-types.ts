@@ -1,3 +1,6 @@
+export const libraryExtensions = [".md", ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".csv", ".xlsx", ".docx", ".mmd", ".excalidraw"];
+export const educationDownloadExtensions = [".pptx", ".zip", ".rar"];
+
 export interface LibraryEntry {
   id: string;
   path: string;

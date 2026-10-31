@@ -1,0 +1,25 @@
+.publication-page { max-width: 1120px; }
+.publication-page section { margin-top: 2.5rem; }
+.publication-page h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: .65rem; }
+.publication-page section > p, .publication-page li { color: var(--color-text-muted); line-height: 1.7; }
+.publication-page a:not(.library-button), .hub-orientation a { color: var(--color-blue); }
+.publication-page code { font-size: .9em; overflow-wrap: anywhere; }
+.publication-facts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.5rem 2rem; border-block: 1px solid var(--color-border); padding-block: 1.5rem; }
+.publication-facts dt { color: var(--color-text-muted); font-size: .85rem; margin-bottom: .4rem; }
+.publication-facts dd { font-size: 1rem; line-height: 1.5; overflow-wrap: anywhere; }
+.publication-secondary { display: block; font-size: .8rem; color: var(--color-text-muted); margin-top: .25rem; }
+.publication-table-wrap { overflow-x: auto; }
+.publication-page table { width: 100%; border-collapse: collapse; margin-block: 1rem; text-align: left; }
+.publication-page th, .publication-page td { padding: .85rem .5rem; border-bottom: 1px solid var(--color-border); }
+.publication-page th { color: var(--color-text-muted); font-weight: 500; }
+.publication-page th:last-child, .publication-page td:last-child { text-align: right; }
+.publication-folders { display: flex; flex-wrap: wrap; gap: .6rem 1.5rem; margin-block: 1rem; list-style: none; padding: 0; }
+.publication-page ol { list-style: decimal; padding-left: 1.4rem; margin-block: .75rem; }
+.publication-page section > ul:not(.publication-folders) { list-style: disc; padding-left: 1.4rem; margin-block: .75rem; }
+.publication-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.2rem; }
+.publication-note { color: var(--color-text-muted) !important; font-size: .85rem; }
+.hub-orientation { max-width: 1152px; margin: 2rem auto 0; padding: 0 36px; display: flex; flex-wrap: wrap; gap: 1.2rem; font-size: .9rem; }
+@media (max-width: 700px) { .hub-header { height: auto; align-items: flex-start; gap: .8rem; flex-wrap: wrap; } .hub-header nav { flex-wrap: wrap; gap: .8rem; } .publication-facts { grid-template-columns: 1fr 1fr; } .hub-orientation { padding-inline: 20px; margin-top: 1.25rem; gap: .7rem 1rem; } }
+@media (max-width: 430px) { .publication-facts { grid-template-columns: 1fr; gap: 1rem; } }
+
+.hub-header a:focus-visible, .hub-orientation a:focus-visible, .publication-page a:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 4px; border-radius: 2px; }
